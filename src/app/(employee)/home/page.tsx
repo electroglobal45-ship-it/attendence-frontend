@@ -67,7 +67,7 @@ export default function EmployeeDashboard() {
         {/* Today's attendance card */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900">Today's Attendance</h2>
+            <h2 className="font-semibold text-gray-900">Today&apos;s Attendance</h2>
             {checkedIn && !checkedOut && (
               <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">Checked In</span>
             )}
@@ -104,7 +104,7 @@ export default function EmployeeDashboard() {
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">You haven't marked attendance yet today.</p>
+              <p className="text-sm text-gray-500">You haven&apos;t marked attendance yet today.</p>
               <Link
                 href="/attendance"
                 className="flex items-center gap-1 text-sm font-medium text-black hover:underline"

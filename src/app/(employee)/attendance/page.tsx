@@ -253,7 +253,7 @@ export default function AttendancePage() {
         {/* Today's record */}
         {todayRecord && (
           <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-xs font-medium text-gray-500 uppercase mb-3">Today's Record</p>
+            <p className="text-xs font-medium text-gray-500 uppercase mb-3">Today&apos;s Record</p>
             <div className="flex gap-6">
               <div>
                 <p className="text-xs text-gray-400">Check In</p>
