@@ -1,0 +1,162 @@
+===============================================================================
+QUICK FIX GUIDE - 3 STEPS
+===============================================================================
+
+🔴 ERROR: "Could not find the 'checkout_selfie_url' column"
+🔴 ISSUE: Holidays not showing
+🔴 ISSUE: Checkout rules not applied
+
+===============================================================================
+STEP 1: RUN THIS SQL IN SUPABASE
+===============================================================================
+
+Copy and paste this entire block into Supabase SQL Editor:
+
+```sql
+-- Add checkout_selfie_url column
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'attendance' 
+        AND column_name = 'checkout_selfie_url'
+    ) THEN
+        ALTER TABLE attendance ADD COLUMN checkout_selfie_url TEXT;
+        RAISE NOTICE 'Added checkout_selfie_url column';
+    END IF;
+END $$;
+
+-- Add checkout_note column for early checkout messages
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'attendance' 
+        AND column_name = 'checkout_note'
+    ) THEN
+        ALTER TABLE attendance ADD COLUMN checkout_note TEXT;
+        RAISE NOTICE 'Added checkout_note column';
+    END IF;
+END $$;
+
+-- Ensure gps_data is JSONB
+ALTER TABLE attendance 
+ALTER COLUMN gps_data TYPE JSONB USING gps_data::JSONB;
+
+-- Add sample holidays for 2026
+INSERT INTO holidays (name, date, is_active) VALUES
+('Republic Day', '2026-01-26', true),
+('Holi', '2026-03-14', true),
+('Good Friday', '2026-04-03', true),
+('Independence Day', '2026-08-15', true),
+('Gandhi Jayanti', '2026-10-02', true),
+('Diwali', '2026-11-01', true),
+('Christmas', '2026-12-25', true)
+ON CONFLICT (date) DO NOTHING;
+
+-- Verify everything
+SELECT 'Columns:' as check_type;
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'attendance' 
+AND column_name IN ('checkout_selfie_url', 'checkout_note', 'gps_data');
+
+SELECT 'Holidays:' as check_type;
+SELECT COUNT(*) as total_holidays FROM holidays WHERE is_active = true;
+```
+
+✅ You should see:
+- "Added checkout_selfie_url column"
+- "Added checkout_note column"
+- 3 columns listed
+- 7 holidays (or more)
+
+===============================================================================
+STEP 2: DEPLOY CODE
+===============================================================================
+
+```bash
+git add .
+git commit -m "fix: Checkout errors, time rules, holiday fetching"
+git push origin main
+```
+
+Wait for Vercel to deploy (~2 minutes)
+
+===============================================================================
+STEP 3: TEST
+===============================================================================
+
+1. Open attendance page
+2. Press F12 (open console)
+3. Look for: "Holidays fetched: {holidays: [...]}"
+4. Mark attendance (check-in)
+5. Click "Start Checkout Process"
+6. Capture selfie + GPS
+7. Click "Check Out"
+8. ✅ Should work!
+
+===============================================================================
+CHECKOUT TIME RULES (NOW ACTIVE)
+===============================================================================
+
+CHECK-IN:
+- Before 9:05 AM → Full day (1.0)
+- 9:05-9:30 AM → Full day but marked late (1.0)
+- After 9:30 AM → Half day (0.5)
+
+CHECKOUT:
+- Before 5:30 PM → Half day deduction (-0.5)
+- After 5:30 PM → No penalty
+
+EXAMPLES:
+✓ In: 9:00 AM, Out: 6:00 PM = 1.0 (Full day)
+✓ In: 9:00 AM, Out: 4:00 PM = 0.5 (Half day - early checkout)
+✓ In: 10:00 AM, Out: 6:00 PM = 0.5 (Half day - late check-in)
+✓ In: 10:00 AM, Out: 4:00 PM = 0.0 (Absent - both penalties)
+
+===============================================================================
+HOLIDAY BLOCKING (NOW ACTIVE)
+===============================================================================
+
+BLOCKED DATES:
+✓ All Sundays
+✓ 3rd Saturday of each month (15th-21st)
+✓ Public holidays from database
+
+WHAT HAPPENS:
+- Blue info card shown
+- Check-in form hidden
+- Message: "Enjoy your day off! 🎉"
+
+===============================================================================
+TROUBLESHOOTING
+===============================================================================
+
+IF STILL ERROR:
+1. Refresh Supabase project
+2. Clear browser cache
+3. Check console for errors
+4. Verify SQL ran successfully
+
+IF HOLIDAYS NOT SHOWING:
+1. Check console: "Holidays fetched: ..."
+2. Run: SELECT * FROM holidays WHERE is_active = true;
+3. Should see 7 rows
+
+IF CHECKOUT RULES NOT WORKING:
+1. Check attendance_value in database
+2. Look for checkout_note field
+3. Verify time is in IST
+
+===============================================================================
+DONE! 🎉
+===============================================================================
+
+After running the SQL and deploying:
+✅ Checkout will work
+✅ Time rules will apply
+✅ Holidays will show
+✅ Everything functional
+
+Questions? Check FIXES_FOR_ERRORS.txt for details.

@@ -46,6 +46,11 @@ export default function AdminDashboard() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'attendance' | 'leaves'>('attendance')
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showMarkModal, setShowMarkModal] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<{ id: string; name: string; date: string } | null>(null)
+  const [markAction, setMarkAction] = useState<'absent' | 'half_day' | 'mark_checkout'>('absent')
+  const [markReason, setMarkReason] = useState('')
+  const [marking, setMarking] = useState(false)
 
   const token = () => localStorage.getItem('authToken')
 
@@ -111,6 +116,47 @@ export default function AdminDashboard() {
       }
     } finally {
       setApprovingId(null)
+    }
+  }
+
+  const handleOpenMarkModal = (employeeId: string, employeeName: string, date: string) => {
+    setSelectedEmployee({ id: employeeId, name: employeeName, date })
+    setMarkAction('absent')
+    setMarkReason('')
+    setShowMarkModal(true)
+  }
+
+  const handleMarkAttendance = async () => {
+    if (!selectedEmployee) return
+    
+    setMarking(true)
+    try {
+      const res = await fetch('/api/admin/mark-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+        body: JSON.stringify({
+          employeeId: selectedEmployee.id,
+          date: selectedEmployee.date,
+          action: markAction,
+          reason: markReason || undefined,
+        }),
+      })
+      
+      if (res.ok) {
+        setShowMarkModal(false)
+        setSelectedEmployee(null)
+        setMarkReason('')
+        // Refresh data
+        fetchAll()
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed to mark attendance')
+      }
+    } catch (err) {
+      console.error('Mark attendance error:', err)
+      alert('Failed to mark attendance')
+    } finally {
+      setMarking(false)
     }
   }
 
@@ -248,14 +294,14 @@ export default function AdminDashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {['Employee', 'Check In', 'Check Out', 'Status'].map(h => (
+                      {['Employee', 'Check In', 'Check Out', 'Status', 'Action'].map(h => (
                         <th key={h} className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {attendance.length === 0 ? (
-                      <tr><td colSpan={4} className="px-6 py-10 text-center text-gray-400">No attendance records for today yet</td></tr>
+                      <tr><td colSpan={5} className="px-6 py-10 text-center text-gray-400">No attendance records for today yet</td></tr>
                     ) : attendance.map((rec) => (
                       <tr key={rec.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
@@ -265,6 +311,14 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4 text-gray-700">{fmtTime(rec.check_in)}</td>
                         <td className="px-6 py-4 text-gray-700">{fmtTime(rec.check_out)}</td>
                         <td className="px-6 py-4">{badge(rec.status)}</td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => handleOpenMarkModal(rec.employee_id, rec.users?.name || 'Employee', rec.date)}
+                            className="text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            Mark
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -329,6 +383,73 @@ export default function AdminDashboard() {
         </div>
 
       </div>
+
+      {/* Admin Mark Attendance Modal */}
+      {showMarkModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Mark Attendance</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Employee: <span className="font-medium">{selectedEmployee.name}</span>
+              </p>
+              <p className="text-xs text-gray-400">Date: {selectedEmployee.date}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Action</label>
+              <select
+                value={markAction}
+                onChange={(e) => setMarkAction(e.target.value as any)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+              >
+                <option value="absent">Mark as Absent</option>
+                <option value="half_day">Mark as Half Day</option>
+                <option value="mark_checkout">Mark Checkout</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reason (optional)</label>
+              <textarea
+                value={markReason}
+                onChange={(e) => setMarkReason(e.target.value)}
+                placeholder="Enter reason for manual marking..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowMarkModal(false)
+                  setSelectedEmployee(null)
+                  setMarkReason('')
+                }}
+                disabled={marking}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMarkAttendance}
+                disabled={marking}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {marking ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Marking...
+                  </>
+                ) : (
+                  'Confirm'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ChangePasswordModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} />
     </PageWrapper>

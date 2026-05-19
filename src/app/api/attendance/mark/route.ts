@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth-utils'
 import { supabaseServer } from '@/lib/supabase-server'
+import { checkAttendanceAllowed, getTodayIST } from '@/lib/date-utils'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -38,11 +39,46 @@ export async function POST(req: NextRequest) {
 
     console.log('Marking attendance for user:', decoded.userId)
 
-    // Get today's date in IST (properly)
+    // Check if attendance is allowed today (holidays/weekends)
+    const today = getTodayIST()
+    
+    // Fetch holidays from database
+    const { data: holidays } = await supabaseServer
+      .from('holidays')
+      .select('name, date')
+      .eq('is_active', true)
+    
+    const holidayList = holidays?.map(h => ({ name: h.name, date: h.date })) || []
+    const attendanceCheck = checkAttendanceAllowed(today, holidayList)
+    
+    if (!attendanceCheck.allowed) {
+      return NextResponse.json({ 
+        error: attendanceCheck.reason || 'Attendance not allowed on this date'
+      }, { status: 400 })
+    }
+
+    // Check office hours (9 AM - 6 PM)
     const now = new Date()
     const istOffset = 5.5 * 60 * 60 * 1000
     const istDate = new Date(now.getTime() + istOffset)
+    const istHour = istDate.getUTCHours()
+    const istMinute = istDate.getUTCMinutes()
+    const totalMinutes = istHour * 60 + istMinute
     
+    // Before 9:00 AM (540 minutes)
+    if (totalMinutes < 540) {
+      return NextResponse.json({ 
+        error: 'Too early! Office hours start at 9:00 AM'
+      }, { status: 400 })
+    }
+    
+    // After 6:00 PM (1080 minutes)
+    if (totalMinutes >= 1080) {
+      return NextResponse.json({ 
+        error: 'Office hours ended at 6:00 PM. Please contact admin to mark attendance.'
+      }, { status: 400 })
+    }
+
     // Extract date components from IST time
     const year = istDate.getUTCFullYear()
     const month = String(istDate.getUTCMonth() + 1).padStart(2, '0')
@@ -65,11 +101,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Attendance already marked for today' }, { status: 400 })
     }
 
-    // Determine status based on time
-    const istHour = istDate.getUTCHours()
-    const istMinute = istDate.getUTCMinutes()
-    const totalMinutes = istHour * 60 + istMinute
-
+    // Determine status based on time (using already calculated totalMinutes)
     let status = 'present'
     let attendanceValue = 1.0
     let isLate = false
