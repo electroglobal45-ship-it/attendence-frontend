@@ -37,6 +37,62 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Selfie photo is required' }, { status: 400 })
     }
 
+    // Fetch office location from database
+    console.log('[Attendance] Fetching office location from database...')
+    const { data: officeLocations, error: officeError } = await supabaseServer
+      .from('office_locations')
+      .select('latitude, longitude, radius_meters, name')
+      .eq('is_active', true)
+      .limit(1)
+      .single()
+
+    console.log('[Attendance] Office location query result:', { officeLocation: officeLocations, officeError })
+
+    if (officeError) {
+      console.error('[Attendance] Error fetching office location:', officeError)
+      return NextResponse.json({ 
+        error: 'Failed to fetch office location',
+        details: officeError.message,
+        hint: 'Check if office_locations table exists and has an active location'
+      }, { status: 500 })
+    }
+
+    if (!officeLocations) {
+      console.error('[Attendance] No active office location found in database')
+      return NextResponse.json({ 
+        error: 'Office location not configured. Please ask admin to set up office coordinates in Settings page.',
+        hint: 'Admin: Go to Settings → Office Location → Enter coordinates → Save'
+      }, { status: 400 })
+    }
+
+    console.log('[Attendance] Using office location:', officeLocations.name, 'at', officeLocations.latitude, officeLocations.longitude)
+
+    // Validate GPS radius (office location check)
+    const OFFICE_LAT = officeLocations.latitude
+    const OFFICE_LNG = officeLocations.longitude
+    const ALLOWED_RADIUS_KM = officeLocations.radius_meters / 1000 // Convert meters to km
+
+    // Calculate distance using Haversine formula
+    const toRad = (deg: number) => deg * (Math.PI / 180)
+    const R = 6371 // Earth's radius in km
+    const dLat = toRad(latitude - OFFICE_LAT)
+    const dLon = toRad(longitude - OFFICE_LNG)
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(OFFICE_LAT)) * Math.cos(toRad(latitude)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    const distance = R * c
+
+    console.log('GPS Distance from office:', distance, 'km', '| Allowed:', ALLOWED_RADIUS_KM, 'km')
+
+    if (distance > ALLOWED_RADIUS_KM) {
+      return NextResponse.json({ 
+        error: `You are ${distance.toFixed(2)} km away from ${officeLocations.name}. Please be within ${officeLocations.radius_meters}m to mark attendance.`,
+        distance: distance.toFixed(2),
+        officeName: officeLocations.name
+      }, { status: 400 })
+    }
+
     console.log('Marking attendance for user:', decoded.userId)
 
     // Check if attendance is allowed today (holidays/weekends)

@@ -1,6 +1,6 @@
 /**
- * POST /api/attendance/checkout
- * Record employee check-out time (serverless)
+ * POST /api/attendance/markout
+ * Record employee mark-out time (serverless)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -26,9 +26,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    // Get checkout data (GPS + selfie)
+    // Get markout data (GPS + selfie)
     const body = await req.json()
-    const { latitude, longitude, accuracy, checkoutSelfieURL, address } = body
+    const { latitude, longitude, accuracy, markoutSelfieURL, address } = body
 
     // Get today's date in IST
     const now = new Date()
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const day = String(istDate.getUTCDate()).padStart(2, '0')
     const dateStr = `${year}-${month}-${day}`
 
-    console.log('[Checkout] Employee:', decoded.userId, 'Date:', dateStr)
+    console.log('[Markout] Employee:', decoded.userId, 'Date:', dateStr)
 
     // Find today's attendance record
     const { data: existing, error: findError } = await supabaseServer
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     if (findError) {
-      console.error('[Checkout] Find error:', findError)
+      console.error('[Markout] Find error:', findError)
       return NextResponse.json({ error: 'Failed to find attendance record' }, { status: 500 })
     }
 
@@ -60,11 +60,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (existing.check_out) {
-      return NextResponse.json({ error: 'Already checked out for today' }, { status: 400 })
+      return NextResponse.json({ error: 'Already marked out for today' }, { status: 400 })
     }
 
-    // Prepare checkout GPS data
-    const checkoutGPSData = latitude && longitude ? {
+    // Prepare markout GPS data
+    const markoutGPSData = latitude && longitude ? {
       latitude,
       longitude,
       accuracy: accuracy || 0,
@@ -72,43 +72,43 @@ export async function POST(req: NextRequest) {
       captured_at: now.toISOString(),
     } : null
 
-    // Calculate checkout time rules (similar to check-in)
+    // Calculate markout time rules (similar to check-in)
     const istHour = istDate.getUTCHours()
     const istMinute = istDate.getUTCMinutes()
     const totalMinutes = istHour * 60 + istMinute
     
-    // Checkout before 5:30 PM (17:30) = half day deduction
-    let checkoutPenalty = 0
+    // Markout before 5:30 PM (17:30) = half day deduction
+    let markoutPenalty = 0
     
     if (totalMinutes < 1050) { // Before 5:30 PM (17:30)
-      checkoutPenalty = 0.5
-      console.log('[Checkout] Early checkout detected, applying penalty')
+      markoutPenalty = 0.5
+      console.log('[Markout] Early markout detected, applying penalty')
     }
 
-    // Update with check-out time, selfie, and GPS
+    // Update with mark-out time, selfie, and GPS
     const updateData: any = { 
       check_out: now.toISOString(),
       updated_at: now.toISOString()
     }
 
-    // Save checkout selfie URL
-    if (checkoutSelfieURL) {
-      updateData.checkout_selfie_url = checkoutSelfieURL
+    // Save markout selfie URL
+    if (markoutSelfieURL) {
+      updateData.markout_selfie_url = markoutSelfieURL
     }
 
-    if (checkoutGPSData) {
-      // Merge checkout GPS with existing check-in GPS
+    if (markoutGPSData) {
+      // Merge markout GPS with existing check-in GPS
       updateData.gps_data = {
         ...(existing.gps_data || {}),
-        checkout: checkoutGPSData
+        markout: markoutGPSData
       }
     }
 
-    // Apply checkout penalty if early
-    if (checkoutPenalty > 0) {
+    // Apply markout penalty if early
+    if (markoutPenalty > 0) {
       const currentValue = existing.attendance_value || 1.0
-      updateData.attendance_value = Math.max(0, currentValue - checkoutPenalty)
-      console.log('[Checkout] Updated attendance_value:', currentValue, '->', updateData.attendance_value)
+      updateData.attendance_value = Math.max(0, currentValue - markoutPenalty)
+      console.log('[Markout] Updated attendance_value:', currentValue, '->', updateData.attendance_value)
     }
 
     const { data: updated, error: updateError } = await supabaseServer
@@ -119,19 +119,19 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (updateError) {
-      console.error('[Checkout] Update error:', updateError)
-      return NextResponse.json({ error: updateError.message || 'Failed to checkout' }, { status: 500 })
+      console.error('[Markout] Update error:', updateError)
+      return NextResponse.json({ error: updateError.message || 'Failed to mark out' }, { status: 500 })
     }
 
-    console.log('[Checkout] Success:', updated.id)
+    console.log('[Markout] Success:', updated.id)
 
     return NextResponse.json({
       success: true,
-      message: 'Checked out successfully',
+      message: 'Marked out successfully',
       data: updated,
     })
   } catch (error: any) {
-    console.error('[Checkout] Exception:', error)
+    console.error('[Markout] Exception:', error)
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }

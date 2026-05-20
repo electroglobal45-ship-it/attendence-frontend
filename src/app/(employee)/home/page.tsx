@@ -90,7 +90,7 @@ export default function EmployeeDashboard() {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-1">Check Out</p>
+                <p className="text-xs text-gray-400 mb-1">Mark Out</p>
                 <p className="text-sm font-semibold text-gray-900">
                   {formatTimeIST(todayAttendance.check_out)}
                 </p>

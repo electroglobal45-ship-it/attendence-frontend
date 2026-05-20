@@ -161,11 +161,11 @@ export default function CalendarPage() {
                   </span>
                 </div>
               )}
-              {selected.checkOut && (
+              {selected.check_out && (
                 <div className="flex justify-between gap-2">
-                  <span className="text-gray-500">Check Out</span>
+                  <span className="text-gray-500">Mark Out</span>
                   <span className="font-medium">
-                    {new Date((selected.checkOut.endsWith('Z') ? selected.checkOut : selected.checkOut + 'Z')).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' })}
+                    {new Date((selected.check_out.endsWith('Z') ? selected.check_out : selected.check_out + 'Z')).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' })}
                   </span>
                 </div>
               )}

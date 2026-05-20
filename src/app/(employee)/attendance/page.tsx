@@ -27,11 +27,11 @@ export default function AttendancePage() {
   const [submitMsg,     setSubmitMsg]     = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [todayRecord,   setTodayRecord]   = useState<any>(null)
   
-  // Checkout states
-  const [checkoutMode,      setCheckoutMode]      = useState(false)
-  const [checkoutSelfie,    setCheckoutSelfie]    = useState<string | null>(null)
-  const [checkoutSelfieBlob, setCheckoutSelfieBlob] = useState<Blob | null>(null)
-  const [checkoutGPS,       setCheckoutGPS]       = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null)
+  // Markout states
+  const [markoutMode,      setMarkoutMode]      = useState(false)
+  const [markoutSelfie,    setMarkoutSelfie]    = useState<string | null>(null)
+  const [markoutSelfieBlob, setMarkoutSelfieBlob] = useState<Blob | null>(null)
+  const [markoutGPS,       setMarkoutGPS]       = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null)
   
   // Holiday/weekend blocking
   const [holidays, setHolidays] = useState<Array<{ name: string; date: string }>>([])
@@ -40,7 +40,7 @@ export default function AttendancePage() {
 
   // Computed values
   const alreadyCheckedIn  = !!todayRecord?.check_in
-  const alreadyCheckedOut = !!todayRecord?.check_out
+  const alreadyMarkedOut = !!todayRecord?.check_out
   const canSubmit = !!selfieBlob && !!gpsData && !submitting
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function AttendancePage() {
       setBlockReason('Too early! Office hours start at 9:00 AM')
     }
     
-    // After 6:00 PM (1080 minutes) - only block check-in, not checkout
+    // After 6:00 PM (1080 minutes) - only block check-in, not markout
     if (totalMinutes >= 1080 && !alreadyCheckedIn) {
       setAttendanceBlocked(true)
       setBlockReason('Office hours ended at 6:00 PM. Please contact admin if you need to mark attendance.')
@@ -126,20 +126,20 @@ export default function AttendancePage() {
 
   const handleOpenCamera = async () => {
     // Check if attendance is blocked
-    if (!checkoutMode && attendanceBlocked) {
+    if (!markoutMode && attendanceBlocked) {
       setSubmitMsg({ type: 'error', text: blockReason })
       return
     }
 
     // Prevent opening camera if already checked in (for check-in mode)
-    if (!checkoutMode && alreadyCheckedIn) {
+    if (!markoutMode && alreadyCheckedIn) {
       setSubmitMsg({ type: 'error', text: 'Attendance already marked for today' })
       return
     }
 
-    if (checkoutMode) {
-      setCheckoutSelfie(null)
-      setCheckoutSelfieBlob(null)
+    if (markoutMode) {
+      setMarkoutSelfie(null)
+      setMarkoutSelfieBlob(null)
     } else {
       setSelfieDataUrl(null)
       setSelfieBlob(null)
@@ -220,9 +220,9 @@ export default function AttendancePage() {
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
     
-    if (checkoutMode) {
-      setCheckoutSelfie(dataUrl)
-      canvas.toBlob((blob) => { if (blob) setCheckoutSelfieBlob(blob) }, 'image/jpeg', 0.85)
+    if (markoutMode) {
+      setMarkoutSelfie(dataUrl)
+      canvas.toBlob((blob) => { if (blob) setMarkoutSelfieBlob(blob) }, 'image/jpeg', 0.85)
     } else {
       setSelfieDataUrl(dataUrl)
       canvas.toBlob((blob) => { if (blob) setSelfieBlob(blob) }, 'image/jpeg', 0.85)
@@ -232,9 +232,9 @@ export default function AttendancePage() {
   }
 
   const handleRetake = () => {
-    if (checkoutMode) {
-      setCheckoutSelfie(null)
-      setCheckoutSelfieBlob(null)
+    if (markoutMode) {
+      setMarkoutSelfie(null)
+      setMarkoutSelfieBlob(null)
     } else {
       setSelfieDataUrl(null)
       setSelfieBlob(null)
@@ -250,8 +250,8 @@ export default function AttendancePage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const gps = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }
-        if (checkoutMode) {
-          setCheckoutGPS(gps)
+        if (markoutMode) {
+          setMarkoutGPS(gps)
         } else {
           setGpsData(gps)
         }
@@ -262,8 +262,8 @@ export default function AttendancePage() {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               const gps = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }
-              if (checkoutMode) {
-                setCheckoutGPS(gps)
+              if (markoutMode) {
+                setMarkoutGPS(gps)
               } else {
                 setGpsData(gps)
               }
@@ -363,59 +363,59 @@ export default function AttendancePage() {
     }
   }
 
-  const handleCheckout = async () => {
-    // Validate both selfie and GPS for checkout
-    if (!checkoutSelfieBlob) {
-      setSubmitMsg({ type: 'error', text: 'Please capture your checkout selfie first' })
+  const handleMarkout = async () => {
+    // Validate both selfie and GPS for markout
+    if (!markoutSelfieBlob) {
+      setSubmitMsg({ type: 'error', text: 'Please capture your markout selfie first' })
       return
     }
 
-    if (!checkoutGPS) {
-      setSubmitMsg({ type: 'error', text: 'Please enable GPS location for checkout' })
+    if (!markoutGPS) {
+      setSubmitMsg({ type: 'error', text: 'Please enable GPS location for markout' })
       return
     }
 
     setSubmitting(true)
-    setSubmitMsg({ type: 'success', text: 'Uploading checkout data...' })
+    setSubmitMsg({ type: 'success', text: 'Uploading markout data...' })
 
     try {
-      // Upload checkout selfie
-      const selfieFile = new File([checkoutSelfieBlob], 'checkout-selfie.jpg', { type: 'image/jpeg' })
-      const checkoutSelfieURL = await uploadSelfie(selfieFile, user.id)
+      // Upload markout selfie
+      const selfieFile = new File([markoutSelfieBlob], 'markout-selfie.jpg', { type: 'image/jpeg' })
+      const markoutSelfieURL = await uploadSelfie(selfieFile, user.id)
 
       let address = 'Unknown'
       try {
         const geo = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${checkoutGPS.latitude}&lon=${checkoutGPS.longitude}`
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${markoutGPS.latitude}&lon=${markoutGPS.longitude}`
         )
         const geoData = await geo.json()
         address = geoData.address?.city || geoData.address?.town || geoData.address?.village || 'Unknown'
       } catch {}
 
       const t = localStorage.getItem('authToken')
-      const res = await fetch('/api/attendance/checkout', {
+      const res = await fetch('/api/attendance/markout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
         body: JSON.stringify({
-          latitude: checkoutGPS.latitude,
-          longitude: checkoutGPS.longitude,
-          accuracy: checkoutGPS.accuracy,
-          checkoutSelfieURL,
+          latitude: markoutGPS.latitude,
+          longitude: markoutGPS.longitude,
+          accuracy: markoutGPS.accuracy,
+          markoutSelfieURL,
           address,
         }),
       })
       const data = await res.json()
       if (res.ok) {
-        setSubmitMsg({ type: 'success', text: data.message || '✓ Checked out!' })
-        setCheckoutMode(false)
-        setCheckoutSelfie(null)
-        setCheckoutSelfieBlob(null)
-        setCheckoutGPS(null)
+        setSubmitMsg({ type: 'success', text: data.message || '✓ Marked out!' })
+        setMarkoutMode(false)
+        setMarkoutSelfie(null)
+        setMarkoutSelfieBlob(null)
+        setMarkoutGPS(null)
         const r2 = await fetch('/api/attendance/today', { headers: { Authorization: `Bearer ${t}` } })
         const d2 = await r2.json()
         setTodayRecord(d2.attendance || null)
       } else {
-        setSubmitMsg({ type: 'error', text: data.error || 'Failed to checkout' })
+        setSubmitMsg({ type: 'error', text: data.error || 'Failed to mark out' })
       }
     } catch (err: any) {
       setSubmitMsg({ type: 'error', text: err.message })
@@ -450,7 +450,7 @@ export default function AttendancePage() {
                 <p className="text-sm font-semibold">{formatTimeIST(todayRecord.check_in)}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">Check Out</p>
+                <p className="text-xs text-gray-400">Mark Out</p>
                 <p className="text-sm font-semibold">{formatTimeIST(todayRecord.check_out)}</p>
               </div>
               <div>
@@ -461,34 +461,34 @@ export default function AttendancePage() {
           </div>
         )}
 
-        {/* Already checked in — show checkout */}
-        {alreadyCheckedIn && !alreadyCheckedOut && !checkoutMode && (
+        {/* Already checked in — show markout */}
+        {alreadyCheckedIn && !alreadyMarkedOut && !markoutMode && (
           <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-sm text-gray-600 mb-3">You are checked in. Ready to check out?</p>
-            <button onClick={() => setCheckoutMode(true)} disabled={submitting}
+            <p className="text-sm text-gray-600 mb-3">You are checked in. Ready to mark out?</p>
+            <button onClick={() => setMarkoutMode(true)} disabled={submitting}
               className="w-full py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2 touch-manipulation">
               <LogOut size={18} />
-              Start Checkout Process
+              Start Mark Out Process
             </button>
           </div>
         )}
 
-        {/* Checkout flow with GPS + Selfie */}
-        {alreadyCheckedIn && !alreadyCheckedOut && checkoutMode && (
+        {/* Markout flow with GPS + Selfie */}
+        {alreadyCheckedIn && !alreadyMarkedOut && markoutMode && (
           <>
-            {/* Checkout Step 1 — Selfie + GPS */}
+            {/* Markout Step 1 — Selfie + GPS */}
             <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
               <div className="flex items-center gap-2 mb-4">
-                <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${checkoutSelfieBlob ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>
-                  {checkoutSelfieBlob ? '✓' : '1'}
+                <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${markoutSelfieBlob ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>
+                  {markoutSelfieBlob ? '✓' : '1'}
                 </div>
-                <h2 className="font-semibold text-base sm:text-lg">Checkout Selfie & Location</h2>
+                <h2 className="font-semibold text-base sm:text-lg">Mark Out Selfie & Location</h2>
               </div>
 
-              {/* Captured checkout selfie preview */}
-              {checkoutSelfie && (
+              {/* Captured markout selfie preview */}
+              {markoutSelfie && (
                 <div className="mb-4 relative">
-                  <img src={checkoutSelfie} alt="Checkout Selfie" className="w-full rounded-lg border border-gray-200" style={{ maxHeight: '320px', objectFit: 'cover' }} />
+                  <img src={markoutSelfie} alt="Mark Out Selfie" className="w-full rounded-lg border border-gray-200" style={{ maxHeight: '320px', objectFit: 'cover' }} />
                   <button onClick={handleRetake} className="absolute top-2 right-2 px-3 py-1.5 bg-black/70 text-white text-xs rounded-lg touch-manipulation">Retake</button>
                   <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-lg">✓ Captured</div>
                 </div>
@@ -500,11 +500,11 @@ export default function AttendancePage() {
                   <Loader2 size={16} className="animate-spin" /> Getting location...
                 </div>
               )}
-              {checkoutGPS && (
+              {markoutGPS && (
                 <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-xs font-medium text-green-700 mb-1">✓ Location Detected</p>
-                  <p className="text-xs text-gray-600 break-all">Lat: {checkoutGPS.latitude.toFixed(6)} | Lng: {checkoutGPS.longitude.toFixed(6)}</p>
-                  <p className="text-xs text-gray-500">Accuracy: ±{Math.round(checkoutGPS.accuracy)}m</p>
+                  <p className="text-xs text-gray-600 break-all">Lat: {markoutGPS.latitude.toFixed(6)} | Lng: {markoutGPS.longitude.toFixed(6)}</p>
+                  <p className="text-xs text-gray-500">Accuracy: ±{Math.round(markoutGPS.accuracy)}m</p>
                 </div>
               )}
               {gpsError && (
@@ -533,7 +533,7 @@ export default function AttendancePage() {
 
               <canvas ref={canvasRef} className="hidden" />
 
-              {!cameraActive && !checkoutSelfie && (
+              {!cameraActive && !markoutSelfie && (
                 <button onClick={handleOpenCamera}
                   className="w-full py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 flex items-center justify-center gap-2 touch-manipulation">
                   <Camera size={18} /> Open Camera
@@ -541,37 +541,37 @@ export default function AttendancePage() {
               )}
             </div>
 
-            {/* Checkout Step 2 — Submit */}
+            {/* Markout Step 2 — Submit */}
             <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
               <div className="flex items-center gap-2 mb-4">
-                <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${checkoutSelfieBlob && checkoutGPS ? 'bg-black text-white' : 'bg-gray-200'}`}>2</div>
-                <h2 className="font-semibold text-base sm:text-lg">Complete Checkout</h2>
+                <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${markoutSelfieBlob && markoutGPS ? 'bg-black text-white' : 'bg-gray-200'}`}>2</div>
+                <h2 className="font-semibold text-base sm:text-lg">Complete Mark Out</h2>
               </div>
 
               <div className="mb-4 space-y-2">
-                <div className={`flex items-center gap-2 text-sm ${checkoutSelfieBlob ? 'text-green-600' : 'text-gray-400'}`}>
-                  <CheckCircle size={16} className="flex-shrink-0" /> Selfie {checkoutSelfieBlob ? '✓ ready' : 'pending'}
+                <div className={`flex items-center gap-2 text-sm ${markoutSelfieBlob ? 'text-green-600' : 'text-gray-400'}`}>
+                  <CheckCircle size={16} className="flex-shrink-0" /> Selfie {markoutSelfieBlob ? '✓ ready' : 'pending'}
                 </div>
-                <div className={`flex items-center gap-2 text-sm ${checkoutGPS ? 'text-green-600' : 'text-gray-400'}`}>
-                  <MapPin size={16} className="flex-shrink-0" /> GPS {checkoutGPS ? '✓ ready' : 'pending'}
+                <div className={`flex items-center gap-2 text-sm ${markoutGPS ? 'text-green-600' : 'text-gray-400'}`}>
+                  <MapPin size={16} className="flex-shrink-0" /> GPS {markoutGPS ? '✓ ready' : 'pending'}
                 </div>
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setCheckoutMode(false)}
+                <button onClick={() => setMarkoutMode(false)}
                   className="flex-1 py-3 px-4 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-gray-50 touch-manipulation">
                   Cancel
                 </button>
-                <button onClick={handleCheckout} disabled={!checkoutSelfieBlob || !checkoutGPS || submitting}
+                <button onClick={handleMarkout} disabled={!markoutSelfieBlob || !markoutGPS || submitting}
                   className="flex-1 py-3.5 px-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-manipulation text-base">
-                  {submitting ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : <><LogOut size={18} /> Check Out</>}
+                  {submitting ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : <><LogOut size={18} /> Mark Out</>}
                 </button>
               </div>
               
-              {(!checkoutSelfieBlob || !checkoutGPS) && (
+              {(!markoutSelfieBlob || !markoutGPS) && (
                 <p className="text-xs text-gray-500 text-center mt-2">
-                  {!checkoutSelfieBlob && !checkoutGPS ? 'Capture selfie and enable GPS to continue' : 
-                   !checkoutSelfieBlob ? 'Capture your selfie to continue' : 
+                  {!markoutSelfieBlob && !markoutGPS ? 'Capture selfie and enable GPS to continue' : 
+                   !markoutSelfieBlob ? 'Capture your selfie to continue' : 
                    'Enable GPS location to continue'}
                 </p>
               )}
@@ -580,7 +580,7 @@ export default function AttendancePage() {
         )}
 
         {/* Complete */}
-        {alreadyCheckedIn && alreadyCheckedOut && (
+        {alreadyCheckedIn && alreadyMarkedOut && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
             <CheckCircle size={20} className="text-green-600 flex-shrink-0" />
             <p className="text-sm text-green-700 font-medium">Attendance complete for today!</p>

@@ -17,6 +17,7 @@ export async function GET() {
       .from('office_locations')
       .select('*')
       .eq('is_active', true)
+      .limit(1)
       .maybeSingle()
 
     if (error && error.code !== 'PGRST116') {
@@ -49,26 +50,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'name, latitude, and longitude are required' }, { status: 400 })
     }
 
+    console.log('[Settings] Saving office location:', { name, latitude, longitude, radiusMeters })
+
+    // Step 1: Deactivate all existing office locations
+    const { error: deactivateError } = await supabaseServer
+      .from('office_locations')
+      .update({ is_active: false })
+      .neq('id', '00000000-0000-0000-0000-000000000000') // Update all rows
+
+    if (deactivateError) {
+      console.error('[Settings] Error deactivating offices:', deactivateError)
+    }
+
+    // Step 2: Insert new office location (always create new)
     const { data: office, error } = await supabaseServer
       .from('office_locations')
-      .upsert({
+      .insert({
         name,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
-        radius_meters: radiusMeters || 100,
+        radius_meters: parseInt(radiusMeters) || 500,
         is_active: true,
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Error updating office:', error)
-      return NextResponse.json({ error: 'Failed to update office location' }, { status: 500 })
+      console.error('[Settings] Error creating office:', error)
+      return NextResponse.json({ error: 'Failed to save office location', details: error.message }, { status: 500 })
     }
 
+    console.log('[Settings] Office location saved successfully:', office)
+
     return NextResponse.json({ success: true, office })
-  } catch (error) {
-    console.error('POST /api/settings/office error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } catch (error: any) {
+    console.error('[Settings] POST /api/settings/office error:', error)
+    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 })
   }
 }
