@@ -85,26 +85,21 @@ export async function POST(req: NextRequest) {
       console.log('[Markout] Early markout detected, applying penalty')
     }
 
-    // Update with mark-out time, selfie, and GPS
+    // Update with mark-out time and GPS (skip selfie URL for now)
     const updateData: any = { 
       check_out: now.toISOString(),
       updated_at: now.toISOString()
     }
 
-    // Try to save markout selfie URL (column might not exist yet)
-    if (markoutSelfieURL) {
-      try {
-        updateData.markout_selfie_url = markoutSelfieURL
-      } catch (e) {
-        console.log('[Markout] markout_selfie_url column not found, skipping selfie storage')
-      }
-    }
-
+    // Store markout selfie in GPS data instead (since column doesn't exist)
     if (markoutGPSData) {
-      // Merge markout GPS with existing check-in GPS
+      // Merge markout GPS with existing check-in GPS and include selfie URL
       updateData.gps_data = {
         ...(existing.gps_data || {}),
-        markout: markoutGPSData
+        markout: {
+          ...markoutGPSData,
+          selfie_url: markoutSelfieURL || null
+        }
       }
     }
 
