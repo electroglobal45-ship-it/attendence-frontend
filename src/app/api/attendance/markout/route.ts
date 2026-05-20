@@ -91,9 +91,13 @@ export async function POST(req: NextRequest) {
       updated_at: now.toISOString()
     }
 
-    // Save markout selfie URL
+    // Try to save markout selfie URL (column might not exist yet)
     if (markoutSelfieURL) {
-      updateData.markout_selfie_url = markoutSelfieURL
+      try {
+        updateData.markout_selfie_url = markoutSelfieURL
+      } catch (e) {
+        console.log('[Markout] markout_selfie_url column not found, skipping selfie storage')
+      }
     }
 
     if (markoutGPSData) {
