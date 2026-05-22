@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Listen to auth state changes
     const { data: { subscription } } = onAuthStateChange((event, session) => {
+      console.log('Auth state change event:', event)
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session) {
         loadUser()
       } else if (event === 'SIGNED_OUT') {
@@ -62,12 +63,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadUser = async () => {
     setIsLoading(true)
     try {
+      console.log('Loading user from Supabase session...')
       const result = await getCurrentUser()
+      
       if (result.success && result.profile) {
         const profile = result.profile as User
+        console.log('User loaded successfully:', profile.email, 'role:', profile.role)
         setUser(profile)
         syncLegacySession(profile, result.session?.access_token)
       } else {
+        console.log('No user session found:', result.error)
         setUser(null)
         clearLegacySession()
       }
