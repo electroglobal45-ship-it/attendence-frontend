@@ -6,39 +6,43 @@
 import { supabase } from './supabase'
 
 /**
- * Upload selfie directly to Supabase Storage
+ * Upload selfie via API route (uses service role to bypass RLS)
  */
 export async function uploadSelfie(
   file: File,
   employeeId: string
 ): Promise<string> {
   try {
-    // Generate unique filename
-    const timestamp = Date.now()
-    const filename = `${employeeId}/${timestamp}-${file.name}`
+    console.log('Uploading selfie via API route:', file.name, 'File size:', file.size)
 
-    console.log('Uploading selfie to Supabase Storage:', filename, 'File size:', file.size)
-
-    // Upload directly to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('selfies')
-      .upload(filename, file, {
-        cacheControl: '3600',
-        upsert: false,
-      })
-
-    if (error) {
-      console.error('Upload error:', error)
-      throw new Error(error.message || 'Upload failed')
+    // Get auth token from localStorage
+    const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
+    
+    if (!authToken) {
+      throw new Error('Not authenticated')
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('selfies')
-      .getPublicUrl(filename)
+    // Create form data
+    const formData = new FormData()
+    formData.append('file', file)
 
-    console.log('Upload successful:', urlData.publicUrl)
-    return urlData.publicUrl
+    // Upload via API route
+    const response = await fetch('/api/upload-selfie', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: formData
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Upload failed')
+    }
+
+    const data = await response.json()
+    console.log('Upload successful:', data.url)
+    return data.url
   } catch (error: any) {
     console.error('Error uploading selfie:', error)
     throw new Error(error.message || 'Failed to upload selfie')
@@ -46,20 +50,32 @@ export async function uploadSelfie(
 }
 
 /**
- * Delete selfie from Supabase Storage
+ * Delete selfie via API route (uses service role)
  */
 export async function deleteSelfie(filename: string): Promise<void> {
   try {
-    const { error } = await supabase.storage
-      .from('selfies')
-      .remove([filename])
-
-    if (error) {
-      throw new Error(error.message)
+    const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
+    
+    if (!authToken) {
+      throw new Error('Not authenticated')
     }
-  } catch (error) {
+
+    const response = await fetch('/api/delete-selfie', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ filename })
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Delete failed')
+    }
+  } catch (error: any) {
     console.error('Error deleting selfie:', error)
-    throw new Error('Failed to delete selfie')
+    throw new Error(error.message || 'Failed to delete selfie')
   }
 }
 
