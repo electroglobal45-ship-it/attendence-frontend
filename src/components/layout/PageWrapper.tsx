@@ -6,7 +6,7 @@ import { Menu } from 'lucide-react'
 
 interface PageWrapperProps {
   children: React.ReactNode
-  title?: string
+  title?: string | React.ReactNode
   subtitle?: string
   actions?: React.ReactNode
 }
@@ -34,7 +34,9 @@ export function PageWrapper({ children, title, subtitle, actions }: PageWrapperP
                 </button>
                 
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">{title}</h1>
+                  <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+                    {typeof title === 'string' ? title : <div className="flex items-center">{title}</div>}
+                  </h1>
                   {subtitle && <p className="text-xs sm:text-sm text-gray-500 mt-0.5 truncate">{subtitle}</p>}
                 </div>
               </div>

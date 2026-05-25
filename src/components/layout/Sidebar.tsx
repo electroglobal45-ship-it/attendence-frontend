@@ -16,6 +16,8 @@ import {
   Gift,
   FileCheck,
   X,
+  FolderKanban,
+  CheckSquare,
 } from 'lucide-react'
 
 interface NavItem {
@@ -27,6 +29,7 @@ interface NavItem {
 const employeeNav: NavItem[] = [
   { label: 'Dashboard',       href: '/home',         icon: <LayoutDashboard size={18} /> },
   { label: 'Mark Attendance', href: '/attendance',   icon: <Clock size={18} /> },
+  { label: 'My Tasks',        href: '/my-tasks',     icon: <CheckSquare size={18} /> },
   { label: 'My Calendar',     href: '/my-calendar',  icon: <CalendarDays size={18} /> },
   { label: 'My Leaves',       href: '/leaves',       icon: <FileCheck size={18} /> },
   { label: 'Salary',          href: '/salary',       icon: <DollarSign size={18} /> },
@@ -34,6 +37,7 @@ const employeeNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { label: 'Dashboard',   href: '/dashboard',    icon: <LayoutDashboard size={18} /> },
+  { label: 'Projects',    href: '/projects',     icon: <FolderKanban size={18} /> },
   { label: 'Employees',   href: '/employees',    icon: <Users size={18} /> },
   { label: 'Create User', href: '/users/create', icon: <UserPlus size={18} /> },
   { label: 'Calendar',    href: '/calendar',     icon: <CalendarDays size={18} /> },

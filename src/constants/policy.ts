@@ -2,8 +2,8 @@
 export const OFFICE_START_HOUR = 9   // 9:00 AM
 export const OFFICE_START_MINUTE = 0
 
-export const OFFICE_END_HOUR = 18    // 6:00 PM
-export const OFFICE_END_MINUTE = 0
+export const OFFICE_END_HOUR = 18    // 6:30 PM
+export const OFFICE_END_MINUTE = 30
 
 // ─── On-Time Window ──────────────────────────────────────────────────────────
 // 9:00 AM → 9:05 AM = Present (value 1, no late count)
@@ -28,9 +28,9 @@ export const SHORT_LEAVE_PER_MONTH = 2
 export const MORNING_SHORT_LEAVE_DEADLINE_HOUR = 11
 export const MORNING_SHORT_LEAVE_DEADLINE_MINUTE = 5
 
-// Evening short leave: cannot leave before 4:00 PM (6:00 PM - 2h)
+// Evening short leave: cannot leave before 4:30 PM (6:30 PM - 2h)
 export const EVENING_SHORT_LEAVE_EARLIEST_HOUR = 16
-export const EVENING_SHORT_LEAVE_EARLIEST_MINUTE = 0
+export const EVENING_SHORT_LEAVE_EARLIEST_MINUTE = 30
 
 // ─── Attendance Values ───────────────────────────────────────────────────────
 export const ATTENDANCE_VALUE = {

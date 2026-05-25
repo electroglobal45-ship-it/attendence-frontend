@@ -119,10 +119,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
     
-    // After 6:00 PM (1080 minutes)
-    if (totalMinutes >= 1080) {
+    // After 6:30 PM (1110 minutes)
+    if (totalMinutes >= 1110) {
       return NextResponse.json({ 
-        error: 'Office hours ended at 6:00 PM. Please contact admin to mark attendance.'
+        error: 'Office hours ended at 6:30 PM. Please contact admin to mark attendance.'
       }, { status: 400 })
     }
 

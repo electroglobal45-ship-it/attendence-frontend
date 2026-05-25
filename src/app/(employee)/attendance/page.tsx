@@ -90,10 +90,10 @@ export default function AttendancePage() {
       setBlockReason('Too early! Office hours start at 9:00 AM')
     }
     
-    // After 6:00 PM (1080 minutes) - only block check-in, not markout
-    if (totalMinutes >= 1080 && !alreadyCheckedIn) {
+    // After 6:30 PM (1110 minutes) - only block check-in, not markout
+    if (totalMinutes >= 1110 && !alreadyCheckedIn) {
       setAttendanceBlocked(true)
-      setBlockReason('Office hours ended at 6:00 PM. Please contact admin if you need to mark attendance.')
+      setBlockReason('Office hours ended at 6:30 PM. Please contact admin if you need to mark attendance.')
     }
   }, [holidays, alreadyCheckedIn])
 
