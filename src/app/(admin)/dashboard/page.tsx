@@ -250,8 +250,35 @@ export default function AdminDashboard() {
 
   const fmtTime = (iso: string | null) => {
     if (!iso) return '—'
-    const timestamp = iso.endsWith('Z') ? iso : iso + 'Z'
-    return new Date(timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+    
+    try {
+      let timestamp = iso.trim()
+      
+      // Handle PostgreSQL timestamp format: "2026-05-25 04:48:53.851+00"
+      if (timestamp.includes(' ') && !timestamp.includes('T')) {
+        timestamp = timestamp.replace(' ', 'T')
+        if (timestamp.endsWith('+00')) {
+          timestamp = timestamp.replace('+00', 'Z')
+        } else if (!timestamp.endsWith('Z')) {
+          timestamp = timestamp + 'Z'
+        }
+      } else if (!timestamp.endsWith('Z') && !timestamp.includes('+')) {
+        timestamp = timestamp + 'Z'
+      }
+      
+      const date = new Date(timestamp)
+      if (isNaN(date.getTime())) return '—'
+      
+      return date.toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: true, 
+        timeZone: 'Asia/Kolkata' 
+      })
+    } catch (error) {
+      console.error('Error formatting time:', error, iso)
+      return '—'
+    }
   }
 
   return (
