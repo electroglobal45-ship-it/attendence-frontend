@@ -19,12 +19,17 @@ export async function uploadSelfie(
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
     
     if (!authToken) {
-      throw new Error('Not authenticated')
+      console.error('❌ No auth token found in localStorage')
+      throw new Error('Not authenticated - please login again')
     }
+
+    console.log('✅ Auth token found, length:', authToken.length)
 
     // Create form data
     const formData = new FormData()
     formData.append('file', file)
+
+    console.log('📤 Sending upload request to /api/upload-selfie')
 
     // Upload via API route
     const response = await fetch('/api/upload-selfie', {
@@ -35,16 +40,19 @@ export async function uploadSelfie(
       body: formData
     })
 
+    console.log('📥 Upload response status:', response.status, response.statusText)
+
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(error.error || 'Upload failed')
+      console.error('❌ Upload failed:', error)
+      throw new Error(error.error || `Upload failed with status ${response.status}`)
     }
 
     const data = await response.json()
-    console.log('Upload successful:', data.url)
+    console.log('✅ Upload successful:', data.url)
     return data.url
   } catch (error: any) {
-    console.error('Error uploading selfie:', error)
+    console.error('❌ Error uploading selfie:', error)
     throw new Error(error.message || 'Failed to upload selfie')
   }
 }
