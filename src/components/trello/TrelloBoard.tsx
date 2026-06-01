@@ -175,11 +175,15 @@ export function TrelloBoard({
     }
   }
 
+  const bgStyle = background 
+    ? (background as any).gradient || (background as any).color || '#0079BF'
+    : '#0079BF'
+
   return (
     <div 
       className="relative h-full overflow-hidden"
       style={{
-        background: background?.gradient || background?.color || '#0079BF',
+        background: bgStyle,
       }}
     >
       {/* Moving indicator */}

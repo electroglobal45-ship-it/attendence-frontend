@@ -31,7 +31,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Get user names separately
-    const userIds = [...new Set(comments?.map(c => c.user_id).filter(Boolean))]
+    const userIdsSet = new Set(comments?.map(c => c.user_id).filter(Boolean))
+    const userIds = Array.from(userIdsSet)
     const { data: users } = await supabaseServer
       .from('users')
       .select('id, name')

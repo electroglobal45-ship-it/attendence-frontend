@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Get user names separately
-    const userIds = [...new Set(tasks?.map(t => t.assigned_to).filter(Boolean))]
+    const userIdsSet = new Set(tasks?.map(t => t.assigned_to).filter(Boolean))
+    const userIds = Array.from(userIdsSet)
     const { data: users } = await supabaseServer
       .from('users')
       .select('id, name, email')
