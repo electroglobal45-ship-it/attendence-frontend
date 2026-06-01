@@ -1,31 +1,31 @@
 // ─── Office Timing ───────────────────────────────────────────────────────────
-export const OFFICE_START_HOUR = 9   // 9:00 AM
+export const OFFICE_START_HOUR = 8   // 8:00 AM
 export const OFFICE_START_MINUTE = 0
 
 export const OFFICE_END_HOUR = 18    // 6:30 PM
 export const OFFICE_END_MINUTE = 30
 
 // ─── On-Time Window ──────────────────────────────────────────────────────────
-// 9:00 AM → 9:05 AM = Present (value 1, no late count)
+// 8:00 AM → 8:05 AM = Present (value 1, no late count)
 export const ONTIME_BUFFER_MINUTES = 5
 
 // ─── Late Buffer Window ──────────────────────────────────────────────────────
-// 9:05 AM → 9:30 AM = Late Within Buffer (allowed 4 times/month)
-export const LATE_BUFFER_END_HOUR = 9
+// 8:05 AM → 8:30 AM = Late Within Buffer (allowed 4 times/month)
+export const LATE_BUFFER_END_HOUR = 8
 export const LATE_BUFFER_END_MINUTE = 30
 export const LATE_BUFFER_MAX_PER_MONTH = 4
 
-// ─── After 9:30 AM ───────────────────────────────────────────────────────────
+// ─── After 8:30 AM ───────────────────────────────────────────────────────────
 // Directly Half Day (value 0.5), not counted in late buffer
-export const HALF_DAY_CHECKIN_HOUR = 9
+export const HALF_DAY_CHECKIN_HOUR = 8
 export const HALF_DAY_CHECKIN_MINUTE = 30
 
 // ─── Short Leave ─────────────────────────────────────────────────────────────
 export const SHORT_LEAVE_MAX_HOURS = 2
 export const SHORT_LEAVE_PER_MONTH = 2
 
-// Morning short leave: must report by 11:05 AM (9:00 + 2h + 5min grace)
-export const MORNING_SHORT_LEAVE_DEADLINE_HOUR = 11
+// Morning short leave: must report by 10:05 AM (8:00 + 2h + 5min grace)
+export const MORNING_SHORT_LEAVE_DEADLINE_HOUR = 10
 export const MORNING_SHORT_LEAVE_DEADLINE_MINUTE = 5
 
 // Evening short leave: cannot leave before 4:30 PM (6:30 PM - 2h)

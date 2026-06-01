@@ -2,20 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @layer base {
-  * {
-    @apply border-border;
-  }
-
   body {
-    @apply bg-white text-grey-900 font-sans antialiased;
+    @apply bg-white text-text-primary font-sans antialiased;
   }
 
-  h1 { @apply text-2xl font-semibold text-grey-900; }
-  h2 { @apply text-xl font-semibold text-grey-900; }
-  h3 { @apply text-lg font-medium text-grey-800; }
+  h1 { @apply text-2xl font-semibold text-text-primary; }
+  h2 { @apply text-xl font-semibold text-text-primary; }
+  h3 { @apply text-lg font-medium text-text-primary; }
 
   /* Prevent zoom on input focus for iOS */
   @supports (-webkit-touch-callout: none) {
@@ -33,12 +27,60 @@
 }
 
 @layer components {
-  /* ── Card ─────────────────────────────────────────────────────────────── */
+  /* ── Trello-style Components ──────────────────────────────────────────── */
+  
+  /* Card */
+  .trello-card {
+    @apply bg-card-bg rounded-trello-md shadow-trello-card hover:shadow-trello-card-hover 
+           transition-shadow cursor-pointer;
+  }
+
+  /* List */
+  .trello-list {
+    @apply bg-list-bg rounded-trello-md w-trello-list flex-shrink-0;
+  }
+
+  /* Button variants */
+  .btn-trello-primary {
+    @apply bg-trello-blue text-white px-4 py-2 rounded-trello-sm text-sm font-medium
+           hover:bg-trello-blue-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-trello-secondary {
+    @apply bg-list-bg text-text-primary px-4 py-2 rounded-trello-sm text-sm font-medium
+           hover:bg-list-bg-hover transition-colors;
+  }
+
+  .btn-trello-ghost {
+    @apply text-text-secondary px-4 py-2 rounded-trello-sm text-sm font-medium
+           hover:bg-list-bg transition-colors;
+  }
+
+  /* Input */
+  .input-trello {
+    @apply w-full border-2 border-border-light rounded-trello-sm px-3 py-2 text-sm text-text-primary
+           placeholder:text-text-tertiary focus:outline-none focus:border-trello-blue
+           transition-all;
+  }
+
+  /* Badge */
+  .badge-trello {
+    @apply inline-flex items-center gap-1 px-2 py-1 rounded-trello-sm text-xs font-medium
+           bg-list-bg text-text-secondary hover:bg-list-bg-hover transition-colors;
+  }
+
+  /* Label */
+  .label-trello {
+    @apply inline-flex items-center px-2 py-1 rounded-trello-sm text-xs font-medium
+           cursor-pointer hover:opacity-80 transition-opacity;
+  }
+
+  /* ── Legacy Components (for backward compatibility) ───────────────────── */
+  
   .card {
     @apply bg-white border border-grey-200 rounded-lg p-6 shadow-sm;
   }
 
-  /* ── Button variants ──────────────────────────────────────────────────── */
   .btn-primary {
     @apply bg-grey-900 text-white px-4 py-2 rounded-md text-sm font-medium
            hover:bg-grey-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
@@ -54,14 +96,12 @@
            hover:bg-grey-100 transition-colors;
   }
 
-  /* ── Input ────────────────────────────────────────────────────────────── */
   .input {
     @apply w-full border border-grey-300 rounded-md px-3 py-2 text-sm text-grey-900
            placeholder:text-grey-400 focus:outline-none focus:ring-2 focus:ring-grey-900
            focus:border-transparent transition-all;
   }
 
-  /* ── Badge ────────────────────────────────────────────────────────────── */
   .badge-present {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
            bg-grey-900 text-white;
@@ -92,7 +132,6 @@
            bg-grey-300 text-grey-700;
   }
 
-  /* ── Table ────────────────────────────────────────────────────────────── */
   .table-wrapper {
     @apply w-full overflow-x-auto rounded-lg border border-grey-200;
   }
@@ -117,7 +156,6 @@
     @apply bg-grey-50;
   }
 
-  /* ── Sidebar ──────────────────────────────────────────────────────────── */
   .sidebar-link {
     @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-grey-600
            hover:bg-grey-100 hover:text-grey-900 transition-colors;
@@ -127,7 +165,6 @@
     @apply bg-grey-900 text-white hover:bg-grey-800 hover:text-white;
   }
 
-  /* ── Stat card ────────────────────────────────────────────────────────── */
   .stat-card {
     @apply card flex flex-col gap-1;
   }
@@ -141,14 +178,36 @@
   }
 }
 
+/* Custom scrollbar for Trello lists */
+.trello-list::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.trello-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.trello-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.trello-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Smooth scrolling for board */
+.board-scroll {
+  scroll-behavior: smooth;
+}
+
 /* Mobile-specific improvements */
 @media (max-width: 640px) {
-  /* Improve touch targets */
   button, a, input, select, textarea {
     min-height: 44px;
   }
 
-  /* Better spacing on mobile */
   .space-y-5 > * + * {
     margin-top: 1rem;
   }

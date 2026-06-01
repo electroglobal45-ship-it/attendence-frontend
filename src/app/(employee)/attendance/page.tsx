@@ -37,6 +37,10 @@ export default function AttendancePage() {
   const [holidays, setHolidays] = useState<Array<{ name: string; date: string }>>([])
   const [attendanceBlocked, setAttendanceBlocked] = useState(false)
   const [blockReason, setBlockReason] = useState<string>('')
+  const [hasOptedIn, setHasOptedIn] = useState(false)
+  const [showOptInModal, setShowOptInModal] = useState(false)
+  const [optInReason, setOptInReason] = useState('')
+  const [optingIn, setOptingIn] = useState(false)
 
   // Computed values
   const alreadyCheckedIn  = !!todayRecord?.check_in
@@ -69,33 +73,69 @@ export default function AttendancePage() {
 
   // Check if attendance is blocked
   useEffect(() => {
-    const today = getTodayIST()
-    const check = checkAttendanceAllowed(today, holidays)
-    setAttendanceBlocked(!check.allowed)
-    if (!check.allowed) {
-      setBlockReason(check.reason || 'Attendance not allowed today')
+    const checkOptIn = async () => {
+      if (!user) return
+      
+      const today = getTodayIST()
+      const check = checkAttendanceAllowed(today, holidays)
+      
+      // Check if today is Sunday or 3rd Saturday
+      const dayOfWeek = new Date(today).getDay()
+      const dayOfMonth = new Date(today).getDate()
+      const isSunday = dayOfWeek === 0
+      const isThirdSaturday = dayOfWeek === 6 && dayOfMonth >= 15 && dayOfMonth <= 21
+      
+      if (isSunday || isThirdSaturday) {
+        // Check if user has opted in for today
+        const t = localStorage.getItem('authToken')
+        try {
+          const res = await fetch(`/api/attendance/opt-in-working-day`, {
+            headers: { Authorization: `Bearer ${t}` }
+          })
+          if (res.ok) {
+            const data = await res.json()
+            const todayOptIn = data.optIns?.find((opt: any) => opt.date === today)
+            if (todayOptIn) {
+              setHasOptedIn(true)
+              setAttendanceBlocked(false)
+              setBlockReason('')
+              setSubmitMsg(null) // Clear any previous messages
+              return
+            }
+          }
+        } catch (err) {
+          console.error('Error checking opt-in:', err)
+        }
+      }
+      
+      setAttendanceBlocked(!check.allowed)
+      if (!check.allowed) {
+        setBlockReason(check.reason || 'Attendance not allowed today')
+      }
+      
+      // Check office hours (9 AM - 6 PM)
+      const now = new Date()
+      const istOffset = 5.5 * 60 * 60 * 1000
+      const istDate = new Date(now.getTime() + istOffset)
+      const istHour = istDate.getUTCHours()
+      const istMinute = istDate.getUTCMinutes()
+      const totalMinutes = istHour * 60 + istMinute
+      
+      // Before 9:00 AM (540 minutes)
+      if (totalMinutes < 540) {
+        setAttendanceBlocked(true)
+        setBlockReason('Too early! Office hours start at 9:00 AM')
+      }
+      
+      // After 6:30 PM (1110 minutes) - only block check-in, not markout
+      if (totalMinutes >= 1110 && !alreadyCheckedIn) {
+        setAttendanceBlocked(true)
+        setBlockReason('Office hours ended at 6:30 PM. Please contact admin if you need to mark attendance.')
+      }
     }
     
-    // Check office hours (9 AM - 6 PM)
-    const now = new Date()
-    const istOffset = 5.5 * 60 * 60 * 1000
-    const istDate = new Date(now.getTime() + istOffset)
-    const istHour = istDate.getUTCHours()
-    const istMinute = istDate.getUTCMinutes()
-    const totalMinutes = istHour * 60 + istMinute
-    
-    // Before 9:00 AM (540 minutes)
-    if (totalMinutes < 540) {
-      setAttendanceBlocked(true)
-      setBlockReason('Too early! Office hours start at 9:00 AM')
-    }
-    
-    // After 6:30 PM (1110 minutes) - only block check-in, not markout
-    if (totalMinutes >= 1110 && !alreadyCheckedIn) {
-      setAttendanceBlocked(true)
-      setBlockReason('Office hours ended at 6:30 PM. Please contact admin if you need to mark attendance.')
-    }
-  }, [holidays, alreadyCheckedIn])
+    checkOptIn()
+  }, [holidays, alreadyCheckedIn, user])
 
   useEffect(() => {
     if (!user) return
@@ -424,18 +464,88 @@ export default function AttendancePage() {
     }
   }
 
+  const handleOptInForToday = async () => {
+    const today = getTodayIST()
+    const dayOfWeek = new Date(today).getDay()
+    const dayOfMonth = new Date(today).getDate()
+    
+    let type = ''
+    if (dayOfWeek === 0) type = 'sunday'
+    else if (dayOfWeek === 6 && dayOfMonth >= 15 && dayOfMonth <= 21) type = 'third_saturday'
+    else {
+      setSubmitMsg({ type: 'error', text: 'Today is not a Sunday or 3rd Saturday' })
+      return
+    }
+
+    setOptingIn(true)
+    try {
+      const t = localStorage.getItem('authToken')
+      const res = await fetch('/api/attendance/opt-in-working-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({
+          date: today,
+          type,
+          reason: optInReason || null,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setHasOptedIn(true)
+        setAttendanceBlocked(false)
+        setShowOptInModal(false)
+        setOptInReason('')
+        setSubmitMsg({ type: 'success', text: '✓ You can now mark attendance for today!' })
+      } else {
+        // If already opted in, just close modal and show success
+        if (data.error?.includes('already opted in')) {
+          setHasOptedIn(true)
+          setAttendanceBlocked(false)
+          setShowOptInModal(false)
+          setOptInReason('')
+          setSubmitMsg({ type: 'success', text: '✓ You can now mark attendance for today!' })
+        } else {
+          setSubmitMsg({ type: 'error', text: data.error || 'Failed to opt-in' })
+        }
+      }
+    } catch (err: any) {
+      setSubmitMsg({ type: 'error', text: err.message })
+    } finally {
+      setOptingIn(false)
+    }
+  }
+
   return (
     <PageWrapper title="Mark Attendance" subtitle={`Welcome, ${user.name}`}>
       <div className="max-w-xl mx-auto px-4 sm:px-0 space-y-4 sm:space-y-5 pb-6">
 
         {/* Attendance Blocked Message */}
-        {attendanceBlocked && !alreadyCheckedIn && (
-          <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4 flex items-start gap-3">
-            <Calendar size={24} className="text-blue-600 flex-shrink-0 mt-0.5" />
+        {attendanceBlocked && !alreadyCheckedIn && !hasOptedIn && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+            <div className="flex items-start gap-3 mb-3">
+              <Calendar size={24} className="text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-blue-900 mb-1">Attendance Not Required</p>
+                <p className="text-sm text-blue-700">{blockReason}</p>
+              </div>
+            </div>
+            {(new Date(getTodayIST()).getDay() === 0 || (new Date(getTodayIST()).getDay() === 6 && new Date(getTodayIST()).getDate() >= 15 && new Date(getTodayIST()).getDate() <= 21)) && (
+              <button onClick={() => setShowOptInModal(true)}
+                className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2 touch-manipulation">
+                <Calendar size={16} />
+                I Want to Work Today
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Working on Sunday/Saturday Badge */}
+        {hasOptedIn && !alreadyCheckedIn && (
+          <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4 flex items-start gap-3">
+            <CheckCircle size={24} className="text-green-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="font-semibold text-blue-900 mb-1">Attendance Not Required</p>
-              <p className="text-sm text-blue-700">{blockReason}</p>
-              <p className="text-xs text-blue-600 mt-2">Enjoy your day off! 🎉</p>
+              <p className="font-semibold text-green-900 mb-1">Working on {new Date(getTodayIST()).getDay() === 0 ? 'Sunday' : '3rd Saturday'}</p>
+              <p className="text-sm text-green-700">You can mark your attendance today. This day will count as a working day.</p>
             </div>
           </div>
         )}
@@ -695,6 +805,54 @@ export default function AttendancePage() {
         )}
 
       </div>
+
+      {/* Opt-In Modal */}
+      {showOptInModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Work on {new Date(getTodayIST()).getDay() === 0 ? 'Sunday' : '3rd Saturday'}</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Opt-in to work today. This day will count as a working day for salary calculation.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reason (optional)</label>
+              <textarea value={optInReason} onChange={(e) => setOptInReason(e.target.value)}
+                placeholder="Why are you working today?" rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => { setShowOptInModal(false); setOptInReason('') }} disabled={optingIn}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={handleOptInForToday} disabled={optingIn}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                {optingIn ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Confirming...
+                  </>
+                ) : (
+                  'Confirm'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success/Error Messages */}
+      {submitMsg && (
+        <div className={`fixed bottom-4 left-4 right-4 mx-auto max-w-md p-4 rounded-lg shadow-lg ${submitMsg.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+          <p className={`text-sm font-medium ${submitMsg.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+            {submitMsg.text}
+          </p>
+        </div>
+      )}
     </PageWrapper>
   )
 }

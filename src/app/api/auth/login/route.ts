@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      token: authData.session.access_token, // Add this for compatibility
       session: authData.session,
       user: {
         id: profile.id,

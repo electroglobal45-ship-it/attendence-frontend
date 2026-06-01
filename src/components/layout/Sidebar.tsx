@@ -37,7 +37,7 @@ const employeeNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   { label: 'Dashboard',   href: '/dashboard',    icon: <LayoutDashboard size={18} /> },
-  { label: 'Projects',    href: '/projects',     icon: <FolderKanban size={18} /> },
+  { label: 'Tasks',       href: '/tasks',        icon: <CheckSquare size={18} /> },
   { label: 'Employees',   href: '/employees',    icon: <Users size={18} /> },
   { label: 'Create User', href: '/users/create', icon: <UserPlus size={18} /> },
   { label: 'Calendar',    href: '/calendar',     icon: <CalendarDays size={18} /> },

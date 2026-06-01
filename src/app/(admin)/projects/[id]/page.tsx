@@ -2,15 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { PageWrapper } from '@/components/layout/PageWrapper'
-import { KanbanBoard } from '@/components/kanban/KanbanBoard'
+import { TrelloBoard } from '@/components/trello/TrelloBoard'
+import { TrelloBoardHeader } from '@/components/trello/TrelloBoardHeader'
 import { TaskModal } from '@/components/tasks/TaskModal'
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal'
 import { 
-  RefreshCw, ArrowLeft, Settings, Users, MoreVertical,
-  CheckSquare, Clock, AlertCircle
+  RefreshCw, CheckSquare, Clock, AlertCircle
 } from 'lucide-react'
-import Link from 'next/link'
 
 interface Project {
   id: string
@@ -138,114 +136,110 @@ export default function ProjectBoardPage() {
 
   if (loading) {
     return (
-      <PageWrapper title="Loading..." subtitle="">
-        <div className="py-12 text-center">
-          <RefreshCw size={32} className="animate-spin text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500">Loading project...</p>
+      <div className="h-screen flex items-center justify-center bg-board-bg">
+        <div className="text-center">
+          <RefreshCw size={48} className="animate-spin text-white mx-auto mb-4" />
+          <p className="text-white text-lg font-medium">Loading board...</p>
         </div>
-      </PageWrapper>
+      </div>
     )
   }
 
   if (!project) {
     return (
-      <PageWrapper title="Project Not Found" subtitle="">
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-gray-500 mb-4">The project you're looking for doesn't exist or you don't have access to it.</p>
-          <Link href="/projects" className="text-blue-600 hover:text-blue-800 underline">
-            Back to Projects
-          </Link>
+      <div className="h-screen flex items-center justify-center bg-board-bg">
+        <div className="bg-white rounded-trello-lg shadow-trello-modal p-12 text-center max-w-md">
+          <h2 className="text-xl font-semibold text-text-primary mb-4">Board Not Found</h2>
+          <p className="text-text-secondary mb-6">
+            The board you're looking for doesn't exist or you don't have access to it.
+          </p>
+          <a 
+            href="/projects" 
+            className="inline-block px-4 py-2 bg-trello-blue text-white rounded-trello-sm hover:bg-trello-blue-dark transition-colors"
+          >
+            Back to Boards
+          </a>
         </div>
-      </PageWrapper>
+      </div>
     )
   }
 
   return (
-    <PageWrapper
-      title={
-        <div className="flex items-center gap-3">
-          <Link href="/projects" className="text-gray-400 hover:text-gray-600">
-            <ArrowLeft size={20} />
-          </Link>
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-3 h-3 rounded-full" 
-              style={{ backgroundColor: project.color }}
-            />
-            <span>{project.name}</span>
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Trello Board Header */}
+      <TrelloBoardHeader
+        boardName={project.name}
+        boardColor={project.color}
+        projectId={project.id}
+        memberCount={3}
+        isStarred={false}
+        onToggleStar={() => {
+          // TODO: Implement star functionality
+          console.log('Toggle star')
+        }}
+        onOpenMenu={() => {
+          // TODO: Implement board menu
+          console.log('Open menu')
+        }}
+        onInvite={() => {
+          // TODO: Implement invite functionality
+          console.log('Invite members')
+        }}
+      />
+
+      {/* Stats Bar */}
+      <div className="bg-black/10 backdrop-blur-sm border-b border-white/10 px-4 py-2">
+        <div className="flex items-center gap-6 text-white text-sm">
+          <div className="flex items-center gap-2">
+            <CheckSquare size={14} />
+            <span className="font-medium">{project.task_stats.total}</span>
+            <span className="opacity-80">tasks</span>
           </div>
-        </div>
-      }
-      subtitle={project.description || 'Project board'}
-      actions={
-        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Clock size={14} />
+            <span className="font-medium">{project.task_stats.by_status.in_progress}</span>
+            <span className="opacity-80">in progress</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckSquare size={14} />
+            <span className="font-medium">{project.task_stats.by_status.done}</span>
+            <span className="opacity-80">completed</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <AlertCircle size={14} />
+            <span className="font-medium">{project.task_stats.by_priority.urgent}</span>
+            <span className="opacity-80">urgent</span>
+          </div>
           <button
             onClick={fetchProject}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            className="ml-auto flex items-center gap-2 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-trello-sm transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            <span>Refresh</span>
           </button>
-          {/* TODO: Add project settings button */}
         </div>
-      }
-    >
-      <div className="space-y-6">
-        {/* Project Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckSquare size={16} className="text-gray-400" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Total Tasks</span>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{project.task_stats.total}</p>
-          </div>
+      </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock size={16} className="text-blue-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">In Progress</span>
-            </div>
-            <p className="text-2xl font-bold text-blue-600">{project.task_stats.by_status.in_progress}</p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckSquare size={16} className="text-green-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Completed</span>
-            </div>
-            <p className="text-2xl font-bold text-green-600">{project.task_stats.by_status.done}</p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertCircle size={16} className="text-red-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Urgent</span>
-            </div>
-            <p className="text-2xl font-bold text-red-600">{project.task_stats.by_priority.urgent}</p>
-          </div>
-        </div>
-
-        {/* Kanban Board */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <KanbanBoard
-            projectId={project.id}
-            lists={project.project_lists}
-            tasks={project.tasks}
-            onTaskClick={handleTaskClick}
-            onAddTask={handleAddTask}
-            onAddList={() => {
-              // TODO: Implement add list functionality
-              alert('Add list functionality coming soon!')
-            }}
-            onEditList={(list) => {
-              // TODO: Implement edit list functionality
-              alert('Edit list functionality coming soon!')
-            }}
-            onRefresh={fetchProject}
-          />
-        </div>
+      {/* Trello Board */}
+      <div className="flex-1 overflow-hidden">
+        <TrelloBoard
+          projectId={project.id}
+          lists={project.project_lists}
+          tasks={project.tasks}
+          boardBackground="blue"
+          onTaskClick={handleTaskClick}
+          onAddTask={handleAddTask}
+          onAddList={() => {
+            // TODO: Implement add list functionality
+            alert('Add list functionality coming soon!')
+          }}
+          onEditList={(list) => {
+            // TODO: Implement edit list functionality
+            alert('Edit list functionality coming soon!')
+          }}
+          onRefresh={fetchProject}
+        />
       </div>
 
       {/* Task Modal */}
@@ -267,6 +261,6 @@ export default function ProjectBoardPage() {
         onClose={() => setShowCreateTaskModal(false)}
         onSuccess={handleTaskCreated}
       />
-    </PageWrapper>
+    </div>
   )
 }

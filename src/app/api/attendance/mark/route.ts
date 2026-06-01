@@ -96,26 +96,42 @@ export async function POST(req: NextRequest) {
       .eq('is_active', true)
     
     const holidayList = holidays?.map(h => ({ name: h.name, date: h.date })) || []
-    const attendanceCheck = checkAttendanceAllowed(today, holidayList)
     
-    if (!attendanceCheck.allowed) {
-      return NextResponse.json({ 
-        error: attendanceCheck.reason || 'Attendance not allowed on this date'
-      }, { status: 400 })
-    }
-
-    // Check office hours (9 AM - 6 PM)
+    // Extract date components from IST time for opt-in check
     const now = new Date()
     const istOffset = 5.5 * 60 * 60 * 1000
     const istDate = new Date(now.getTime() + istOffset)
+    const year = istDate.getUTCFullYear()
+    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(istDate.getUTCDate()).padStart(2, '0')
+    const dateStr = `${year}-${month}-${day}`
+    
+    // Check if employee has opt-in for this date
+    const { data: optIn } = await supabaseServer
+      .from('working_day_opt_ins')
+      .select('*')
+      .eq('employee_id', userId)
+      .eq('date', dateStr)
+      .maybeSingle()
+    
+    const attendanceCheck = checkAttendanceAllowed(today, holidayList)
+    
+    // If attendance is not normally allowed, check for approved opt-in
+    if (!attendanceCheck.allowed && !optIn) {
+      return NextResponse.json({ 
+        error: attendanceCheck.reason || 'Attendance not allowed on this date. You can request to work on this day from the attendance page.'
+      }, { status: 400 })
+    }
+
+    // Check office hours (8 AM - 6 PM) - reuse already calculated values
     const istHour = istDate.getUTCHours()
     const istMinute = istDate.getUTCMinutes()
     const totalMinutes = istHour * 60 + istMinute
     
-    // Before 9:00 AM (540 minutes)
-    if (totalMinutes < 540) {
+    // Before 8:00 AM (480 minutes)
+    if (totalMinutes < 480) {
       return NextResponse.json({ 
-        error: 'Too early! Office hours start at 9:00 AM'
+        error: 'Too early! Office hours start at 8:00 AM'
       }, { status: 400 })
     }
     
@@ -126,15 +142,10 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    // Extract date components from IST time
-    const year = istDate.getUTCFullYear()
-    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(istDate.getUTCDate()).padStart(2, '0')
-    const dateStr = `${year}-${month}-${day}`
-
     console.log('Date:', dateStr, 'Time:', now.toISOString())
     console.log('IST Date object:', istDate.toISOString())
     console.log('Extracted date string:', dateStr)
+    console.log('Opt-in status:', optIn ? 'Approved opt-in found' : 'No opt-in')
 
     // Check if already marked today
     const { data: existing } = await supabaseServer

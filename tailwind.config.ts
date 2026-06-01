@@ -10,42 +10,57 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Black, white, grey palette only
+        // Trello-inspired color palette
+        trello: {
+          blue: '#0079BF',
+          'blue-dark': '#026AA7',
+          'blue-light': '#5BA4CF',
+          'blue-lighter': '#E4F0F6',
+        },
+        board: {
+          bg: '#0079BF',
+          'bg-dark': '#026AA7',
+        },
+        list: {
+          bg: '#EBECF0',
+          'bg-hover': '#DFE1E6',
+        },
+        card: {
+          bg: '#FFFFFF',
+          'bg-hover': '#F4F5F7',
+        },
+        text: {
+          primary: '#172B4D',
+          secondary: '#5E6C84',
+          tertiary: '#8993A4',
+          white: '#FFFFFF',
+        },
+        border: {
+          light: '#DFE1E6',
+          medium: '#C1C7D0',
+          dark: '#091E4224',
+        },
+        label: {
+          green: '#61BD4F',
+          yellow: '#F2D600',
+          orange: '#FF9F1A',
+          red: '#EB5A46',
+          purple: '#C377E0',
+          blue: '#0079BF',
+          sky: '#00C2E0',
+          lime: '#51E898',
+          pink: '#FF78CB',
+          black: '#344563',
+        },
+        status: {
+          success: '#61BD4F',
+          warning: '#F2D600',
+          danger: '#EB5A46',
+          info: '#0079BF',
+        },
+        // Legacy colors for backward compatibility
         background: '#ffffff',
-        foreground: '#0a0a0a',
-        card: '#f5f5f5',
-        'card-foreground': '#0a0a0a',
-        border: '#e0e0e0',
-        input: '#e0e0e0',
-        ring: '#0a0a0a',
-        primary: {
-          DEFAULT: '#0a0a0a',
-          foreground: '#ffffff',
-        },
-        secondary: {
-          DEFAULT: '#f5f5f5',
-          foreground: '#0a0a0a',
-        },
-        muted: {
-          DEFAULT: '#f0f0f0',
-          foreground: '#737373',
-        },
-        accent: {
-          DEFAULT: '#e8e8e8',
-          foreground: '#0a0a0a',
-        },
-        destructive: {
-          DEFAULT: '#1a1a1a',
-          foreground: '#ffffff',
-        },
-        success: {
-          DEFAULT: '#2d2d2d',
-          foreground: '#ffffff',
-        },
-        warning: {
-          DEFAULT: '#4a4a4a',
-          foreground: '#ffffff',
-        },
+        foreground: '#172B4D',
         grey: {
           50: '#fafafa',
           100: '#f5f5f5',
@@ -60,12 +75,38 @@ const config: Config = {
         },
       },
       borderRadius: {
+        'trello-sm': '3px',
+        'trello-md': '8px',
+        'trello-lg': '12px',
         lg: '0.5rem',
         md: '0.375rem',
         sm: '0.25rem',
       },
+      boxShadow: {
+        'trello-card': '0 1px 0 rgba(9, 30, 66, 0.13)',
+        'trello-card-hover': '0 4px 8px rgba(9, 30, 66, 0.25)',
+        'trello-list': '0 1px 2px rgba(9, 30, 66, 0.13)',
+        'trello-modal': '0 8px 16px rgba(9, 30, 66, 0.25)',
+      },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Helvetica Neue', 'sans-serif'],
+      },
+      spacing: {
+        'trello-1': '4px',
+        'trello-2': '8px',
+        'trello-3': '12px',
+        'trello-4': '16px',
+        'trello-6': '24px',
+        'trello-8': '32px',
+      },
+      width: {
+        'trello-list': '272px',
+      },
+      minWidth: {
+        'trello-list': '272px',
+      },
+      maxWidth: {
+        'trello-list': '272px',
       },
     },
   },

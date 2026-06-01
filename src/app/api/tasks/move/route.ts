@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase-auth-helper'
-import { supabaseServer } from '@/lib/supabase-server'
+import { requireAuthenticatedClient } from '@/lib/supabase-user-client'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -13,6 +13,7 @@ export const revalidate = 0
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth(req)
+    const supabase = requireAuthenticatedClient(req)
     const body = await req.json()
     
     const { 
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the task and verify permissions
-    const { data: task, error: taskError } = await supabaseServer
+    const { data: task, error: taskError } = await supabase
       .from('tasks')
       .select(`
         id,
@@ -52,7 +53,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Check permissions (members and admins can move tasks)
-    // When using !inner, projects becomes an array, so we need to access the first element
     const projects = task.projects as any
     const projectMembers = Array.isArray(projects) 
       ? projects[0]?.project_members 
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify destination list belongs to the same project
-    const { data: destinationList, error: listError } = await supabaseServer
+    const { data: destinationList, error: listError } = await supabase
       .from('project_lists')
       .select('id, project_id')
       .eq('id', destination_list_id)
@@ -79,14 +79,13 @@ export async function POST(req: NextRequest) {
 
     const isMovingBetweenLists = task.list_id !== destination_list_id
 
-    // Start a transaction-like operation
     try {
       if (isMovingBetweenLists) {
         // Moving between different lists
         
         // 1. Update positions in source list (shift down tasks after the moved task)
         if (source_list_id && source_list_id === task.list_id) {
-          const { data: sourceTasks } = await supabaseServer
+          const { data: sourceTasks } = await supabase
             .from('tasks')
             .select('id, position')
             .eq('list_id', source_list_id)
@@ -94,7 +93,7 @@ export async function POST(req: NextRequest) {
 
           if (sourceTasks && sourceTasks.length > 0) {
             for (const sourceTask of sourceTasks) {
-              await supabaseServer
+              await supabase
                 .from('tasks')
                 .update({ position: sourceTask.position - 1 })
                 .eq('id', sourceTask.id)
@@ -103,7 +102,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 2. Update positions in destination list (shift up tasks at and after destination position)
-        const { data: destTasks } = await supabaseServer
+        const { data: destTasks } = await supabase
           .from('tasks')
           .select('id, position')
           .eq('list_id', destination_list_id)
@@ -111,7 +110,7 @@ export async function POST(req: NextRequest) {
 
         if (destTasks && destTasks.length > 0) {
           for (const destTask of destTasks) {
-            await supabaseServer
+            await supabase
               .from('tasks')
               .update({ position: destTask.position + 1 })
               .eq('id', destTask.id)
@@ -119,12 +118,11 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Move the task to new list and position
-        const { data: updatedTask, error: updateError } = await supabaseServer
+        const { data: updatedTask, error: updateError } = await supabase
           .from('tasks')
           .update({
             list_id: destination_list_id,
             position: destination_position,
-            // Auto-update status based on list if it's a standard workflow
             ...(destination_list_id !== task.list_id && {
               updated_at: new Date().toISOString()
             })
@@ -146,7 +144,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Log the activity
-        await supabaseServer
+        await supabase
           .from('task_activities')
           .insert({
             task_id: task.id,
@@ -176,7 +174,6 @@ export async function POST(req: NextRequest) {
         const newPosition = destination_position
 
         if (oldPosition === newPosition) {
-          // No change needed
           return NextResponse.json({ 
             success: true, 
             task: {
@@ -189,7 +186,7 @@ export async function POST(req: NextRequest) {
 
         if (oldPosition < newPosition) {
           // Moving down: shift tasks between old and new position up
-          const { data: tasksToShift } = await supabaseServer
+          const { data: tasksToShift } = await supabase
             .from('tasks')
             .select('id, position')
             .eq('list_id', task.list_id)
@@ -198,7 +195,7 @@ export async function POST(req: NextRequest) {
 
           if (tasksToShift && tasksToShift.length > 0) {
             for (const taskToShift of tasksToShift) {
-              await supabaseServer
+              await supabase
                 .from('tasks')
                 .update({ position: taskToShift.position - 1 })
                 .eq('id', taskToShift.id)
@@ -206,7 +203,7 @@ export async function POST(req: NextRequest) {
           }
         } else {
           // Moving up: shift tasks between new and old position down
-          const { data: tasksToShift } = await supabaseServer
+          const { data: tasksToShift } = await supabase
             .from('tasks')
             .select('id, position')
             .eq('list_id', task.list_id)
@@ -215,7 +212,7 @@ export async function POST(req: NextRequest) {
 
           if (tasksToShift && tasksToShift.length > 0) {
             for (const taskToShift of tasksToShift) {
-              await supabaseServer
+              await supabase
                 .from('tasks')
                 .update({ position: taskToShift.position + 1 })
                 .eq('id', taskToShift.id)
@@ -224,7 +221,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Update the task's position
-        const { data: updatedTask, error: updateError } = await supabaseServer
+        const { data: updatedTask, error: updateError } = await supabase
           .from('tasks')
           .update({
             position: newPosition,
@@ -247,7 +244,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Log the activity
-        await supabaseServer
+        await supabase
           .from('task_activities')
           .insert({
             task_id: task.id,

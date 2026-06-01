@@ -1,10 +1,10 @@
 /**
  * Attendance Engine
  * Implements all timing rules from the policy document:
- * - On-time (9:00–9:05) → Present, value 1
- * - Late buffer (9:05–9:30) → Late, allowed 4x/month, value 1
+ * - On-time (8:00–8:05) → Present, value 1
+ * - Late buffer (8:05–8:30) → Late, allowed 4x/month, value 1
  * - 5th late in month → Half Day, value 0.5 (automatic)
- * - After 9:30 → Half Day, value 0.5 (not counted in late buffer)
+ * - After 8:30 → Half Day, value 0.5 (not counted in late buffer)
  */
 
 import {
@@ -38,14 +38,14 @@ export function evaluateCheckIn(
   const minutes = checkInTime.getMinutes()
   const totalMinutes = hours * 60 + minutes
 
-  // Office start: 9:00 AM = 540 minutes
-  const officeStart = 9 * 60
-  // On-time window end: 9:05 AM = 545 minutes
+  // Office start: 8:00 AM = 480 minutes
+  const officeStart = 8 * 60
+  // On-time window end: 8:05 AM = 485 minutes
   const onTimeEnd = officeStart + ONTIME_BUFFER_MINUTES
-  // Late buffer end: 9:30 AM = 570 minutes
+  // Late buffer end: 8:30 AM = 510 minutes
   const lateBufferEnd = LATE_BUFFER_END_HOUR * 60 + LATE_BUFFER_END_MINUTE
 
-  // ── On-time: 9:00 → 9:05 ──────────────────────────────────────────────────
+  // ── On-time: 8:00 → 8:05 ──────────────────────────────────────────────────
   if (totalMinutes <= onTimeEnd) {
     return {
       status: 'present',
@@ -55,7 +55,7 @@ export function evaluateCheckIn(
     }
   }
 
-  // ── After 9:30 AM → immediate Half Day (not counted in late buffer) ────────
+  // ── After 8:30 AM → immediate Half Day (not counted in late buffer) ────────
   if (totalMinutes > lateBufferEnd) {
     return {
       status: 'half_day',
@@ -65,7 +65,7 @@ export function evaluateCheckIn(
     }
   }
 
-  // ── Late buffer: 9:05 → 9:30 ──────────────────────────────────────────────
+  // ── Late buffer: 8:05 → 8:30 ──────────────────────────────────────────────
   // This would be the (currentMonthLateCount + 1)th late
   const newLateCount = currentMonthLateCount + 1
 

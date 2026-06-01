@@ -15,39 +15,27 @@ interface RouteParams {
   params: { id: string }
 }
 
-async function verifyProjectAccess(projectId: string, userId: string, requiredRole: 'viewer' | 'member' | 'admin' = 'viewer') {
-  const { data: membership, error } = await supabaseServer
-    .from('project_members')
-    .select('role, project_id')
-    .eq('project_id', projectId)
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .single()
-
-  if (error || !membership) {
-    return null
-  }
-
-  const roleHierarchy = { viewer: 0, member: 1, admin: 2 }
-  const userRoleLevel = roleHierarchy[membership.role as keyof typeof roleHierarchy] || 0
-  const requiredRoleLevel = roleHierarchy[requiredRole]
-
-  if (userRoleLevel < requiredRoleLevel) {
-    return null
-  }
-
-  return membership
-}
-
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const user = await requireAuth(req)
-    const projectId = params.id
+    const projectIdParam = params.id
 
-    // Verify project access
-    const membership = await verifyProjectAccess(projectId, user.userId)
-    if (!membership) {
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
+    // Resolve public_id to UUID if needed
+    let projectId = projectIdParam
+    if (projectIdParam.length === 12) {
+      // It's a public_id, resolve to UUID
+      const { data: project, error: projectError } = await supabaseServer
+        .from('projects')
+        .select('id')
+        .eq('public_id', projectIdParam)
+        .eq('is_active', true)
+        .single()
+
+      if (projectError || !project) {
+        console.error('Project not found:', projectError)
+        return NextResponse.json({ error: 'Board not found', details: projectError?.message }, { status: 404 })
+      }
+      projectId = project.id
     }
 
     // Get project lists with task counts
@@ -76,7 +64,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     if (error) {
       console.error('Error fetching project lists:', error)
-      return NextResponse.json({ error: 'Failed to fetch project lists' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch lists', details: error.message }, { status: 500 })
     }
 
     // Transform data to include task counts and sort tasks by position
@@ -98,12 +86,24 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const user = await requireAuth(req)
-    const projectId = params.id
+    const projectIdParam = params.id
 
-    // Verify project access (members and admins can create lists)
-    const membership = await verifyProjectAccess(projectId, user.userId, 'member')
-    if (!membership) {
-      return NextResponse.json({ error: 'Project not found or insufficient permissions' }, { status: 404 })
+    // Resolve public_id to UUID if needed
+    let projectId = projectIdParam
+    if (projectIdParam.length === 12) {
+      // It's a public_id, resolve to UUID
+      const { data: project, error: projectError } = await supabaseServer
+        .from('projects')
+        .select('id')
+        .eq('public_id', projectIdParam)
+        .eq('is_active', true)
+        .single()
+
+      if (projectError || !project) {
+        console.error('Project not found:', projectError)
+        return NextResponse.json({ error: 'Board not found', details: projectError?.message }, { status: 404 })
+      }
+      projectId = project.id
     }
 
     const body = await req.json()
@@ -138,14 +138,15 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         name: name.trim(),
         project_id: projectId,
         position: listPosition,
-        color: color || '#6B7280'
+        color: color || '#6B7280',
+        created_by: user.userId
       })
       .select('id, public_id, name, position, color, created_at, updated_at')
       .single()
 
     if (error) {
       console.error('Error creating project list:', error)
-      return NextResponse.json({ error: 'Failed to create list' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to create list', details: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ 

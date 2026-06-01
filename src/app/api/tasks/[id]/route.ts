@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase-auth-helper'
-import { supabaseServer } from '@/lib/supabase-server'
+import { requireAuthenticatedClient } from '@/lib/supabase-user-client'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -16,9 +16,9 @@ interface RouteParams {
   params: { id: string }
 }
 
-async function getTaskWithPermissions(taskId: string, userId: string) {
+async function getTaskWithPermissions(taskId: string, userId: string, supabase: any) {
   // Get task with project membership info
-  const { data: task, error } = await supabaseServer
+  const { data: task, error } = await supabase
     .from('tasks')
     .select(`
       *,
@@ -55,13 +55,14 @@ async function getTaskWithPermissions(taskId: string, userId: string) {
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     const user = await requireAuth(req)
+    const supabase = requireAuthenticatedClient(req)
     const taskId = params.id
 
     // Check if it's a public_id or UUID
     let taskQuery
     if (taskId.length === 12) {
       // It's a public_id
-      taskQuery = supabaseServer
+      taskQuery = supabase
         .from('tasks')
         .select(`
           *,
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         .eq('public_id', taskId)
     } else {
       // It's a UUID
-      taskQuery = supabaseServer
+      taskQuery = supabase
         .from('tasks')
         .select(`
           *,
@@ -130,7 +131,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Verify user has access to the project
-    const { data: membership } = await supabaseServer
+    const { data: membership } = await supabase
       .from('project_members')
       .select('role')
       .eq('project_id', task.project_id)
@@ -171,10 +172,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
     const user = await requireAuth(req)
+    const supabase = requireAuthenticatedClient(req)
     const taskId = params.id
 
     // Get task with permissions
-    const taskData = await getTaskWithPermissions(taskId, user.userId)
+    const taskData = await getTaskWithPermissions(taskId, user.userId, supabase)
     if (!taskData) {
       return NextResponse.json({ error: 'Task not found or access denied' }, { status: 404 })
     }
@@ -215,7 +217,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     // If assigned_to is being changed, verify the user is a project member
     if (assigned_to !== undefined && assigned_to !== null) {
-      const { data: assigneeMembership } = await supabaseServer
+      const { data: assigneeMembership } = await supabase
         .from('project_members')
         .select('user_id')
         .eq('project_id', taskData.project_id)
@@ -230,7 +232,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     // If list_id is being changed, verify it belongs to the same project
     if (list_id !== undefined) {
-      const { data: list } = await supabaseServer
+      const { data: list } = await supabase
         .from('project_lists')
         .select('id')
         .eq('id', list_id)
@@ -302,7 +304,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     }
 
     // Update the task
-    const { data: updatedTask, error } = await supabaseServer
+    const { data: updatedTask, error } = await supabase
       .from('tasks')
       .update(updateData)
       .eq('id', taskData.id)
@@ -336,7 +338,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     // Log the activity
     const changedFields = Object.keys(newValues)
     if (changedFields.length > 0) {
-      await supabaseServer
+      await supabase
         .from('task_activities')
         .insert({
           task_id: taskData.id,
@@ -363,10 +365,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     const user = await requireAuth(req)
+    const supabase = requireAuthenticatedClient(req)
     const taskId = params.id
 
     // Get task with permissions
-    const taskData = await getTaskWithPermissions(taskId, user.userId)
+    const taskData = await getTaskWithPermissions(taskId, user.userId, supabase)
     if (!taskData) {
       return NextResponse.json({ error: 'Task not found or access denied' }, { status: 404 })
     }
@@ -377,7 +380,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     }
 
     // Delete the task (cascade will handle related records)
-    const { error } = await supabaseServer
+    const { error } = await supabase
       .from('tasks')
       .delete()
       .eq('id', taskData.id)
@@ -389,7 +392,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     // Log the activity (if task_activities table still exists)
     try {
-      await supabaseServer
+      await supabase
         .from('task_activities')
         .insert({
           task_id: taskData.id,

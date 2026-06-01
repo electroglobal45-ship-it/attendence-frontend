@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase-auth-helper'
-import { supabaseServer } from '@/lib/supabase-server'
+import { requireAuthenticatedClient } from '@/lib/supabase-user-client'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -14,6 +14,7 @@ export const revalidate = 0
 export async function GET(req: NextRequest) {
   try {
     const user = await requireAuth(req)
+    const supabase = requireAuthenticatedClient(req)
     const { searchParams } = new URL(req.url)
     
     // Query parameters
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0')
 
     // First, get all project IDs the user has access to
-    const { data: userProjects, error: projectsError } = await supabaseServer
+    const { data: userProjects, error: projectsError } = await supabase
       .from('project_members')
       .select('project_id')
       .eq('user_id', user.userId)
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Build query
-    let query = supabaseServer
+    let query = supabase
       .from('tasks')
       .select(`
         id,
@@ -74,9 +75,7 @@ export async function GET(req: NextRequest) {
         updated_at,
         completed_at,
         project_lists(id, name, project_id),
-        projects(id, public_id, name, color),
-        assigned_user:users!tasks_assigned_to_fkey(id, name, email),
-        creator:users!tasks_created_by_fkey(id, name, email)
+        projects(id, public_id, name, color)
       `)
       .in('project_id', accessibleProjectIds)
 
@@ -120,7 +119,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get total count for pagination
-    let countQuery = supabaseServer
+    let countQuery = supabase
       .from('tasks')
       .select('id', { count: 'exact', head: true })
       .in('project_id', accessibleProjectIds)
@@ -158,6 +157,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth(req)
+    const supabase = requireAuthenticatedClient(req)
     const body = await req.json()
     
     const { 
@@ -168,7 +168,8 @@ export async function POST(req: NextRequest) {
       assigned_to, 
       due_date, 
       priority = 'medium',
-      position 
+      position,
+      status = 'todo'
     } = body
 
     if (!title || title.trim().length === 0) {
@@ -179,12 +180,63 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Task title must be less than 255 characters' }, { status: 400 })
     }
 
+    // NEW: Support creating tasks without projects (for simple task management)
+    if (!project_id && !list_id) {
+      // Simple task creation (no project/list required)
+      if (!assigned_to) {
+        return NextResponse.json({ error: 'Task must be assigned to someone' }, { status: 400 })
+      }
+
+      const { data: task, error } = await supabase
+        .from('tasks')
+        .insert({
+          title: title.trim(),
+          description: description?.trim() || null,
+          assigned_to,
+          created_by: user.userId,
+          due_date: due_date || null,
+          priority,
+          status,
+          position: position || 0,
+          project_id: null,
+          list_id: null,
+          completion_percentage: 0
+        })
+        .select(`
+          id,
+          public_id,
+          title,
+          description,
+          assigned_to,
+          created_by,
+          position,
+          due_date,
+          priority,
+          status,
+          completion_percentage,
+          created_at,
+          updated_at
+        `)
+        .single()
+
+      if (error) {
+        console.error('Error creating simple task:', error)
+        return NextResponse.json({ error: 'Failed to create task', details: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        task 
+      }, { status: 201 })
+    }
+
+    // OLD: Project-based task creation (for board/list tasks)
     if (!list_id || !project_id) {
-      return NextResponse.json({ error: 'list_id and project_id are required' }, { status: 400 })
+      return NextResponse.json({ error: 'list_id and project_id are required for board tasks' }, { status: 400 })
     }
 
     // Verify user has access to the project
-    const { data: membership, error: membershipError } = await supabaseServer
+    const { data: membership, error: membershipError } = await supabase
       .from('project_members')
       .select('role')
       .eq('project_id', project_id)
@@ -202,7 +254,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify the list belongs to the project
-    const { data: list, error: listError } = await supabaseServer
+    const { data: list, error: listError } = await supabase
       .from('project_lists')
       .select('id')
       .eq('id', list_id)
@@ -215,7 +267,7 @@ export async function POST(req: NextRequest) {
 
     // If assigned_to is provided, verify the user is a project member
     if (assigned_to) {
-      const { data: assigneeMembership } = await supabaseServer
+      const { data: assigneeMembership } = await supabase
         .from('project_members')
         .select('user_id')
         .eq('project_id', project_id)
@@ -231,7 +283,7 @@ export async function POST(req: NextRequest) {
     // Get the next position if not provided
     let taskPosition = position
     if (taskPosition === undefined) {
-      const { data: lastTask } = await supabaseServer
+      const { data: lastTask } = await supabase
         .from('tasks')
         .select('position')
         .eq('list_id', list_id)
@@ -243,7 +295,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create the task
-    const { data: task, error } = await supabaseServer
+    const { data: task, error } = await supabase
       .from('tasks')
       .insert({
         title: title.trim(),
@@ -273,9 +325,7 @@ export async function POST(req: NextRequest) {
         status,
         completion_percentage,
         created_at,
-        updated_at,
-        assigned_user:users!tasks_assigned_to_fkey(id, name, email),
-        creator:users!tasks_created_by_fkey(id, name, email)
+        updated_at
       `)
       .single()
 
@@ -285,7 +335,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Log the activity
-    await supabaseServer
+    await supabase
       .from('task_activities')
       .insert({
         task_id: task.id,
