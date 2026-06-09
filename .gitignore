@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Backend folder (deployed separately to Render)
+/backend/
+
 # dependencies
 /node_modules
 /.pnp
@@ -58,7 +61,7 @@ Thumbs.db
 # Database files (keep only schema)
 *.db
 *.sqlite
-*.sqlite3
+*.sqlite3add
 
 # Backup files
 *.bak
