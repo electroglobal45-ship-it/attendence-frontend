@@ -6,51 +6,44 @@
 import { supabase } from './supabase'
 
 /**
- * Upload selfie via API route (uses service role to bypass RLS)
+ * Upload selfie directly to Supabase Storage
+ * No API route needed - uses client anon key with RLS
  */
 export async function uploadSelfie(
   file: File,
   employeeId: string
 ): Promise<string> {
   try {
-    console.log('Uploading selfie via API route:', file.name, 'File size:', file.size)
+    console.log('Uploading selfie directly to Supabase:', file.name, 'File size:', file.size)
 
-    // Get auth token from localStorage
-    const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
-    
-    if (!authToken) {
-      console.error('❌ No auth token found in localStorage')
-      throw new Error('Not authenticated - please login again')
+    // Generate unique filename
+    const timestamp = Date.now()
+    const filename = `${employeeId}/${timestamp}-${file.name}`
+
+    console.log('📤 Uploading to storage:', filename)
+
+    // Upload directly to Supabase storage
+    const { data, error } = await supabase.storage
+      .from('selfies')
+      .upload(filename, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (error) {
+      console.error('❌ Storage upload failed:', error)
+      throw new Error(error.message || 'Failed to upload to storage')
     }
 
-    console.log('✅ Auth token found, length:', authToken.length)
+    console.log('✅ Upload successful:', data.path)
 
-    // Create form data
-    const formData = new FormData()
-    formData.append('file', file)
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('selfies')
+      .getPublicUrl(filename)
 
-    console.log('📤 Sending upload request to /api/upload-selfie')
-
-    // Upload via API route
-    const response = await fetch('/api/upload-selfie', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: formData
-    })
-
-    console.log('📥 Upload response status:', response.status, response.statusText)
-
-    if (!response.ok) {
-      const error = await response.json()
-      console.error('❌ Upload failed:', error)
-      throw new Error(error.error || `Upload failed with status ${response.status}`)
-    }
-
-    const data = await response.json()
-    console.log('✅ Upload successful:', data.url)
-    return data.url
+    console.log('✅ Public URL:', urlData.publicUrl)
+    return urlData.publicUrl
   } catch (error: any) {
     console.error('❌ Error uploading selfie:', error)
     throw new Error(error.message || 'Failed to upload selfie')

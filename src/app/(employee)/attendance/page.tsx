@@ -8,6 +8,7 @@ import { PageWrapper } from '@/components/layout/PageWrapper'
 import { Camera, MapPin, CheckCircle, Loader2, LogOut, Calendar, AlertCircle } from 'lucide-react'
 import { formatTimeIST } from '@/lib/time-utils'
 import { checkAttendanceAllowed, getTodayIST, formatDateIST } from '@/lib/date-utils'
+import { attendanceAPI, holidaysAPI } from '@/lib/tasks-api'
 
 export default function AttendancePage() {
   const { user, isLoading } = useAuth()
@@ -53,20 +54,15 @@ export default function AttendancePage() {
 
   // Fetch holidays on mount
   useEffect(() => {
-    fetch('/api/holidays')
-      .then(r => {
-        if (!r.ok) throw new Error('Failed to fetch holidays')
-        return r.json()
-      })
-      .then(d => {
-        console.log('Holidays fetched:', d)
-        if (d.holidays && Array.isArray(d.holidays)) {
-          setHolidays(d.holidays.map((h: any) => ({ name: h.name, date: h.date })))
+    holidaysAPI.getAllHolidays()
+      .then(response => {
+        console.log('Holidays fetched:', response)
+        if (response.data.holidays && Array.isArray(response.data.holidays)) {
+          setHolidays(response.data.holidays.map((h: any) => ({ name: h.name, date: h.date })))
         }
       })
       .catch(err => {
         console.error('Error fetching holidays:', err)
-        // Continue without holidays - will only block weekends
         setHolidays([])
       })
   }, [])
@@ -139,13 +135,11 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!user) return
-    const t = localStorage.getItem('authToken')
-    fetch(`/api/attendance/today`, { headers: { Authorization: `Bearer ${t}` } })
-      .then(r => r.json())
-      .then(d => {
-        console.log('Attendance page - Today response:', JSON.stringify(d, null, 2))
-        console.log('Attendance page - Record:', d.attendance)
-        setTodayRecord(d.attendance || null)
+    
+    attendanceAPI.getTodayAttendance()
+      .then(response => {
+        console.log('Attendance page - Today response:', JSON.stringify(response, null, 2))
+        setTodayRecord(response.data.attendance || null)
       })
       .catch((err) => {
         console.error('Error fetching today attendance:', err)
@@ -161,8 +155,16 @@ export default function AttendancePage() {
     }
   }, [])
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>
-  if (!user)     return null
+  if (isLoading) return (
+    <PageWrapper title="Mark Attendance" subtitle="Loading...">
+      <div className="max-w-xl mx-auto px-4 sm:px-0 space-y-4 sm:space-y-5 pb-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse">
+          <div className="h-20 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    </PageWrapper>
+  )
+  if (!user) return null
 
   const handleOpenCamera = async () => {
     // Check if attendance is blocked
@@ -368,34 +370,22 @@ export default function AttendancePage() {
 
       setSubmitMsg({ type: 'success', text: 'Marking attendance...' })
 
-      const t = localStorage.getItem('authToken')
-      const res = await fetch('/api/attendance/mark', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({
-          employeeId: user.id,
-          latitude:   gpsData.latitude,
-          longitude:  gpsData.longitude,
-          accuracy:   gpsData.accuracy,
-          selfieURL,
-          address,
-        }),
+      await attendanceAPI.markAttendance({
+        latitude: gpsData.latitude,
+        longitude: gpsData.longitude,
+        accuracy: gpsData.accuracy,
+        selfieURL,
+        address,
       })
 
-      const data = await res.json()
-      if (!res.ok) {
-        setSubmitMsg({ type: 'error', text: data.error || 'Failed' })
-      } else {
-        setSubmitMsg({ type: 'success', text: '✓ Attendance marked!' })
-        setSelfieDataUrl(null)
-        setSelfieBlob(null)
-        setGpsData(null)
-        // Refresh today's record immediately
-        const t2 = localStorage.getItem('authToken')
-        const r2 = await fetch('/api/attendance/today', { headers: { Authorization: `Bearer ${t2}` } })
-        const d2 = await r2.json()
-        setTodayRecord(d2.attendance || null)
-      }
+      setSubmitMsg({ type: 'success', text: '✓ Attendance marked!' })
+      setSelfieDataUrl(null)
+      setSelfieBlob(null)
+      setGpsData(null)
+      
+      // Refresh today's record immediately
+      const response = await attendanceAPI.getTodayAttendance()
+      setTodayRecord(response.data.attendance || null)
     } catch (err: any) {
       setSubmitMsg({ type: 'error', text: err.message })
     } finally {
@@ -432,31 +422,22 @@ export default function AttendancePage() {
         address = geoData.address?.city || geoData.address?.town || geoData.address?.village || 'Unknown'
       } catch {}
 
-      const t = localStorage.getItem('authToken')
-      const res = await fetch('/api/attendance/markout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({
-          latitude: markoutGPS.latitude,
-          longitude: markoutGPS.longitude,
-          accuracy: markoutGPS.accuracy,
-          markoutSelfieURL,
-          address,
-        }),
+      await attendanceAPI.markOut({
+        latitude: markoutGPS.latitude,
+        longitude: markoutGPS.longitude,
+        accuracy: markoutGPS.accuracy,
+        markoutSelfieURL,
+        address,
       })
-      const data = await res.json()
-      if (res.ok) {
-        setSubmitMsg({ type: 'success', text: data.message || '✓ Marked out!' })
-        setMarkoutMode(false)
-        setMarkoutSelfie(null)
-        setMarkoutSelfieBlob(null)
-        setMarkoutGPS(null)
-        const r2 = await fetch('/api/attendance/today', { headers: { Authorization: `Bearer ${t}` } })
-        const d2 = await r2.json()
-        setTodayRecord(d2.attendance || null)
-      } else {
-        setSubmitMsg({ type: 'error', text: data.error || 'Failed to mark out' })
-      }
+
+      setSubmitMsg({ type: 'success', text: '✓ Marked out!' })
+      setMarkoutMode(false)
+      setMarkoutSelfie(null)
+      setMarkoutSelfieBlob(null)
+      setMarkoutGPS(null)
+      
+      const response = await attendanceAPI.getTodayAttendance()
+      setTodayRecord(response.data.attendance || null)
     } catch (err: any) {
       setSubmitMsg({ type: 'error', text: err.message })
     } finally {

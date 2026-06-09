@@ -1,0 +1,1404 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import {
+  Plus, Loader2, X, MoreHorizontal,
+  ChevronDown, Filter, Share2, Users, Lock,
+  Globe, Building2, Eye, Pencil, Copy, Link,
+  Check, Search, Trash2
+} from 'lucide-react'
+import { boardsAPI, listsAPI } from '@/lib/kanban-api'
+import { Board } from './Board'
+import { TaskDetailModal } from './TaskDetailModal'
+import { useAuth } from '@/lib/auth-context'
+
+/* ─────────────────────────── Design tokens (LIGHT THEME) ── */
+const DS = {
+  // Base surfaces — light theme
+  bg0:        '#F8F9FA', // main background (light grey)
+  bg1:        '#FFFFFF', // card / panel surface (white)
+  bg2:        '#F3F4F6', // hover row (light grey)
+  bg3:        '#E5E7EB', // border / divider (light border)
+  // Text
+  textPrimary:'#111827', // body text (dark)
+  textMuted:  '#6B7280', // secondary / labels (grey)
+  textWhite:  '#FFFFFF',
+  // Accent (blue)
+  accent:     '#3B82F6',
+  accentHover:'#60A5FA',
+  accentDark: '#2563EB',
+  // Danger
+  danger:     '#EF4444',
+  // Header — white surface
+  headerBg:   '#FFFFFF',
+  headerBorder:'#E5E7EB',
+}
+
+/* ─────────────────────────── Types ─────────────────────────── */
+interface BoardObj { id:string; name:string; description?:string; project_id:string; position:number; created_at:string }
+interface List  { id:string; public_id:string; name:string; position:number; color:string; board_id:string }
+interface Task  {
+  id:string; public_id:string; title:string; description?:string; list_id:string
+  assigned_to?:string; due_date?:string; priority:'low'|'medium'|'high'|'urgent'
+  status:string; completion_percentage:number; position:number; cover_color?:string
+  labels?:Array<{colorId:string;name?:string}>; checklist_stats?:{completed:number;total:number}
+  comment_count?:number; attachment_count?:number
+  assigned_user?:{id:string;name:string;email:string}
+}
+interface BoardData { board:BoardObj; lists:List[]; tasks:Task[]; labels:any[]; members:any[] }
+interface BoardViewProps { projectId?:string; autoLoadFirstProject?:boolean; initialBoardId?:string; onBack?:()=>void }
+
+/* ─────────────────── Avatar ───────────────────────────────── */
+const PALETTE = ['#579DFF','#60C6D2','#94C748','#E2B203','#FEA362','#F87168','#9F8FEF','#E774BB']
+function initials(u:any){ return ((u?.name||u?.email||'?').charAt(0)).toUpperCase() }
+function Avatar({ user, idx=0, size='md', overlap=false }:{ user:any; idx?:number; size?:'sm'|'md'; overlap?:boolean }){
+  const s  = size==='sm' ? 28 : 32
+  const fs = size==='sm' ? 11 : 12
+  const bg = PALETTE[idx % PALETTE.length]
+  return (
+    <div style={{
+      width:s, height:s, borderRadius:'50%', background:bg,
+      color:'#FFFFFF', display:'flex', alignItems:'center', justifyContent:'center',
+      fontWeight:700, fontSize:fs, flexShrink:0, cursor:'pointer',
+      border:`2px solid ${DS.bg1}`,
+      marginLeft: overlap ? -8 : 0,
+      transition:'transform .15s',
+    }}
+    onMouseEnter={e=>(e.currentTarget.style.transform='scale(1.12)')}
+    onMouseLeave={e=>(e.currentTarget.style.transform='scale(1)')}
+    title={user?.name||user?.email}
+    >
+      {initials(user)}
+    </div>
+  )
+}
+
+/* ─────────────────── Dropdown ─────────────────────────────── */
+function Dropdown({ trigger, panel, align='left' }:{ trigger:React.ReactNode; panel:(close:()=>void)=>React.ReactNode; align?:'left'|'right' }){
+  const [open,setOpen] = useState(false)
+  const close = ()=>setOpen(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{ if(ref.current&&!ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown',h)
+    return ()=>setOpen(false)
+  },[])
+  return (
+    <div style={{position:'relative', zIndex: open ? 1000 : 'auto'}} ref={ref}>
+      <div onClick={()=>setOpen(v=>!v)}>{trigger}</div>
+      {open && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 6px)', zIndex:1001,
+          [align==='right'?'right':'left']:0,
+        }} onClick={e=>e.stopPropagation()}>
+          {panel(close)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─────────────────── Panel shell ──────────────────────────── */
+function Panel({ children, width=280 }:{ children:React.ReactNode; width?:number }){
+  return (
+    <div style={{
+      width, background:DS.bg1, border:`1px solid ${DS.bg3}`,
+      borderRadius:8, boxShadow:'0 8px 32px rgba(0,0,0,0.55)',
+      color:DS.textPrimary, fontSize:13,
+      backdropFilter:'blur(16px)',
+      position: 'relative',
+      zIndex: 1002,
+    }}>
+      {children}
+    </div>
+  )
+}
+function PanelHeader({ title, onClose }:{ title:string; onClose:()=>void }){
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'10px 14px', borderBottom:`1px solid ${DS.bg3}` }}>
+      <span style={{ fontWeight:600, color:DS.textWhite, fontSize:13 }}>{title}</span>
+      <button onClick={onClose} style={iconBtn}><X size={14}/></button>
+    </div>
+  )
+}
+function PanelSection({ label }:{ label:string }){
+  return <p style={{ padding:'8px 14px 4px', fontSize:11, fontWeight:700,
+    textTransform:'uppercase', letterSpacing:'.06em', color:DS.textMuted }}>{label}</p>
+}
+function PanelDivider(){ return <div style={{ borderTop:`1px solid ${DS.bg3}`, margin:'4px 0' }}/> }
+function PanelRow({ icon, label, danger, onClick }:{ icon?:React.ReactNode; label:string; danger?:boolean; onClick?:()=>void }){
+  const [hov,setHov]=useState(false)
+  return (
+    <button onClick={onClick}
+      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{ width:'100%', display:'flex', alignItems:'center', gap:10,
+        padding:'7px 14px', background:hov?DS.bg2:'transparent', border:'none',
+        color:danger?DS.danger:DS.textPrimary, cursor:'pointer', textAlign:'left', fontSize:13,
+        transition:'background .12s' }}>
+      {icon && <span style={{ opacity:.8 }}>{icon}</span>}
+      {label}
+    </button>
+  )
+}
+
+/* ─────────────────── Shared styles ────────────────────────── */
+const iconBtn:React.CSSProperties = {
+  background:'transparent', border:'none', cursor:'pointer',
+  color:DS.textMuted, display:'flex', alignItems:'center', padding:4, borderRadius:4,
+  transition:'color .12s, background .12s',
+}
+const iconBtnHover:React.CSSProperties = {
+  ...iconBtn,
+  background: DS.bg2,
+}
+const headerBtn = (hov:boolean):React.CSSProperties => ({
+  display:'flex', alignItems:'center', gap:6,
+  padding:'5px 10px', borderRadius:4, border:'none', cursor:'pointer',
+  background: hov ? DS.bg2 : 'transparent',
+  color: DS.textPrimary, fontSize:13, fontWeight:500,
+  transition:'background .12s',
+})
+const inputStyle:React.CSSProperties = {
+  width:'100%', background:DS.bg0, border:`1px solid ${DS.bg3}`,
+  borderRadius:4, padding:'6px 10px', color:DS.textWhite, fontSize:13,
+  outline:'none', transition:'border-color .15s',
+  boxSizing:'border-box',
+}
+
+/* ══════════════════════ VIEW COMPONENTS ═══════════════════════ */
+
+// Table View
+function TableView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskClick:(t:Task) => void }){
+  return (
+    <div style={{ height:'100%', overflow:'auto', padding:'16px' }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+        <thead>
+          <tr style={{ borderBottom:`2px solid ${DS.bg3}` }}>
+            {['Task','List','Assigned','Priority','Due Date','Status'].map(h=>(
+              <th key={h} style={{ padding:'10px 12px', textAlign:'left', color:DS.textMuted, fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'.06em' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {boardData.tasks.map((task,i)=>{
+            const list = boardData.lists.find(l=>l.id===task.list_id)
+            return (
+              <tr key={task.id} onClick={()=>onTaskClick(task)}
+                style={{ borderBottom:`1px solid ${DS.bg3}`, cursor:'pointer', transition:'background .12s' }}
+                onMouseEnter={e=>(e.currentTarget.style.background=DS.bg2)}
+                onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                <td style={{ padding:'12px', color:DS.textPrimary, fontWeight:500 }}>{task.title}</td>
+                <td style={{ padding:'12px', color:DS.textMuted }}>{list?.name||'-'}</td>
+                <td style={{ padding:'12px' }}>
+                  {task.assigned_user
+                    ?<div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <Avatar user={task.assigned_user} size="sm" idx={i}/>
+                      <span style={{ color:DS.textPrimary, fontSize:12 }}>{task.assigned_user.name}</span>
+                    </div>
+                    :<span style={{ color:DS.textMuted }}>-</span>
+                  }
+                </td>
+                <td style={{ padding:'12px' }}>
+                  <span style={{ padding:'4px 8px', borderRadius:3, fontSize:11, fontWeight:600,
+                    background: task.priority==='urgent'?'#F87168':task.priority==='high'?'#FEA362':task.priority==='medium'?'#E2B203':'#94C748',
+                    color:'#1D2125' }}>{task.priority.toUpperCase()}</span>
+                </td>
+                <td style={{ padding:'12px', color:DS.textMuted, fontSize:12 }}>
+                  {task.due_date?new Date(task.due_date).toLocaleDateString():'-'}
+                </td>
+                <td style={{ padding:'12px' }}>
+                  <span style={{ padding:'4px 8px', borderRadius:3, fontSize:11, fontWeight:600,
+                    background:DS.bg2, color:DS.textPrimary }}>{task.status.replace('_',' ').toUpperCase()}</span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// Timeline View  
+function TimelineView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskClick:(t:Task)=>void }){
+  const tasksWithDates = boardData.tasks.filter(t=>t.due_date).sort((a,b)=>new Date(a.due_date!).getTime()-new Date(b.due_date!).getTime())
+  return (
+    <div style={{ height:'100%', overflow:'auto', padding:'24px' }}>
+      <div style={{ maxWidth:900, margin:'0 auto' }}>
+        <h3 style={{ color:DS.textWhite, fontSize:16, fontWeight:600, marginBottom:24 }}>Task Timeline</h3>
+        <div style={{ position:'relative', paddingLeft:40 }}>
+          <div style={{ position:'absolute', left:15, top:0, bottom:0, width:2, background:DS.bg3 }}/>
+          {tasksWithDates.map((task,i)=>(
+            <div key={task.id} style={{ marginBottom:24, position:'relative' }}>
+              <div style={{ position:'absolute', left:-25, top:8, width:12, height:12, borderRadius:'50%',
+                background:DS.accent, border:`3px solid ${DS.bg0}` }}/>
+              <div onClick={()=>onTaskClick(task)} style={{
+                background:DS.bg1, border:`1px solid ${DS.bg3}`, borderRadius:8, padding:16,
+                cursor:'pointer', transition:'border-color .15s' }}
+                onMouseEnter={e=>(e.currentTarget.style.borderColor=DS.accent)}
+                onMouseLeave={e=>(e.currentTarget.style.borderColor=DS.bg3)}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                  <span style={{ color:DS.textWhite, fontWeight:600, fontSize:14 }}>{task.title}</span>
+                  <span style={{ color:DS.textMuted, fontSize:11 }}>
+                    {new Date(task.due_date!).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+                  </span>
+                </div>
+                <p style={{ color:DS.textMuted, fontSize:12, margin:'0 0 8px' }}>
+                  {task.description?.slice(0,120)||(task.description?'...':'')}
+                </p>
+                {task.assigned_user&&(
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <Avatar user={task.assigned_user} size="sm" idx={i}/>
+                    <span style={{ color:DS.textPrimary, fontSize:12 }}>{task.assigned_user.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Calendar View
+function CalendarView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskClick:(t:Task)=>void }){
+  const [currentDate,setCurrentDate] = useState(new Date())
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth()
+  const firstDay = new Date(year,month,1).getDay()
+  const daysInMonth = new Date(year,month+1,0).getDate()
+  const days:Array<{day:number;tasks:Task[]}> = []
+  
+  for(let i=0;i<firstDay;i++) days.push({day:0,tasks:[]})
+  for(let d=1;d<=daysInMonth;d++){
+    const dayTasks = boardData.tasks.filter(t=>{
+      if(!t.due_date) return false
+      const dd = new Date(t.due_date)
+      return dd.getFullYear()===year && dd.getMonth()===month && dd.getDate()===d
+    })
+    days.push({day:d,tasks:dayTasks})
+  }
+  
+  return (
+    <div style={{ height:'100%', overflow:'auto', padding:'16px' }}>
+      <div style={{ maxWidth:1200, margin:'0 auto' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <h3 style={{ color:DS.textWhite, fontSize:18, fontWeight:600, margin:0 }}>
+            {currentDate.toLocaleDateString('en-US',{month:'long',year:'numeric'})}
+          </h3>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={()=>setCurrentDate(new Date(year,month-1))}
+              style={{ padding:'6px 12px', background:DS.bg2, border:`1px solid ${DS.bg3}`, borderRadius:5,
+                color:DS.textPrimary, cursor:'pointer', fontSize:13 }}>← Prev</button>
+            <button onClick={()=>setCurrentDate(new Date())}
+              style={{ padding:'6px 12px', background:DS.bg2, border:`1px solid ${DS.bg3}`, borderRadius:5,
+                color:DS.textPrimary, cursor:'pointer', fontSize:13 }}>Today</button>
+            <button onClick={()=>setCurrentDate(new Date(year,month+1))}
+              style={{ padding:'6px 12px', background:DS.bg2, border:`1px solid ${DS.bg3}`, borderRadius:5,
+                color:DS.textPrimary, cursor:'pointer', fontSize:13 }}>Next →</button>
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:1, background:DS.bg3 }}>
+          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>(
+            <div key={d} style={{ padding:10, background:DS.bg1, textAlign:'center', color:DS.textMuted, fontSize:11, fontWeight:600 }}>{d}</div>
+          ))}
+          {days.map((d,i)=>(
+            <div key={i} style={{ minHeight:100, padding:8, background:d.day?DS.bg1:DS.bg0, position:'relative' }}>
+              {d.day>0&&<span style={{ color:DS.textPrimary, fontSize:13, fontWeight:500 }}>{d.day}</span>}
+              <div style={{ marginTop:6, display:'flex', flexDirection:'column', gap:2 }}>
+                {d.tasks.slice(0,3).map(t=>(
+                  <div key={t.id} onClick={()=>onTaskClick(t)}
+                    style={{ padding:'3px 6px', background:DS.bg2, borderRadius:3, fontSize:10,
+                      color:DS.textPrimary, cursor:'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {t.title}
+                  </div>
+                ))}
+                {d.tasks.length>3&&<span style={{ fontSize:9, color:DS.textMuted, paddingLeft:6 }}>+{d.tasks.length-3} more</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Dashboard View
+function DashboardView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskClick:(t:Task)=>void }){
+  const stats = {
+    total: boardData.tasks.length,
+    completed: boardData.tasks.filter(t=>t.status==='done').length,
+    inProgress: boardData.tasks.filter(t=>t.status==='in_progress').length,
+    todo: boardData.tasks.filter(t=>t.status==='todo').length,
+    overdue: boardData.tasks.filter(t=>t.due_date&&new Date(t.due_date)<new Date()&&t.status!=='done').length,
+  }
+  const byPriority = {
+    urgent: boardData.tasks.filter(t=>t.priority==='urgent').length,
+    high: boardData.tasks.filter(t=>t.priority==='high').length,
+    medium: boardData.tasks.filter(t=>t.priority==='medium').length,
+    low: boardData.tasks.filter(t=>t.priority==='low').length,
+  }
+  const completion = stats.total>0?Math.round((stats.completed/stats.total)*100):0
+  
+  return (
+    <div style={{ height:'100%', overflow:'auto', padding:'20px' }}>
+      <div style={{ maxWidth:1200, margin:'0 auto' }}>
+        <h3 style={{ color:DS.textWhite, fontSize:20, fontWeight:700, marginBottom:24 }}>Project Dashboard</h3>
+        
+        {/* Stats Cards */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:16, marginBottom:24 }}>
+          {[
+            {label:'Total Tasks',value:stats.total,color:DS.accent},
+            {label:'Completed',value:stats.completed,color:'#94C748'},
+            {label:'In Progress',value:stats.inProgress,color:'#E2B203'},
+            {label:'Overdue',value:stats.overdue,color:'#F87168'},
+          ].map(s=>(
+            <div key={s.label} style={{ background:DS.bg1, border:`1px solid ${DS.bg3}`, borderRadius:10, padding:20 }}>
+              <p style={{ color:DS.textMuted, fontSize:11, textTransform:'uppercase', letterSpacing:'.06em', margin:'0 0 8px' }}>{s.label}</p>
+              <p style={{ color:s.color, fontSize:32, fontWeight:700, margin:0 }}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+        
+        {/* Progress */}
+        <div style={{ background:DS.bg1, border:`1px solid ${DS.bg3}`, borderRadius:10, padding:20, marginBottom:24 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+            <span style={{ color:DS.textWhite, fontSize:14, fontWeight:600 }}>Overall Completion</span>
+            <span style={{ color:DS.accent, fontSize:18, fontWeight:700 }}>{completion}%</span>
+          </div>
+          <div style={{ height:12, background:DS.bg0, borderRadius:6, overflow:'hidden' }}>
+            <div style={{ height:'100%', background:`linear-gradient(90deg, ${DS.accent} 0%, ${DS.accentHover} 100%)`,
+              width:`${completion}%`, transition:'width .3s' }}/>
+          </div>
+        </div>
+        
+        {/* Priority Breakdown */}
+        <div style={{ background:DS.bg1, border:`1px solid ${DS.bg3}`, borderRadius:10, padding:20, marginBottom:24 }}>
+          <p style={{ color:DS.textWhite, fontSize:14, fontWeight:600, margin:'0 0 16px' }}>Tasks by Priority</p>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+            {[
+              {label:'Urgent',value:byPriority.urgent,color:'#F87168'},
+              {label:'High',value:byPriority.high,color:'#FEA362'},
+              {label:'Medium',value:byPriority.medium,color:'#E2B203'},
+              {label:'Low',value:byPriority.low,color:'#94C748'},
+            ].map(p=>(
+              <div key={p.label} style={{ textAlign:'center' }}>
+                <div style={{ width:60, height:60, margin:'0 auto 8px', borderRadius:'50%',
+                   background:p.color+'22', border:`3px solid ${p.color}`,
+                  display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <span style={{ color:p.color, fontSize:20, fontWeight:700 }}>{p.value}</span>
+                </div>
+                <span style={{ color:DS.textMuted, fontSize:11 }}>{p.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Recent Tasks */}
+        <div style={{ background:DS.bg1, border:`1px solid ${DS.bg3}`, borderRadius:10, padding:20 }}>
+          <p style={{ color:DS.textWhite, fontSize:14, fontWeight:600, margin:'0 0 12px' }}>Recent Tasks</p>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {boardData.tasks.slice(0,5).map((t,i)=>(
+              <div key={t.id} onClick={()=>onTaskClick(t)}
+                style={{ padding:12, background:DS.bg2, borderRadius:6, cursor:'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'space-between', transition:'background .12s' }}
+                onMouseEnter={e=>(e.currentTarget.style.background=DS.bg2)}
+                onMouseLeave={e=>(e.currentTarget.style.background=DS.bg2)}>
+                <span style={{ color:DS.textPrimary, fontSize:13 }}>{t.title}</span>
+                <span style={{ padding:'3px 8px', borderRadius:3, fontSize:10, fontWeight:600,
+                  background:t.priority==='urgent'?'#F87168':t.priority==='high'?'#FEA362':t.priority==='medium'?'#E2B203':'#94C748',
+                  color:'#1D2125' }}>{t.priority.toUpperCase()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Map View (placeholder)
+function MapView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskClick:(t:Task)=>void }){
+  return (
+    <div style={{ height:'100%', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ textAlign:'center', maxWidth:400 }}>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke={DS.textMuted} style={{ margin:'0 auto 16px' }}>
+          <path d="M1 6 L5 4 L12 7 L19 4 L23 6 L23 18 L19 20 L12 17 L5 20 L1 18 Z" strokeWidth="2"/>
+        </svg>
+        <h3 style={{ color:DS.textWhite, margin:'0 0 8px', fontSize:18 }}>Map View</h3>
+        <p style={{ color:DS.textMuted, margin:0, fontSize:13 }}>
+          Map view requires location data for tasks.<br/>
+          This feature is coming soon!
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ════════════════════════ MAIN COMPONENT ════════════════════ */
+export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId, onBack }:BoardViewProps){
+  const { user } = useAuth()
+  const role = user?.role
+
+  const [loading,setLoading]       = useState(true)
+  const [boards,setBoards]         = useState<BoardObj[]>([])
+  const [selectedBoard,setSelectedBoard] = useState<BoardObj|null>(null)
+  
+  // Board creation state
+  const [showCreateBoardModal, setShowCreateBoardModal] = useState(false)
+  const [newBoardName, setNewBoardName] = useState('')
+  const [newBoardDesc, setNewBoardDesc] = useState('')
+  const [creatingBoard, setCreatingBoard] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const handleCreateBoard = async () => {
+    if (!newBoardName.trim() || !currentProjectId) return
+    setCreatingBoard(true)
+    setErrorMsg('')
+    try {
+      const r = await boardsAPI.createBoard({
+        project_id: currentProjectId,
+        name: newBoardName.trim(),
+        description: newBoardDesc.trim() || undefined
+      })
+      if (r.success && r.data) {
+        const board = (r.data as any).board || r.data
+        setBoards(prev => [...prev, board])
+        setSelectedBoard(board)
+        setShowCreateBoardModal(false)
+        setNewBoardName('')
+        setNewBoardDesc('')
+      } else {
+        setErrorMsg(r.error || 'Failed to create board')
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error creating board')
+    } finally {
+      setCreatingBoard(false)
+    }
+  }
+  const [boardData,setBoardData]   = useState<BoardData|null>(null)
+  const [showCreateList,setShowCreateList] = useState(false)
+  const [newListName,setNewListName] = useState('')
+  const [creating,setCreating]     = useState(false)
+  const [currentProjectId]         = useState<string|null>(projectId||null)
+  const [error,setError]           = useState<string|null>(null)
+  const [selectedTask,setSelectedTask] = useState<any|null>(null)
+  const [editingName,setEditingName] = useState(false)
+  const [nameInput,setNameInput]   = useState('')
+  const [linkCopied,setLinkCopied] = useState(false)
+  const [memberSearch,setMemberSearch] = useState('')
+  const [inviteEmail,setInviteEmail] = useState('')
+  const [currentView,setCurrentView] = useState<'board'|'table'|'timeline'|'calendar'|'dashboard'|'map'>('board')
+  const [filterMembers, setFilterMembers] = useState<Set<string>>(new Set())
+  const [filterLabels, setFilterLabels] = useState<Set<string>>(new Set())
+  const [filterDueDate, setFilterDueDate] = useState<Set<string>>(new Set())
+  const [boardLabels, setBoardLabels] = useState<any[]>([])
+  const [allUsers, setAllUsers] = useState<any[]>([]) // persistent user list — never gets reset
+
+  /* hover states for header buttons */
+  const [hov,setHov] = useState<Record<string,boolean>>({})
+  const H = (k:string) => ({ onMouseEnter:()=>setHov(p=>({...p,[k]:true})), onMouseLeave:()=>setHov(p=>({...p,[k]:false})) })
+
+  /* ── init ── */
+  useEffect(() => {
+    if (currentProjectId) fetchBoards()
+    // Fetch all users once on mount — persists across board changes
+    fetchAllUsers()
+  }, [currentProjectId]);
+
+  const fetchAllUsers = async () => {
+    try {
+      const token = localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const res = await fetch(`${BACKEND_URL}/api/v1/users`, { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) {
+        const u = await res.json()
+        const users = u.data?.users || []
+        if (users.length > 0) {
+          setAllUsers(users)
+          console.log(`✓ Loaded ${users.length} users for board members display`)
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch all users:', err)
+    }
+  }
+
+// Poll board details every 2 minutes (reduced frequency to avoid rate limits)
+useEffect(() => {
+  if (!selectedBoard) return;
+  const poll = setInterval(() => {
+    boardsAPI.getBoardDetails(selectedBoard.id).then(r => {
+      if (r.success && r.data) {
+        const data = r.data as BoardData
+        // Always use allUsers to ensure all employees appear in header
+        data.members = allUsers.length > 0 ? allUsers : data.members
+        setBoardData(data)
+      }
+    }).catch(() => {
+      // Silently ignore polling errors to prevent disruption
+    });
+  }, 120_000);
+  return () => clearInterval(poll);
+}, [selectedBoard?.id, allUsers]);
+
+  const fetchBoards = async ()=>{
+    if(!currentProjectId){ setError('No project ID'); setLoading(false); return }
+    try{
+      const r = await boardsAPI.getProjectBoards(currentProjectId)
+      if(r.success&&r.data){
+        const list = Array.isArray(r.data)?r.data:((r.data as any).boards||[])
+        setBoards(list)
+        if(list.length>0){
+          // If an initialBoardId is provided, select that board; otherwise select first
+          const target = initialBoardId ? list.find((b:BoardObj)=>b.id===initialBoardId) : null
+          setSelectedBoard(target || list[0])
+        }
+        else { setError('No boards found. Create one first.'); setLoading(false) }
+      } else { setError(r.error||'Failed to fetch boards'); setLoading(false) }
+    } catch { setError('Error fetching boards'); setLoading(false) }
+  }
+
+  const fetchBoardData = async (boardId:string)=>{
+    setLoading(true)
+    try{
+      const r = await boardsAPI.getBoardDetails(boardId)
+      if(r.success&&r.data){
+        const data = r.data as BoardData
+        const token = localStorage.getItem('authToken')
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+        
+        // ALWAYS fetch and use ALL users as members (ensures header shows all employees consistently)
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/v1/users`,{ headers:{ Authorization:`Bearer ${token}` }})
+          if(res.ok){
+            const u=await res.json()
+            const users = u.data?.users || []
+            if (users.length > 0) {
+              data.members = users
+              setAllUsers(users) // persist for polling and future use
+            } else if (allUsers.length > 0) {
+              data.members = allUsers // use cached if API returns empty
+            }
+          } else if (allUsers.length > 0) {
+            data.members = allUsers // fallback to cached on error
+          }
+        } catch {
+          // Network error - use cached users
+          if (allUsers.length > 0) data.members = allUsers
+        }
+        
+        // Fetch board-specific labels
+        try {
+          const labelsRes = await fetch(`${BACKEND_URL}/api/v1/labels/boards/${boardId}`,{ headers:{ Authorization:`Bearer ${token}` }})
+          if(labelsRes.ok){ 
+            const labelsData=await labelsRes.json()
+            setBoardLabels(labelsData.data?.labels||[])
+          }
+        } catch {
+          // Silently ignore label fetch errors
+        }
+        
+        setBoardData(data); setNameInput(data.board.name); setLoading(false)
+      } else { setError(r.error||'Failed to load'); setLoading(false) }
+    } catch { setError('Error loading board'); setLoading(false) }
+  }
+
+  useEffect(()=>{ if(selectedBoard) fetchBoardData(selectedBoard.id) },[selectedBoard])
+
+  const createList = async (name?: string)=>{
+    const listName = name || newListName
+    if(!listName.trim()||!selectedBoard||!currentProjectId) return
+    setCreating(true)
+    try{
+      const r = await listsAPI.createList({ project_id:currentProjectId, board_id:selectedBoard.id, name:listName, position:boardData?.lists.length||0 })
+      if(r.success&&r.data){
+        setBoardData(p=>p?{...p,lists:[...p.lists,(r.data as any).list||r.data]}:null)
+        setShowCreateList(false); setNewListName('')
+      }
+    } finally { setCreating(false) }
+  }
+
+  const saveRename = async ()=>{
+    if(!nameInput.trim()||!selectedBoard){ setEditingName(false); return }
+    try{
+      const token=localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      await fetch(`${BACKEND_URL}/api/v1/boards/${selectedBoard.id}`,{
+        method:'PUT', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+        body:JSON.stringify({name:nameInput})
+      })
+      setSelectedBoard(p=>p?{...p,name:nameInput}:null)
+      setBoards(p=>p.map(b=>b.id===selectedBoard.id?{...b,name:nameInput}:b))
+    } finally { setEditingName(false) }
+  }
+
+  const copyLink = ()=>{
+    navigator.clipboard.writeText(`${window.location.origin}/board/${selectedBoard?.id}`)
+    setLinkCopied(true); setTimeout(()=>setLinkCopied(false),2000)
+  }
+
+  const filtered = (allUsers.length > 0 ? allUsers : (boardData?.members||[])).filter((m:any)=>{
+    const u=m.user||m, q=memberSearch.toLowerCase()
+    return (u.name||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q)
+  })
+
+  const filteredTasks = boardData?.tasks.filter(task => {
+    let matchesMember = filterMembers.size === 0
+    if (!matchesMember && task.assigned_user) {
+      matchesMember = filterMembers.has(task.assigned_user.id) || filterMembers.has(task.assigned_user.email)
+    }
+
+    let matchesLabel = filterLabels.size === 0
+    if (!matchesLabel) {
+      const taskLabelIds = task.labels?.map(l => l.colorId) || []
+      matchesLabel = taskLabelIds.some(id => filterLabels.has(id))
+    }
+
+    let matchesDue = filterDueDate.size === 0
+    if (!matchesDue) {
+      if (!task.due_date && filterDueDate.has('No due date')) matchesDue = true
+      else if (task.due_date) {
+        const due = new Date(task.due_date)
+        const now = new Date()
+        if (filterDueDate.has('Overdue') && due < now && task.status !== 'done') matchesDue = true
+        
+        const tomorrow = new Date(now)
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        if (filterDueDate.has('Due next day') && due.toDateString() === tomorrow.toDateString()) matchesDue = true
+        
+        const nextWeek = new Date(now)
+        nextWeek.setDate(nextWeek.getDate() + 7)
+        if (filterDueDate.has('Due next week') && due <= nextWeek && due >= now) matchesDue = true
+      }
+    }
+
+    return matchesMember && matchesLabel && matchesDue
+  }) || []
+
+  /* ══ RENDER ══ */
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%',
+      background:DS.bg0,
+      fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+
+      {/* ════════════ SIMPLIFIED HEADER ════════════ */}
+      <div style={{
+        flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:'12px 20px', gap:16,
+        background:'#FFFFFF',
+        borderBottom:`1px solid ${DS.headerBorder}`,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        position: 'relative',
+        zIndex: 100,
+      }}>
+
+        {/* LEFT - Back Button + Board Name */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, flex: 1, minWidth: 0 }}>
+          
+          {/* Back Button */}
+          <button 
+            onClick={() => onBack ? onBack() : window.history.back()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 12px', borderRadius: 6,
+              background: 'transparent', border: `1px solid ${DS.bg3}`,
+              color: DS.textPrimary, fontSize: 13, fontWeight: 500,
+              cursor: 'pointer', transition: 'all .15s',
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = DS.bg2
+              e.currentTarget.style.borderColor = DS.textMuted
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.borderColor = DS.bg3
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back
+          </button>
+
+          {/* Board Name with Dropdown Selector */}
+          <Dropdown
+            align="left"
+            trigger={
+              <button style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '6px 12px', borderRadius: 6,
+                background: 'transparent',
+                border: `1px solid ${DS.bg3}`,
+                color: '#111827', fontSize: 16, fontWeight: 700,
+                cursor: 'pointer', transition: 'all .15s',
+                maxWidth: 300,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = DS.bg2
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'transparent'
+              }}>
+                <span style={{ 
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' 
+                }}>
+                  {selectedBoard?.name || 'Untitled Board'}
+                </span>
+                <ChevronDown size={16} />
+              </button>
+            }
+            panel={close => (
+              <Panel width={250}>
+                <div style={{ padding: '8px' }}>
+                  <p style={{ 
+                    fontSize: 11, fontWeight: 700, color: DS.textMuted, 
+                    textTransform: 'uppercase', letterSpacing: '.5px', 
+                    padding: '8px 8px 4px', margin: 0 
+                  }}>
+                    Select Board
+                  </p>
+                  {boards.map(board => (
+                    <button
+                      key={board.id}
+                      onClick={() => {
+                        setSelectedBoard(board)
+                        close()
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: board.id === selectedBoard?.id ? '#EFF6FF' : 'transparent',
+                        border: 'none',
+                        borderRadius: 6,
+                        color: board.id === selectedBoard?.id ? '#3B82F6' : DS.textPrimary,
+                        fontSize: 13,
+                        fontWeight: board.id === selectedBoard?.id ? 600 : 500,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all .12s',
+                      }}
+                      onMouseEnter={e => {
+                        if (board.id !== selectedBoard?.id) {
+                          e.currentTarget.style.background = DS.bg2
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (board.id !== selectedBoard?.id) {
+                          e.currentTarget.style.background = 'transparent'
+                        }
+                      }}
+                    >
+                      <span style={{ 
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' 
+                      }}>
+                        {board.name}
+                      </span>
+                      {board.id === selectedBoard?.id && (
+                        <Check size={14} style={{ flexShrink: 0 }} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </Panel>
+            )}
+          />
+        </div>
+
+        {/* RIGHT - Members + Actions */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink: 0 }}>
+
+          {/* Avatars — show ALL employees */}
+          <div style={{ display:'flex', alignItems:'center' }}>
+            {(allUsers.length > 0 ? allUsers : (boardData?.members||[])).slice(0,5).map((m:any,i:number)=>(
+              <div
+                key={i}
+                title={(m.user||m)?.name || (m.user||m)?.email}
+                style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444'][i % 5],
+                  color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 700, fontSize: 12, flexShrink: 0, cursor: 'pointer',
+                  border: '2px solid #FFFFFF',
+                  marginLeft: i > 0 ? -8 : 0,
+                  transition: 'transform .15s',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1) translateY(-2px)')}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+              >
+                {((m.user||m)?.name || (m.user||m)?.email || '?').charAt(0).toUpperCase()}
+              </div>
+            ))}
+            {(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length > 5 && (
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%', background: '#F3F4F6',
+                color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700, border: '2px solid #FFFFFF', marginLeft: -8,
+                cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              }} title={`${(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length - 5} more members`}>
+                +{(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length - 5}
+              </div>
+            )}
+          </div>
+
+          {/* Invite Members */}
+          <Dropdown
+            align="right"
+            trigger={
+              <button {...H('inv')} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 12px', borderRadius: 6,
+                background: hov['inv'] ? DS.bg2 : 'transparent',
+                border: `1px solid ${DS.bg3}`,
+                color: DS.textPrimary, fontSize: 13, fontWeight: 500,
+                cursor: 'pointer', transition: 'all .15s',
+              }}>
+                <Users size={14}/> Members
+              </button>
+            }
+            panel={close=>(
+              <Panel width={300}>
+                <PanelHeader title="Board Members" onClose={close}/>
+                <div style={{ padding:'12px 14px' }}>
+                  <p style={{ fontSize:12, color:DS.textMuted, margin:'0 0 8px', fontWeight:600 }}>
+                    All Members ({boardData?.members?.length||0})
+                  </p>
+                  <div style={{ position:'relative', marginBottom:10 }}>
+                    <Search size={12} style={{ position:'absolute', left:8, top:'50%', transform:'translateY(-50%)', color:DS.textMuted, pointerEvents:'none' }}/>
+                    <input placeholder="Search members…" value={memberSearch}
+                      onChange={e=>setMemberSearch(e.target.value)}
+                      style={{ ...inputStyle, paddingLeft:26 }}
+                      onFocus={e=>(e.target.style.borderColor='#111827')}
+                      onBlur={e=>(e.target.style.borderColor=DS.bg3)}/>
+                  </div>
+                  <div style={{ maxHeight:220, overflowY:'auto' }}>
+                    {filtered.length===0
+                      ? <p style={{ color:DS.textMuted, textAlign:'center', padding:'16px 0', fontSize:12 }}>No members found</p>
+                      : filtered.map((m:any,i:number)=>{
+                          const u=m.user||m
+                          const colors = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#EC4899','#14B8A6','#6366F1']
+                          return (
+                            <div key={u.id||i} style={{ display:'flex', alignItems:'center', gap:10,
+                              padding:'7px 4px', borderRadius:6, cursor:'default', transition:'background .12s' }}
+                              onMouseEnter={e=>(e.currentTarget.style.background='#F3F4F6')}
+                              onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                              <div style={{
+                                width:32, height:32, borderRadius:'50%',
+                                background: colors[i % colors.length],
+                                color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                                fontWeight:700, fontSize:12, flexShrink:0,
+                              }}>
+                                {(u.name||u.email||'?').charAt(0).toUpperCase()}
+                              </div>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <p style={{ margin:0, color:'#111827', fontWeight:600, fontSize:13,
+                                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.name}</p>
+                                <p style={{ margin:0, color:DS.textMuted, fontSize:11,
+                                  overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.email}</p>
+                              </div>
+                              <span style={{ fontSize:10, color:'#6B7280', background:'#F3F4F6', padding:'2px 6px', borderRadius:4, flexShrink:0 }}>
+                                {u.role || 'member'}
+                              </span>
+                            </div>
+                          )
+                        })
+                    }
+                  </div>
+                </div>
+              </Panel>
+            )}
+          />
+
+          {/* Filter */}
+          <Dropdown
+            align="right"
+            trigger={
+              <button {...H('fil')} style={headerBtn(hov['fil']||false)}>
+                <Filter size={13}/> <span>Filter</span>
+              </button>
+            }
+            panel={close=>(
+              <Panel width={280}>
+                <PanelHeader title="Filter" onClose={close}/>
+                <div style={{ padding:'8px 0' }}>
+                  <PanelSection label="Members"/>
+                  {(boardData?.members||[]).slice(0,5).map((m:any,i:number)=>{
+                    const u=m.user||m
+                    const isChecked = filterMembers.has(u.id) || filterMembers.has(u.email)
+                    return (
+                      <label key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 14px',
+                        cursor:'pointer', transition:'background .12s', borderRadius: 4 }}
+                        onMouseEnter={e=>(e.currentTarget.style.background='#F3F4F6')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                        <input type="checkbox" style={{ accentColor:'#3B82F6' }}
+                          checked={isChecked}
+                          onChange={(e)=>{
+                            const newSet = new Set(filterMembers)
+                            if (e.target.checked) newSet.add(u.id || u.email)
+                            else newSet.delete(u.id || u.email)
+                            setFilterMembers(newSet)
+                          }}/>
+                        <div style={{
+                          width: 26, height: 26, borderRadius: '50%',
+                          background: ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444'][i % 5],
+                          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontWeight: 700, fontSize: 11, flexShrink: 0,
+                        }}>
+                          {(u.name||u.email||'?').charAt(0).toUpperCase()}
+                        </div>
+                        <span style={{ fontSize:13, color:'#111827', fontWeight: 500 }}>{u.name||u.email}</span>
+                      </label>
+                    )
+                  })}
+                  <PanelDivider/>
+                  <PanelSection label="Labels"/>
+                  {boardLabels.length === 0 ? (
+                    <div style={{ padding:'8px 14px', fontSize:12, color:DS.textMuted, fontStyle:'italic' }}>
+                      No labels yet
+                    </div>
+                  ) : (
+                    boardLabels.map(label=>(
+                      <label key={label.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 14px',
+                        cursor:'pointer', transition:'background .12s', borderRadius: 4 }}
+                        onMouseEnter={e=>(e.currentTarget.style.background='#F3F4F6')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                        <input type="checkbox" style={{ accentColor:'#3B82F6' }}
+                          checked={filterLabels.has(label.id)}
+                          onChange={(e)=>{
+                            const newSet = new Set(filterLabels)
+                            if (e.target.checked) newSet.add(label.id)
+                            else newSet.delete(label.id)
+                            setFilterLabels(newSet)
+                          }}/>
+                        <span style={{ 
+                          padding:'4px 10px', borderRadius:4, fontSize:11, fontWeight:700,
+                          textTransform:'uppercase', letterSpacing:'.3px',
+                          background:label.color||'#E2B203', color:'#FFFFFF'
+                        }}>
+                          {label.name||'Unnamed'}
+                        </span>
+                      </label>
+                    ))
+                  )}
+                  <PanelDivider/>
+                  <PanelSection label="Due Date"/>
+                  {['Overdue','Due next day','Due next week','No due date'].map(d=>(
+                    <label key={d} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 14px',
+                      cursor:'pointer', transition:'background .12s', borderRadius: 4 }}
+                      onMouseEnter={e=>(e.currentTarget.style.background='#F3F4F6')}
+                      onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                      <input type="checkbox" style={{ accentColor:'#3B82F6' }}
+                        checked={filterDueDate.has(d)}
+                        onChange={(e)=>{
+                          const newSet = new Set(filterDueDate)
+                          if (e.target.checked) newSet.add(d)
+                          else newSet.delete(d)
+                          setFilterDueDate(newSet)
+                        }}/>
+                      <span style={{ fontSize:13, color:'#111827' }}>{d}</span>
+                    </label>
+                  ))}
+                </div>
+              </Panel>
+            )}
+          />
+
+          {/* Share */}
+          <Dropdown
+            align="right"
+            trigger={
+              <button {...H('sh')} style={{
+                display:'flex', alignItems:'center', gap:6,
+                padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer',
+                background: hov['sh'] ? '#000000' : '#111827',
+                color: '#FFFFFF', fontSize:13, fontWeight:600,
+                transition:'background .15s',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              }}>
+                <Share2 size={14}/> Share
+              </button>
+            }
+            panel={close=>(
+              <Panel width={320}>
+                <PanelHeader title="Share board" onClose={close}/>
+                <div style={{ padding:'12px 14px' }}>
+                  <p style={{ fontSize:12, color:DS.textMuted, margin:'0 0 6px' }}>Invite by email</p>
+                  <div style={{ display:'flex', gap:6, marginBottom:14 }}>
+                    <input 
+                      type="email" 
+                      placeholder="email@example.com"
+                      value={inviteEmail}
+                      onChange={e => setInviteEmail(e.target.value)}
+                      style={{ ...inputStyle, flex:1 }}
+                      onFocus={e=>(e.target.style.borderColor=DS.accent)}
+                      onBlur={e=>(e.target.style.borderColor=DS.bg3)}/>
+                    <button 
+                      onClick={async () => {
+                        if (!inviteEmail.trim()) return
+                        // Add your invite logic here
+                        alert(`Invitation sent to ${inviteEmail}`)
+                        setInviteEmail('')
+                      }}
+                      style={{ padding:'6px 12px', background:DS.accentDark, color:'#fff',
+                        border:'none', borderRadius:4, cursor:'pointer', fontSize:13, fontWeight:600 }}>
+                      Send
+                    </button>
+                  </div>
+                  <PanelDivider/>
+                  <p style={{ fontSize:12, color:DS.textMuted, margin:'10px 0 6px' }}>Board link</p>
+                  <div style={{ display:'flex', gap:6 }}>
+                    <input readOnly value={`${typeof window!=='undefined'?window.location.origin:''}/board/${selectedBoard?.id}`}
+                      style={{ ...inputStyle, flex:1, fontSize:11, color:DS.textMuted }}/>
+                    <button onClick={copyLink} style={{ display:'flex', alignItems:'center', gap:5,
+                      padding:'6px 12px', background:DS.bg2, color:DS.textPrimary,
+                      border:`1px solid ${DS.bg3}`, borderRadius:4, cursor:'pointer', fontSize:13,
+                      transition:'background .12s', whiteSpace:'nowrap' }}>
+                      {linkCopied?<Check size={13} style={{ color:'#61BD4F' }}/>:<Copy size={13}/>}
+                      {linkCopied?'Copied':'Copy'}
+                    </button>
+                  </div>
+                </div>
+              </Panel>
+            )}
+          />
+
+          {/* More */}
+          <Dropdown
+            align="right"
+            trigger={
+              <button {...H('more')} style={{ ...iconBtn,
+                background:hov['more']?DS.bg2:'transparent',
+                padding:'5px 6px', borderRadius:4, color:DS.textPrimary }}>
+                <MoreHorizontal size={17}/>
+              </button>
+            }
+            panel={close=>(
+              <Panel width={220}>
+                <PanelSection label="Board actions"/>
+                <PanelRow icon={<Plus size={13}/>}   label="Add list"     onClick={()=>{ setShowCreateList(true); close() }}/>
+                {role === 'admin' && (
+                  <PanelRow icon={<Pencil size={13}/>} label="Rename board" onClick={()=>{ 
+                    setNameInput(selectedBoard?.name||''); 
+                    setEditingName(true); 
+                    close() 
+                  }}/>
+                )}
+                <PanelRow icon={<Copy size={13}/>}   label="Copy board"   onClick={close}/>
+                <PanelRow icon={<Eye size={13}/>}    label="Watch"        onClick={close}/>
+                <PanelDivider/>
+                <PanelRow icon={<Trash2 size={13}/>} label="Close board" danger onClick={close}/>
+              </Panel>
+            )}
+          />
+        </div>
+      </div>
+
+      {/* ════════════ BOARD CONTENT ════════════ */}
+      <div style={{ flex:1, minHeight:0, overflow:'hidden', position: 'relative', zIndex: 1 }}>
+        {loading&&!boardData ? (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%' }}>
+            <Loader2 size={32} style={{ color:'rgba(255,255,255,0.7)', animation:'spin 1s linear infinite' }}/>
+          </div>
+        ) : error ? (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%' }}>
+            <div style={{ textAlign:'center', background:'rgba(23,27,30,0.72)', backdropFilter:'blur(16px)',
+              borderRadius:12, padding:40, border:`1px solid ${DS.bg3}`, maxWidth:360 }}>
+              <X size={44} style={{ color:DS.danger, margin:'0 auto 16px' }}/>
+              <h3 style={{ color:DS.textWhite, margin:'0 0 8px', fontSize:16 }}>No Boards Found</h3>
+              <p style={{ color:DS.textMuted, margin:'0 0 20px', fontSize:13 }}>{error}</p>
+              <button onClick={()=>{ setError(null); fetchBoards() }}
+                style={{ padding:'8px 20px', background:DS.accentDark, color:'#fff',
+                  border:'none', borderRadius:6, cursor:'pointer', fontSize:13, fontWeight:600 }}>
+                Refresh
+              </button>
+            </div>
+          </div>
+        ) : boardData ? (
+          <>
+            {currentView==='board' && (
+              <Board
+                projectId={currentProjectId||''}
+                lists={boardData.lists}
+                tasks={filteredTasks}
+                boardBackground="dark"
+                onRefresh={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
+                onAddTask={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
+                onAddList={(name)=>createList(name)}
+                onTaskClick={task=>setSelectedTask(task)}
+              />
+            )}
+            {currentView==='table' && <TableView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
+            {currentView==='timeline' && <TimelineView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
+            {currentView==='calendar' && <CalendarView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
+            {currentView==='dashboard' && <DashboardView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
+            {currentView==='map' && <MapView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
+          </>
+        ) : (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%' }}>
+            <Loader2 size={32} style={{ color:'rgba(255,255,255,0.7)' }}/>
+          </div>
+        )}
+      </div>
+
+      {/* ════════════ CREATE LIST MODAL ════════════ */}
+      {showCreateList && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)',
+          display:'flex', alignItems:'center', justifyContent:'center', zIndex:200, padding:16 }}
+          onClick={()=>setShowCreateList(false)}>
+          <div style={{ background:DS.bg1, border:`1px solid ${DS.bg3}`,
+            borderRadius:10, width:320, boxShadow:'0 16px 48px rgba(0,0,0,0.6)' }}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'12px 16px', borderBottom:`1px solid ${DS.bg3}` }}>
+              <span style={{ color:DS.textWhite, fontWeight:600, fontSize:14 }}>Add a list</span>
+              <button onClick={()=>setShowCreateList(false)} style={iconBtn}><X size={16}/></button>
+            </div>
+            <div style={{ padding:'14px 16px' }}>
+              <p style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em',
+                color:DS.textMuted, margin:'0 0 6px' }}>List name *</p>
+              <input autoFocus type="text" value={newListName}
+                onChange={e=>setNewListName(e.target.value)}
+                placeholder="e.g. To Do"
+                style={{ ...inputStyle }}
+                onFocus={e=>(e.target.style.borderColor=DS.accent)}
+                onBlur={e=>(e.target.style.borderColor=DS.bg3)}
+                onKeyDown={e=>{ if(e.key==='Enter') createList() }}/>
+            </div>
+            <div style={{ display:'flex', gap:8, padding:'0 16px 14px' }}>
+              <button onClick={() => createList()} disabled={!newListName.trim()||creating}
+                style={{ flex:1, padding:'8px 0', background:DS.accentDark, color:'#fff',
+                  border:'none', borderRadius:5, cursor:newListName.trim()&&!creating?'pointer':'not-allowed',
+                  opacity:!newListName.trim()||creating?.5:1, fontSize:13, fontWeight:600,
+                  transition:'opacity .15s' }}>
+                {creating?'Adding…':'Add list'}
+              </button>
+              <button onClick={()=>setShowCreateList(false)}
+                style={{ padding:'8px 14px', background:'transparent', color:DS.textPrimary,
+                  border:`1px solid ${DS.bg3}`, borderRadius:5, cursor:'pointer', fontSize:13,
+                  transition:'background .12s' }}
+                onMouseEnter={e=>(e.currentTarget.style.background=DS.bg2)}
+                onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════ TASK DETAIL MODAL ════════════ */}
+      {selectedTask&&selectedBoard && (
+        <TaskDetailModal
+          task={selectedTask}
+          onClose={()=>setSelectedTask(null)}
+          onUpdate={()=>{
+            boardsAPI.getBoardDetails(selectedBoard.id).then(r=>{
+              if(r.success&&r.data) {
+                const bData = r.data as BoardData
+                setBoardData(bData)
+                setSelectedTask((prev: any) => {
+                  if (!prev) return null
+                  const freshTask = bData.tasks.find(t => t.id === prev.id)
+                  return freshTask || null
+                })
+              }
+            })
+          }}
+          boardId={selectedBoard.id}
+          projectId={currentProjectId||''}
+        />
+      )}
+
+      {/* Rename Board Modal */}
+      {editingName && selectedBoard && (
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4"
+          onClick={() => setEditingName(false)}
+        >
+          <div
+            className="bg-white border border-gray-200 rounded-xl w-full max-w-[400px] shadow-2xl flex flex-col p-6"
+            style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ color: '#111827', fontSize: 16, fontWeight: 700, margin: 0 }}>Rename Board</h3>
+              <button 
+                onClick={() => setEditingName(false)} 
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: '#6B7280' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', color: '#6B7280', fontSize: 12, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase' }}>
+                  Board Name
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Enter board name..." 
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && nameInput.trim()) saveRename()
+                    if (e.key === 'Escape') setEditingName(false)
+                  }}
+                  style={{
+                    width: '100%',
+                    background: '#FFFFFF',
+                    border: '2px solid #3B82F6',
+                    borderRadius: 6,
+                    padding: '8px 12px',
+                    color: '#111827',
+                    fontSize: 14,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 8, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setEditingName(false)}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: 6,
+                    color: '#374151',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveRename}
+                  disabled={!nameInput.trim()}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#2563EB',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    opacity: !nameInput.trim() ? 0.6 : 1
+                  }}
+                >
+                  Rename
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Board Modal */}
+      {showCreateBoardModal && (
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] p-4"
+          onClick={() => setShowCreateBoardModal(false)}
+        >
+          <div
+            className="bg-[#282E33] border border-[#454F59] rounded-xl w-full max-w-[400px] shadow-2xl flex flex-col p-6"
+            style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ color: DS.textWhite, fontSize: 16, fontWeight: 700, margin: 0 }}>Create New Board</h3>
+              <button 
+                onClick={() => setShowCreateBoardModal(false)} 
+                style={{ ...iconBtn, padding: 4 }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={{ display: 'block', color: DS.textMuted, fontSize: 12, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase' }}>
+                  Board Name
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Developers, Marketing..." 
+                  value={newBoardName}
+                  onChange={e => setNewBoardName(e.target.value)}
+                  style={inputStyle}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', color: DS.textMuted, fontSize: 12, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase' }}>
+                  Description (Optional)
+                </label>
+                <textarea 
+                  placeholder="Describe the purpose of this board..." 
+                  value={newBoardDesc}
+                  onChange={e => setNewBoardDesc(e.target.value)}
+                  rows={3}
+                  style={{ ...inputStyle, resize: 'none' }}
+                />
+              </div>
+
+              {errorMsg && (
+                <p style={{ color: DS.danger, fontSize: 12, margin: 0 }}>{errorMsg}</p>
+              )}
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 8, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowCreateBoardModal(false)}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: `1px solid ${DS.bg3}`,
+                    borderRadius: 6,
+                    color: DS.textPrimary,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateBoard}
+                  disabled={!newBoardName.trim() || creatingBoard}
+                  style={{
+                    padding: '8px 16px',
+                    background: DS.accentDark,
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    opacity: (!newBoardName.trim() || creatingBoard) ? 0.6 : 1
+                  }}
+                >
+                  {creatingBoard ? 'Creating...' : 'Create Board'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+

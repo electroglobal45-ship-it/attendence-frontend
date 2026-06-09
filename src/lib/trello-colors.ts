@@ -17,7 +17,7 @@ export const LABEL_COLORS = [
 ] as const
 
 export const BOARD_BACKGROUNDS = [
-  { id: 'blue', name: 'Blue', color: '#0079BF', gradient: 'linear-gradient(135deg, #0079BF 0%, #026AA7 100%)' },
+  { id: 'blue', name: 'Blue', color: '#0079BF', gradient: 'linear-gradient(135deg, #4A90E2 0%, #357ABD 100%)' },
   { id: 'orange', name: 'Orange', color: '#D29034', gradient: 'linear-gradient(135deg, #D29034 0%, #B36D1F 100%)' },
   { id: 'green', name: 'Green', color: '#519839', gradient: 'linear-gradient(135deg, #519839 0%, #3D7527 100%)' },
   { id: 'red', name: 'Red', color: '#B04632', gradient: 'linear-gradient(135deg, #B04632 0%, #8C3626 100%)' },

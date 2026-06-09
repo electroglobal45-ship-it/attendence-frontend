@@ -29,52 +29,65 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    // Get the task and verify permissions
+    // Get the task - minimal query to avoid column issues
     const { data: task, error: taskError } = await supabase
       .from('tasks')
-      .select(`
-        id,
-        title,
-        list_id,
-        project_id,
-        position,
-        projects!inner(
-          id,
-          project_members!inner(role, status)
-        )
-      `)
+      .select('id, list_id, project_id, position, status')
       .eq('id', task_id)
-      .eq('projects.project_members.user_id', user.userId)
-      .eq('projects.project_members.status', 'active')
       .single()
 
     if (taskError || !task) {
-      return NextResponse.json({ error: 'Task not found or access denied' }, { status: 404 })
+      console.error('Task lookup error:', taskError)
+      return NextResponse.json({ 
+        error: 'Task not found', 
+        details: taskError?.message,
+        code: taskError?.code
+      }, { status: 404 })
     }
 
-    // Check permissions (members and admins can move tasks)
-    const projects = task.projects as any
-    const projectMembers = Array.isArray(projects) 
-      ? projects[0]?.project_members 
-      : projects?.project_members
-    const userRole = Array.isArray(projectMembers) 
-      ? projectMembers[0]?.role || 'viewer'
-      : projectMembers?.role || 'viewer'
-    
-    if (userRole === 'viewer') {
-      return NextResponse.json({ error: 'Insufficient permissions to move task' }, { status: 403 })
+    // Verify user has access to this project
+    const { data: projectMember } = await supabase
+      .from('project_members')
+      .select('role, status')
+      .eq('project_id', task.project_id)
+      .eq('user_id', user.userId)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    // Check if user is admin from the users table
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.userId)
+      .single()
+
+    // Allow if user is project member or admin
+    if (!projectMember && userData?.role !== 'admin') {
+      return NextResponse.json({ error: 'Access denied to this project' }, { status: 403 })
     }
 
     // Verify destination list belongs to the same project
     const { data: destinationList, error: listError } = await supabase
       .from('project_lists')
-      .select('id, project_id')
+      .select('id, name, project_id')
       .eq('id', destination_list_id)
       .eq('project_id', task.project_id)
       .single()
 
     if (listError || !destinationList) {
       return NextResponse.json({ error: 'Invalid destination list' }, { status: 400 })
+    }
+
+    // Get source list name if moving between lists
+    let sourceListName = ''
+    if (task.list_id && task.list_id !== destination_list_id) {
+      const { data: sourceList } = await supabase
+        .from('project_lists')
+        .select('name')
+        .eq('id', task.list_id)
+        .single()
+      
+      sourceListName = sourceList?.name || 'Unknown List'
     }
 
     const isMovingBetweenLists = task.list_id !== destination_list_id
@@ -117,26 +130,26 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        let mappedStatus = task.status
+        if (destinationList && destinationList.name) {
+          const destLower = destinationList.name.toLowerCase()
+          if (destLower.includes('todo') || destLower.includes('to do')) mappedStatus = 'todo'
+          else if (destLower.includes('progress') || destLower.includes('doing')) mappedStatus = 'in_progress'
+          else if (destLower.includes('done') || destLower.includes('complete')) mappedStatus = 'done'
+          else if (destLower.includes('block')) mappedStatus = 'blocked'
+        }
+
         // 3. Move the task to new list and position
         const { data: updatedTask, error: updateError } = await supabase
           .from('tasks')
           .update({
             list_id: destination_list_id,
             position: destination_position,
-            ...(destination_list_id !== task.list_id && {
-              updated_at: new Date().toISOString()
-            })
+            status: mappedStatus,
+            updated_at: new Date().toISOString()
           })
           .eq('id', task_id)
-          .select(`
-            id,
-            public_id,
-            title,
-            list_id,
-            position,
-            status,
-            updated_at
-          `)
+          .select('id, public_id, list_id, position, status, updated_at')
           .single()
 
         if (updateError) {
@@ -150,13 +163,15 @@ export async function POST(req: NextRequest) {
             task_id: task.id,
             user_id: user.userId,
             action: 'moved',
-            description: `Task moved to different list`,
+            description: `moved this card to ${destinationList.name}`,
             old_values: { 
-              list_id: task.list_id, 
+              list_id: task.list_id,
+              list_name: sourceListName,
               position: task.position 
             },
             new_values: { 
-              list_id: destination_list_id, 
+              list_id: destination_list_id,
+              list_name: destinationList.name,
               position: destination_position 
             }
           })
@@ -228,15 +243,7 @@ export async function POST(req: NextRequest) {
             updated_at: new Date().toISOString()
           })
           .eq('id', task_id)
-          .select(`
-            id,
-            public_id,
-            title,
-            list_id,
-            position,
-            status,
-            updated_at
-          `)
+          .select('id, public_id, list_id, position, status, updated_at')
           .single()
 
         if (updateError) {

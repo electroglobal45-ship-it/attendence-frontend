@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { TrelloBoard } from '@/components/trello/TrelloBoard'
-import { TrelloBoardHeader } from '@/components/trello/TrelloBoardHeader'
+import { Board } from '@/components/board/Board'
+import { BoardHeader } from '@/components/board/BoardHeader'
 import { TaskModal } from '@/components/tasks/TaskModal'
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal'
 import { 
@@ -22,6 +22,7 @@ interface Project {
     name: string
     position: number
     color: string
+    board_id?: string
   }>
   tasks: Array<{
     id: string
@@ -167,7 +168,7 @@ export default function ProjectBoardPage() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Trello Board Header */}
-      <TrelloBoardHeader
+      <BoardHeader
         boardName={project.name}
         boardColor={project.color}
         projectId={project.id}
@@ -223,7 +224,7 @@ export default function ProjectBoardPage() {
 
       {/* Trello Board */}
       <div className="flex-1 overflow-hidden">
-        <TrelloBoard
+        <Board
           projectId={project.id}
           lists={project.project_lists}
           tasks={project.tasks}

@@ -9,13 +9,15 @@ import {
   AlertCircle, RefreshCw, UserPlus, Settings, FileText, Lock,
 } from 'lucide-react'
 import Link from 'next/link'
+import { adminAPI, leavesAPI } from '@/lib/tasks-api'
 
 interface Stats {
   totalEmployees: number
   presentToday: number
   absentToday: number
   pendingLeaves: number
-  pendingShortLeaves: number
+  activeTasks?: number
+  pendingShortLeaves?: number
 }
 
 interface AttendanceRecord {
@@ -49,24 +51,14 @@ interface ShortLeave {
   users?: { name: string; email: string }
 }
 
-interface OptInWorkingDay {
-  id: string
-  employee_id: string
-  date: string
-  type: string
-  reason: string | null
-  users?: { name: string; email: string }
-}
-
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
   const [leaves, setLeaves] = useState<LeaveRequest[]>([])
   const [shortLeaves, setShortLeaves] = useState<ShortLeave[]>([])
-  const [optInWorkingDays, setOptInWorkingDays] = useState<OptInWorkingDay[]>([])
   const [loading, setLoading] = useState(true)
   const [approvingId, setApprovingId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'shortLeaves' | 'optInDays'>('attendance')
+  const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'shortLeaves'>('attendance')
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showMarkModal, setShowMarkModal] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<{ id: string; name: string; date: string } | null>(null)
@@ -74,53 +66,20 @@ export default function AdminDashboard() {
   const [markReason, setMarkReason] = useState('')
   const [marking, setMarking] = useState(false)
 
-  const token = () => localStorage.getItem('authToken')
-
   const fetchAll = async () => {
-    const authToken = token()
-    
-    if (!authToken) {
-      console.error('No auth token found, redirecting to login')
-      window.location.href = '/login'
-      return
-    }
-
     setLoading(true)
     try {
-      const [statsRes, attendanceRes, leavesRes, shortLeavesRes, optInRes] = await Promise.all([
-        fetch('/api/admin/stats', { headers: { Authorization: `Bearer ${authToken}` } }),
-        fetch('/api/admin/attendance', { headers: { Authorization: `Bearer ${authToken}` } }),
-        fetch('/api/admin/leaves', { headers: { Authorization: `Bearer ${authToken}` } }),
-        fetch('/api/short-leave?all=true', { headers: { Authorization: `Bearer ${authToken}` } }),
-        fetch('/api/admin/opt-in-working-days', { headers: { Authorization: `Bearer ${authToken}` } }),
+      const [statsRes, attendanceRes, leavesRes, shortLeavesRes] = await Promise.all([
+        adminAPI.getDashboardStats(),
+        adminAPI.getAllAttendance({ date: new Date().toISOString().split('T')[0] }),
+        adminAPI.getAllLeaves('pending'),
+        leavesAPI.getShortLeaves(true)
       ])
 
-      // Check for 401 Unauthorized - token expired or invalid
-      if (statsRes.status === 401 || attendanceRes.status === 401 || leavesRes.status === 401 || shortLeavesRes.status === 401 || optInRes.status === 401) {
-        console.error('Unauthorized - token invalid or expired, redirecting to login')
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
-        return
-      }
-
-      if (statsRes.ok) setStats(await statsRes.json())
-      if (attendanceRes.ok) {
-        const data = await attendanceRes.json()
-        setAttendance(data.records || [])
-      }
-      if (leavesRes.ok) {
-        const data = await leavesRes.json()
-        setLeaves(data.leaves || [])
-      }
-      if (shortLeavesRes.ok) {
-        const data = await shortLeavesRes.json()
-        setShortLeaves(data.shortLeaves || [])
-      }
-      if (optInRes.ok) {
-        const data = await optInRes.json()
-        setOptInWorkingDays(data.optIns || [])
-      }
+      setStats(statsRes.data)
+      setAttendance(attendanceRes.data.records || [])
+      setLeaves(leavesRes.data.leaves || [])
+      setShortLeaves(shortLeavesRes.data.leaves || [])
     } catch (err) {
       console.error('Fetch error:', err)
     } finally {
@@ -131,64 +90,28 @@ export default function AdminDashboard() {
   useEffect(() => { fetchAll() }, [])
 
   const handleLeaveAction = async (leaveId: string, status: 'approved' | 'rejected') => {
-    const authToken = token()
-    if (!authToken) {
-      window.location.href = '/login'
-      return
-    }
-
     setApprovingId(leaveId)
     try {
-      const res = await fetch('/api/leaves/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ leaveRequestId: leaveId, status }),
-      })
-      
-      if (res.status === 401) {
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
-        return
-      }
-
-      if (res.ok) {
-        setLeaves((prev) => prev.map((l) => (l.id === leaveId ? { ...l, status } : l)))
-        const statsRes = await fetch('/api/admin/stats', { headers: { Authorization: `Bearer ${authToken}` } })
-        if (statsRes.ok) setStats(await statsRes.json())
-      }
+      await adminAPI.updateLeaveStatus(leaveId, status)
+      setLeaves((prev) => prev.map((l) => (l.id === leaveId ? { ...l, status } : l)))
+      const statsRes = await adminAPI.getDashboardStats()
+      setStats(statsRes.data)
+    } catch (error) {
+      console.error('Failed to update leave:', error)
     } finally {
       setApprovingId(null)
     }
   }
 
   const handleShortLeaveAction = async (shortLeaveId: string, status: 'approved' | 'rejected') => {
-    const authToken = token()
-    if (!authToken) {
-      window.location.href = '/login'
-      return
-    }
-
     setApprovingId(shortLeaveId)
     try {
-      const res = await fetch('/api/short-leave/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ shortLeaveId, status }),
-      })
-      
-      if (res.status === 401) {
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
-        return
-      }
-
-      if (res.ok) {
-        setShortLeaves((prev) => prev.map((sl) => (sl.id === shortLeaveId ? { ...sl, status } : sl)))
-        const statsRes = await fetch('/api/admin/stats', { headers: { Authorization: `Bearer ${authToken}` } })
-        if (statsRes.ok) setStats(await statsRes.json())
-      }
+      await leavesAPI.updateShortLeaveStatus(shortLeaveId, status)
+      setShortLeaves((prev) => prev.map((sl) => (sl.id === shortLeaveId ? { ...sl, status } : sl)))
+      const statsRes = await adminAPI.getDashboardStats()
+      setStats(statsRes.data)
+    } catch (error) {
+      console.error('Failed to update short leave:', error)
     } finally {
       setApprovingId(null)
     }
@@ -204,44 +127,21 @@ export default function AdminDashboard() {
   const handleMarkAttendance = async () => {
     if (!selectedEmployee) return
 
-    const authToken = token()
-    if (!authToken) {
-      window.location.href = '/login'
-      return
-    }
-
     setMarking(true)
     try {
-      const res = await fetch('/api/admin/mark-attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({
-          employeeId: selectedEmployee.id,
-          date: selectedEmployee.date,
-          action: markAction,
-          reason: markReason || undefined,
-        }),
+      await adminAPI.markAttendance({
+        employeeId: selectedEmployee.id,
+        date: selectedEmployee.date,
+        action: markAction,
+        reason: markReason || undefined,
       })
 
-      if (res.status === 401) {
-        localStorage.removeItem('authToken')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
-        return
-      }
-
-      if (res.ok) {
-        setShowMarkModal(false)
-        setSelectedEmployee(null)
-        setMarkReason('')
-        fetchAll()
-      } else {
-        const data = await res.json()
-        alert(data.error || 'Failed to mark attendance')
-      }
-    } catch (err) {
-      console.error('Mark attendance error:', err)
-      alert('Failed to mark attendance')
+      setShowMarkModal(false)
+      setSelectedEmployee(null)
+      setMarkReason('')
+      fetchAll()
+    } catch (error: any) {
+      alert(error.message || 'Failed to mark attendance')
     } finally {
       setMarking(false)
     }
@@ -265,35 +165,8 @@ export default function AdminDashboard() {
 
   const fmtTime = (iso: string | null) => {
     if (!iso) return '—'
-    
-    try {
-      let timestamp = iso.trim()
-      
-      // Handle PostgreSQL timestamp format: "2026-05-25 04:48:53.851+00"
-      if (timestamp.includes(' ') && !timestamp.includes('T')) {
-        timestamp = timestamp.replace(' ', 'T')
-        if (timestamp.endsWith('+00')) {
-          timestamp = timestamp.replace('+00', 'Z')
-        } else if (!timestamp.endsWith('Z')) {
-          timestamp = timestamp + 'Z'
-        }
-      } else if (!timestamp.endsWith('Z') && !timestamp.includes('+')) {
-        timestamp = timestamp + 'Z'
-      }
-      
-      const date = new Date(timestamp)
-      if (isNaN(date.getTime())) return '—'
-      
-      return date.toLocaleTimeString('en-IN', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: true, 
-        timeZone: 'Asia/Kolkata' 
-      })
-    } catch (error) {
-      console.error('Error formatting time:', error, iso)
-      return '—'
-    }
+    const timestamp = iso.endsWith('Z') ? iso : iso + 'Z'
+    return new Date(timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
   }
 
   return (
@@ -375,22 +248,19 @@ export default function AdminDashboard() {
 
         {/* Tabs */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="flex border-b border-gray-200 overflow-x-auto">
-            {(['attendance', 'leaves', 'shortLeaves', 'optInDays'] as const).map((tab) => (
+          <div className="flex border-b border-gray-200">
+            {(['attendance', 'leaves', 'shortLeaves'] as const).map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition whitespace-nowrap ${activeTab === tab ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition ${activeTab === tab ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}>
-                {tab === 'attendance' ? <Clock size={16} /> : tab === 'leaves' ? <Calendar size={16} /> : tab === 'optInDays' ? <Calendar size={16} /> : <Clock size={16} />}
-                {tab === 'attendance' ? "Today's Attendance" : tab === 'leaves' ? 'Leave Requests' : tab === 'optInDays' ? 'Working Day Requests' : 'Short Leaves'}
+                {tab === 'attendance' ? <Clock size={16} /> : tab === 'leaves' ? <Calendar size={16} /> : <Clock size={16} />}
+                {tab === 'attendance' ? "Today's Attendance" : tab === 'leaves' ? 'Leave Requests' : 'Short Leaves'}
                 {tab === 'attendance' && <span className="ml-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">{attendance.length}</span>}
                 {tab === 'leaves' && (stats?.pendingLeaves ?? 0) > 0 && (
                   <span className="ml-1 px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">{stats?.pendingLeaves} pending</span>
                 )}
                 {tab === 'shortLeaves' && (stats?.pendingShortLeaves ?? 0) > 0 && (
                   <span className="ml-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-bold">{stats?.pendingShortLeaves} pending</span>
-                )}
-                {tab === 'optInDays' && optInWorkingDays.length > 0 && (
-                  <span className="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">{optInWorkingDays.length}</span>
                 )}
               </button>
             ))}
@@ -533,44 +403,6 @@ export default function AdminDashboard() {
                             <span className="text-xs text-gray-400 capitalize">{sl.status}</span>
                           )}
                         </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-
-          {/* Opt-In Working Days tab */}
-          {activeTab === 'optInDays' && (
-            <div className="overflow-x-auto">
-              {loading ? (
-                <div className="py-12 text-center text-gray-400 text-sm">Loading...</div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      {['Employee', 'Date', 'Day Type', 'Reason'].map(h => (
-                        <th key={h} className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {optInWorkingDays.length === 0 ? (
-                      <tr><td colSpan={4} className="px-6 py-10 text-center text-gray-400">No employees opted in for Sunday/Saturday work</td></tr>
-                    ) : optInWorkingDays.map((opt) => (
-                      <tr key={opt.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <p className="font-medium text-gray-900">{opt.users?.name ?? opt.employee_id}</p>
-                          <p className="text-xs text-gray-400">{opt.users?.email}</p>
-                        </td>
-                        <td className="px-6 py-4 text-gray-700">{opt.date}</td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium capitalize">
-                            {opt.type.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600 max-w-xs"><p className="truncate">{opt.reason || '—'}</p></td>
                       </tr>
                     ))}
                   </tbody>

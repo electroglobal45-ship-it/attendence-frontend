@@ -9,6 +9,7 @@ import { ChangePasswordModal } from '@/components/ChangePasswordModal'
 import { Clock, Calendar, DollarSign, CheckCircle, ArrowRight, Lock } from 'lucide-react'
 import { format } from 'date-fns'
 import { formatTimeIST } from '@/lib/time-utils'
+import { attendanceAPI } from '@/lib/tasks-api'
 
 export default function EmployeeDashboard() {
   const { user, isLoading } = useAuth()
@@ -23,15 +24,11 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     if (!user) return
-    const token = localStorage.getItem('authToken')
-    fetch('/api/attendance/today', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        console.log('Home - Today attendance response:', JSON.stringify(d, null, 2))
-        console.log('Home - Attendance object:', d.attendance)
-        setTodayAttendance(d.attendance || null)
+    
+    attendanceAPI.getTodayAttendance()
+      .then((response) => {
+        console.log('Home - Today attendance response:', JSON.stringify(response, null, 2))
+        setTodayAttendance(response.data.attendance || null)
       })
       .catch((err) => {
         console.error('Home - Error fetching attendance:', err)
@@ -41,12 +38,8 @@ export default function EmployeeDashboard() {
 
   // Helper to refresh attendance data
   const refreshAttendance = () => {
-    const token = localStorage.getItem('authToken')
-    fetch('/api/attendance/today', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((d) => setTodayAttendance(d.attendance || null))
+    attendanceAPI.getTodayAttendance()
+      .then((response) => setTodayAttendance(response.data.attendance || null))
       .catch(() => {})
   }
 

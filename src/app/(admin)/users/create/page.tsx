@@ -1,281 +1,283 @@
-/**
- * Admin - Create User Page
- * Admin can create new users with temporary passwords
- */
-
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, Copy, Check } from 'lucide-react'
-import { PageWrapper } from '@/components/layout/PageWrapper'
-import { useAuth } from '@/lib/auth-context'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { ArrowLeft, Loader2, Menu } from 'lucide-react'
+import { usersAPI } from '@/lib/tasks-api'
 
 export default function CreateUserPage() {
   const router = useRouter()
-  const { user, isLoading } = useAuth()
-  const [token, setToken] = useState('')
-  const [userRole, setUserRole] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
-  const [copiedPassword, setCopiedPassword] = useState(false)
-
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [loading, setLoading] = useState(false)
+  
   const [formData, setFormData] = useState({
     email: '',
     name: '',
+    password: '',
+    confirmPassword: '',
+    role: 'employee' as 'admin' | 'employee',
     category: 'regular',
+    department: '',
+    designation: '',
     monthly_salary: '',
-    joining_date: new Date().toISOString().split('T')[0],
+    joining_date: new Date().toISOString().split('T')[0]
   })
-
-  const [createdUser, setCreatedUser] = useState<{
-    id: string
-    email: string
-    name: string
-    tempPassword: string
-  } | null>(null)
-
-  // Check authentication
-  useEffect(() => {
-    if (isLoading) return
-
-    if (!user) {
-      router.push('/login')
-      return
-    }
-
-    if (user.role !== 'admin') {
-      router.push('/home')
-      return
-    }
-
-    setToken(localStorage.getItem('authToken') || '')
-    setUserRole(user.role)
-    setLoading(false)
-  }, [user, isLoading, router])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
-    setSuccess(false)
-    setSubmitting(true)
 
+    if (formData.password !== formData.confirmPassword) {
+      alert('Passwords do not match')
+      return
+    }
+
+    if (formData.password.length < 6) {
+      alert('Password must be at least 6 characters')
+      return
+    }
+
+    setLoading(true)
     try {
-      const response = await fetch('/api/auth/create-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          email: formData.email.toLowerCase(),
-          name: formData.name,
-          category: formData.category,
-          monthly_salary: formData.monthly_salary ? parseInt(formData.monthly_salary) : 0,
-          joining_date: formData.joining_date,
-        }),
+      const response = await usersAPI.createUser({
+        email: formData.email,
+        name: formData.name,
+        password: formData.password,
+        role: formData.role,
+        category: formData.category,
+        department: formData.department || undefined,
+        designation: formData.designation || undefined,
+        monthly_salary: formData.monthly_salary ? parseFloat(formData.monthly_salary) : undefined,
+        joining_date: formData.joining_date
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to create user')
-        setSubmitting(false)
-        return
+      if (response.success) {
+        alert(`User created successfully!\n\nEmail: ${formData.email}\nPassword: ${formData.password}\n\nMake sure to save these credentials!`)
+        router.push('/users')
       }
-
-      setCreatedUser({
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.name,
-        tempPassword: data.tempPassword,
-      })
-
-      setSuccess(true)
-      setFormData({
-        email: '',
-        name: '',
-        category: 'regular',
-        monthly_salary: '',
-        joining_date: new Date().toISOString().split('T')[0],
-      })
-    } catch (err) {
-      setError('Failed to create user. Please try again.')
-      console.error(err)
+    } catch (error: any) {
+      alert(`Error: ${error.message}`)
     } finally {
-      setSubmitting(false)
+      setLoading(false)
     }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedPassword(true)
-    setTimeout(() => setCopiedPassword(false), 2000)
-  }
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
-  }
-
-  if (userRole !== 'admin') {
-    return <div className="min-h-screen flex items-center justify-center">Access Denied</div>
-  }
-
   return (
-    <PageWrapper title="Create New User" subtitle="Add a new employee to the system">
-      <div className="max-w-2xl">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile Menu */}
+        <div className="lg:hidden px-4 py-3 bg-white border-b">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-gray-100 rounded-lg">
+            <Menu size={24} />
+          </button>
+        </div>
 
-        {/* Success Message with Temporary Password */}
-        {success && createdUser && (
-          <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex gap-3 mb-4">
-              <Check size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-green-700">User created successfully!</p>
-                <p className="text-sm text-green-600 mt-1">Share the temporary password with the employee</p>
-              </div>
+        {/* Header */}
+        <div className="bg-white border-b px-6 py-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Create New User</h1>
+              <p className="text-sm text-gray-600">Add a new admin or employee to the system</p>
             </div>
+          </div>
+        </div>
 
-            <div className="bg-white border border-green-200 rounded p-4 space-y-3">
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-2xl mx-auto">
+            <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
               <div>
-                <p className="text-xs text-gray-600 font-medium">Email</p>
-                <p className="text-sm text-black font-mono">{createdUser.email}</p>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="John Doe"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
+
               <div>
-                <p className="text-xs text-gray-600 font-medium">Name</p>
-                <p className="text-sm text-black font-mono">{createdUser.name}</p>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="john@example.com"
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
-              <div>
-                <p className="text-xs text-gray-600 font-medium mb-2">Temporary Password</p>
-                <div className="flex gap-2">
-                  <p className="text-sm text-black font-mono bg-gray-50 px-3 py-2 rounded flex-1 break-all">
-                    {createdUser.tempPassword}
-                  </p>
-                  <button
-                    onClick={() => copyToClipboard(createdUser.tempPassword)}
-                    className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition flex items-center gap-2"
-                  >
-                    {copiedPassword ? <Check size={16} /> : <Copy size={16} />}
-                  </button>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">At least 6 characters</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Confirm Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-700">
-                <strong>Note:</strong> Employee must change this password on first login
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Role <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.role === 'admin' ? 'Full system access' : 'Limited access'}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="regular">Regular</option>
+                    <option value="contract">Contract</option>
+                    <option value="intern">Intern</option>
+                  </select>
+                </div>
               </div>
-            </div>
+
+              {formData.role === 'employee' && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Department
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                        placeholder="Engineering, Sales, etc."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Designation
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.designation}
+                        onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                        placeholder="Software Engineer, Manager, etc."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Monthly Salary
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.monthly_salary}
+                        onChange={(e) => setFormData({ ...formData, monthly_salary: e.target.value })}
+                        placeholder="50000"
+                        min="0"
+                        step="0.01"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-900 mb-2">
+                        Joining Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.joining_date}
+                        onChange={(e) => setFormData({ ...formData, joining_date: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  disabled={loading}
+                  className="flex-1 px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create User'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-
-        {/* Create User Form */}
-        {!success && (
-          <form onSubmit={handleSubmit} className="border border-gray-200 rounded-lg p-6 space-y-6">
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">Email *</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
-                placeholder="employee@company.com"
-                required
-              />
-            </div>
-
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">Full Name *</label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
-                placeholder="John Doe"
-                required
-              />
-            </div>
-
-            {/* Category */}
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">Category</label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
-              >
-                <option value="regular">Regular</option>
-                <option value="contract">Contract</option>
-                <option value="intern">Intern</option>
-              </select>
-            </div>
-
-            {/* Monthly Salary */}
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">Monthly Salary</label>
-              <input
-                type="number"
-                name="monthly_salary"
-                value={formData.monthly_salary}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
-                placeholder="0"
-                min="0"
-              />
-            </div>
-
-            {/* Joining Date */}
-            <div>
-              <label className="block text-sm font-medium text-black mb-2">Joining Date</label>
-              <input
-                type="date"
-                name="joining_date"
-                value={formData.joining_date}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
-              />
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-400 transition"
-            >
-              {submitting ? 'Creating User...' : 'Create User'}
-            </button>
-          </form>
-        )}
-
-        {/* Create Another Button */}
-        {success && (
-          <button
-            onClick={() => setSuccess(false)}
-            className="w-full py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition"
-          >
-            Create Another User
-          </button>
-        )}
+        </div>
       </div>
-    </PageWrapper>
+    </div>
   )
 }

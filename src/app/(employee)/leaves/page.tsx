@@ -5,6 +5,7 @@ import { PageWrapper } from '@/components/layout/PageWrapper'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { leavesAPI } from '@/lib/tasks-api'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -43,8 +44,6 @@ export default function LeavesPage() {
   const [success,     setSuccess]     = useState<string | null>(null)
   const [error,       setError]       = useState<string | null>(null)
 
-  const token = () => localStorage.getItem('authToken')
-
   // Leave form
   const { register: regLeave, handleSubmit: handleLeave, reset: resetLeave, formState: { errors: leaveErrors } } =
     useForm<LeaveForm>({ resolver: zodResolver(leaveSchema) })
@@ -54,40 +53,55 @@ export default function LeavesPage() {
     useForm<ShortLeaveForm>({ resolver: zodResolver(shortLeaveSchema) })
 
   useEffect(() => {
-    fetch('/api/leaves/apply', { headers: { Authorization: `Bearer ${token()}` } })
-      .then(r => r.json()).then(d => setLeaves(d.leaves || []))
-    fetch('/api/short-leave', { headers: { Authorization: `Bearer ${token()}` } })
-      .then(r => r.json()).then(d => setShortLeaves(d.shortLeaves || []))
+    // Fetch full/half day leaves
+    leavesAPI.getLeaveRequests()
+      .then(response => setLeaves(response.data.leaves || []))
+      .catch(err => console.error('Failed to fetch leaves:', err))
+
+    // Fetch short leaves
+    leavesAPI.getShortLeaves()
+      .then(response => setShortLeaves(response.data.leaves || []))
+      .catch(err => console.error('Failed to fetch short leaves:', err))
   }, [])
 
   const onLeaveSubmit = async (data: LeaveForm) => {
     setLoading(true); setError(null); setSuccess(null)
-    const res = await fetch('/api/leaves/apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(data),
-    })
-    const result = await res.json()
-    setLoading(false)
-    if (!res.ok) { setError(result.error); return }
-    setSuccess(result.message || 'Leave applied successfully')
-    resetLeave()
-    setLeaves(prev => [result.leaveRequest, ...prev])
+    try {
+      const response = await leavesAPI.applyLeave({
+        type: data.leaveType,
+        start_date: data.startDate,
+        end_date: data.endDate,
+        reason: data.reason
+      })
+      setSuccess('Leave applied successfully')
+      resetLeave()
+      setLeaves(prev => [response.data.leave, ...prev])
+    } catch (err: any) {
+      setError(err.message || 'Failed to apply leave')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const onShortLeaveSubmit = async (data: ShortLeaveForm) => {
     setLoading(true); setError(null); setSuccess(null)
-    const res = await fetch('/api/short-leave', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-      body: JSON.stringify(data),
-    })
-    const result = await res.json()
-    setLoading(false)
-    if (!res.ok) { setError(result.error); return }
-    setSuccess(result.message || 'Short leave applied')
-    resetShort()
-    setShortLeaves(prev => [result.shortLeave, ...prev])
+    try {
+      // Get today's date for short leave
+      const today = new Date().toISOString().split('T')[0]
+      
+      const response = await leavesAPI.requestShortLeave({
+        date: today,
+        short_leave_type: data.type,
+        reason: data.reason
+      })
+      setSuccess('Short leave applied successfully')
+      resetShort()
+      setShortLeaves(prev => [response.data.leave, ...prev])
+    } catch (err: any) {
+      setError(err.message || 'Failed to apply short leave')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -238,9 +252,9 @@ export default function LeavesPage() {
                     ) : shortLeaves.map(sl => (
                       <tr key={sl.id} className="hover:bg-gray-50">
                         <td className="px-3 sm:px-4 py-3 whitespace-nowrap">{sl.date}</td>
-                        <td className="px-3 sm:px-4 py-3 capitalize whitespace-nowrap">{sl.type}</td>
+                        <td className="px-3 sm:px-4 py-3 capitalize whitespace-nowrap">{sl.short_leave_type || sl.type}</td>
                         <td className="px-3 sm:px-4 py-3 text-gray-600 max-w-xs truncate">{sl.reason || '—'}</td>
-                        <td className="px-3 sm:px-4 py-3">{sl.attendance_value}</td>
+                        <td className="px-3 sm:px-4 py-3">{sl.attendance_value ?? '—'}</td>
                         <td className="px-3 sm:px-4 py-3"><span className={statusBadge(sl.status)}>{sl.status}</span></td>
                       </tr>
                     ))}

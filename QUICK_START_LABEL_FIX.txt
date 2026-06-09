@@ -1,0 +1,87 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                 LABEL FIX - QUICK START GUIDE                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+⚠️  IMPORTANT: You MUST run the SQL migration first!
+
+┌──────────────────────────────────────────────────────────────────┐
+│ STEP 1: Add labels column to database                           │
+└──────────────────────────────────────────────────────────────────┘
+
+1. Open Supabase Dashboard: https://app.supabase.com
+2. Select your project
+3. Click "SQL Editor" in left sidebar
+4. Click "New Query"
+5. Copy ALL content from: ADD_LABELS_COLUMN_MIGRATION.sql
+6. Paste into SQL Editor
+7. Click "RUN" button
+8. Verify output shows success
+
+┌──────────────────────────────────────────────────────────────────┐
+│ STEP 2: Restart backend server                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+Open terminal in backend folder and run:
+   cd backend
+   npm run dev
+
+┌──────────────────────────────────────────────────────────────────┐
+│ STEP 3: Test it works                                           │
+└──────────────────────────────────────────────────────────────────┘
+
+1. Open Kanban board in your app
+2. Click any task card
+3. Click "+ Add Label" button
+4. Select "PRIORITY" label
+5. Label appears with red background
+6. Close modal
+7. Refresh page (F5)
+8. Open same task
+9. ✅ Label is still there!
+
+┌──────────────────────────────────────────────────────────────────┐
+│ WHAT WAS FIXED                                                   │
+└──────────────────────────────────────────────────────────────────┘
+
+BEFORE:
+- Click label → appears temporarily
+- Refresh page → label disappears ❌
+- Labels not saved to database
+
+AFTER:
+- Click label → saves immediately to database
+- Refresh page → labels persist ✅
+- All 8 predefined labels available
+
+┌──────────────────────────────────────────────────────────────────┐
+│ TROUBLESHOOTING                                                  │
+└──────────────────────────────────────────────────────────────────┘
+
+ERROR: "column labels does not exist"
+→ Run the SQL migration in Supabase
+
+ERROR: Labels disappear after refresh
+→ Check SQL migration ran successfully
+→ Restart backend server
+
+ERROR: Can't click labels
+→ Check browser console for errors
+→ Verify backend is running on port 5000
+
+┌──────────────────────────────────────────────────────────────────┐
+│ AVAILABLE LABELS                                                 │
+└──────────────────────────────────────────────────────────────────┘
+
+🔴 PRIORITY (urgent tasks)
+🟠 IN PROCESS (currently working on)
+🟢 TASK COMPLETE (finished)
+🟠 TASK DELAYED (behind schedule)
+⚪ ON HOLD (paused)
+🟣 HELP NEEDED (blocked)
+🔵 COPY REVIEW NEEDED (needs review)
+🔵 WAITING ON SIGN OFF (awaiting approval)
+
+╔══════════════════════════════════════════════════════════════════╗
+║ That's it! Labels should now work perfectly.                    ║
+║ For detailed documentation, see: COMPLETE_LABEL_FIX_GUIDE.md    ║
+╚══════════════════════════════════════════════════════════════════╝

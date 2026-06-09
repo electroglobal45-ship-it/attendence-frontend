@@ -1,13 +1,21 @@
 /**
  * Auth Context
- * Manages Supabase authentication and user session
+ * Manages authentication with Express backend
  */
 
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
-import { signIn, signOut, getCurrentUser, onAuthStateChange } from '@/lib/supabase/auth'
-import type { User } from '@/lib/supabase/client'
+import { authAPI, getAuthToken, clearAuthToken } from '@/lib/backend-api'
+
+interface User {
+  id: string
+  email: string
+  name: string
+  role: string
+  category?: string
+  is_active?: boolean
+}
 
 interface AuthContextType {
   user: User | null
@@ -23,89 +31,139 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const syncLegacySession = (profile: User, accessToken?: string | null) => {
-    if (typeof window === 'undefined') return
-
-    localStorage.setItem('user', JSON.stringify(profile))
-    if (accessToken) {
-      localStorage.setItem('authToken', accessToken)
-    }
-  }
-
-  const clearLegacySession = () => {
-    if (typeof window === 'undefined') return
-
-    localStorage.removeItem('user')
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('supabase_session')
-  }
-
-  // Initialize from Supabase session
+  // Initialize - check if user is logged in
   useEffect(() => {
     loadUser()
-
-    // Listen to auth state changes
-    const { data: { subscription } } = onAuthStateChange((event, session) => {
-      console.log('Auth state change event:', event)
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session) {
-        loadUser()
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null)
-        clearLegacySession()
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
   }, [])
 
   const loadUser = async () => {
     setIsLoading(true)
     try {
-      console.log('Loading user from Supabase session...')
-      const result = await getCurrentUser()
+      const token = getAuthToken()
       
-      if (result.success && result.profile) {
-        const profile = result.profile as User
-        console.log('User loaded successfully:', profile.email, 'role:', profile.role)
-        setUser(profile)
-        syncLegacySession(profile, result.session?.access_token)
-      } else {
-        console.log('No user session found:', result.error)
+      if (!token) {
+        console.log('No auth token found')
         setUser(null)
-        clearLegacySession()
+        setIsLoading(false)
+        return
+      }
+
+      // First try to load from localStorage to avoid delay
+      if (typeof window !== 'undefined') {
+        const cachedUser = localStorage.getItem('user')
+        if (cachedUser) {
+          try {
+            const parsedUser = JSON.parse(cachedUser)
+            setUser(parsedUser)
+            setIsLoading(false)
+            // Verify token in background
+            verifyToken()
+            return
+          } catch (e) {
+            console.error('Failed to parse cached user')
+          }
+        }
+      }
+
+      console.log('Loading user profile from backend...')
+      const response = await authAPI.getProfile()
+      
+      if (response.success && response.data) {
+        console.log('User loaded:', response.data.email, 'role:', response.data.role)
+        setUser(response.data)
+        
+        // Cache user data
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(response.data))
+          localStorage.setItem('userRole', response.data.role)
+        }
+      } else {
+        console.log('Failed to load user profile - keeping cached user if available')
+        // Don't force logout if we have cached user - prevents rate limit issues
+        if (!user) {
+          setUser(null)
+          clearAuthToken()
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('user')
+            localStorage.removeItem('userRole')
+          }
+        }
       }
     } catch (err) {
-      console.error('Failed to load user:', err)
-      setUser(null)
-      clearLegacySession()
+      console.error('Failed to load user (network/rate limit issue):', err)
+      // Don't force logout on network errors - prevents "Too many requests" logout
+      if (!user) {
+        setUser(null)
+        clearAuthToken()
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user')
+          localStorage.removeItem('userRole')
+        }
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Background token verification (doesn't block UI)
+  const verifyToken = async () => {
+    try {
+      const response = await authAPI.getProfile()
+      if (response.success && response.data) {
+        // Update cached user data if it changed
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(response.data))
+          localStorage.setItem('userRole', response.data.role)
+        }
+        setUser(response.data)
+      }
+      // Do NOT logout on failure — silently keep the cached user
+      // Token will naturally expire and login page will handle it
+    } catch (err) {
+      // Network error or server down — keep user logged in, don't force logout
+      // This prevents "Too many requests" errors from logging users out
+      console.warn('Background token verify failed (keeping user logged in):', err)
+    }
+  }
+
   const login = async (email: string, password: string): Promise<User> => {
-    const result = await signIn(email, password)
+    try {
+      console.log('Logging in with backend API...')
+      const result = await authAPI.login(email, password)
 
-    if (!result.success) {
-      throw new Error(result.error || 'Login failed')
+      if (result.user) {
+        console.log('Login successful:', result.user.email, 'role:', result.user.role)
+        setUser(result.user)
+        
+        // Store user data and role for backward compatibility
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(result.user))
+          localStorage.setItem('userRole', result.user.role)
+        }
+        
+        return result.user
+      }
+
+      throw new Error('User data not found in response')
+    } catch (error: any) {
+      console.error('Login error:', error)
+      throw new Error(error.message || 'Login failed')
     }
-
-    if (result.profile) {
-      const profile = result.profile as User
-      setUser(profile)
-      syncLegacySession(profile, result.session?.access_token)
-      return profile
-    }
-
-    throw new Error('User profile not found')
   }
 
   const logout = async () => {
-    await signOut()
-    setUser(null)
-    clearLegacySession()
+    try {
+      await authAPI.logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      setUser(null)
+      clearAuthToken()
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('user')
+        localStorage.removeItem('userRole')
+      }
+    }
   }
 
   const refreshUser = async () => {
@@ -126,3 +184,6 @@ export function useAuth() {
   }
   return context
 }
+
+// Export User type
+export type { User }
