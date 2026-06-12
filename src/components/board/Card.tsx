@@ -46,6 +46,9 @@ interface CardProps {
 export function Card({ task, onClick, isDragging = false }: CardProps) {
   const [isHovered, setIsHovered] = useState(false)
   
+  // Detect if this is an optimistic (temporary) card
+  const isOptimistic = task.id.startsWith('temp-')
+  
   const coverColor = task.cover_color ? getCardCoverColor(task.cover_color) : null
   const hasDescription = task.description && task.description.trim().length > 0
   const hasDueDate = !!task.due_date
@@ -71,6 +74,7 @@ export function Card({ task, onClick, isDragging = false }: CardProps) {
       className={`
         bg-white border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 group
         ${isDragging ? 'rotate-2 opacity-70' : 'hover:border-blue-400'}
+        ${isOptimistic ? 'opacity-60' : ''}
       `}
       style={{
         boxShadow: isDragging 

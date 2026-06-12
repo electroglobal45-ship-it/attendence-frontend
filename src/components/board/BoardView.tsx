@@ -5,11 +5,14 @@ import {
   Plus, Loader2, X, MoreHorizontal,
   ChevronDown, Filter, Share2, Users, Lock,
   Globe, Building2, Eye, Pencil, Copy, Link,
-  Check, Search, Trash2
+  Check, Search, Trash2, LayoutGrid, Table as TableIcon,
+  Calendar as CalendarIcon, Clock, BarChart3, Map as MapIcon
 } from 'lucide-react'
 import { boardsAPI, listsAPI } from '@/lib/kanban-api'
 import { Board } from './Board'
 import { TaskDetailModal } from './TaskDetailModal'
+import { CalendarView as CalendarViewComponent } from './CalendarView'
+import { BoardSkeleton, BoardLoadingIndicator } from './BoardSkeleton'
 import { useAuth } from '@/lib/auth-context'
 
 /* ─────────────────────────── Design tokens (LIGHT THEME) ── */
@@ -226,7 +229,7 @@ function TimelineView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskCl
   return (
     <div style={{ height:'100%', overflow:'auto', padding:'24px' }}>
       <div style={{ maxWidth:900, margin:'0 auto' }}>
-        <h3 style={{ color:DS.textWhite, fontSize:16, fontWeight:600, marginBottom:24 }}>Task Timeline</h3>
+        <h3 style={{ color:DS.textPrimary, fontSize:16, fontWeight:600, marginBottom:24 }}>Task Timeline</h3>
         <div style={{ position:'relative', paddingLeft:40 }}>
           <div style={{ position:'absolute', left:15, top:0, bottom:0, width:2, background:DS.bg3 }}/>
           {tasksWithDates.map((task,i)=>(
@@ -239,7 +242,7 @@ function TimelineView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskCl
                 onMouseEnter={e=>(e.currentTarget.style.borderColor=DS.accent)}
                 onMouseLeave={e=>(e.currentTarget.style.borderColor=DS.bg3)}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-                  <span style={{ color:DS.textWhite, fontWeight:600, fontSize:14 }}>{task.title}</span>
+                  <span style={{ color:DS.textPrimary, fontWeight:600, fontSize:14 }}>{task.title}</span>
                   <span style={{ color:DS.textMuted, fontSize:11 }}>
                     {new Date(task.due_date!).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
                   </span>
@@ -253,69 +256,6 @@ function TimelineView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskCl
                     <span style={{ color:DS.textPrimary, fontSize:12 }}>{task.assigned_user.name}</span>
                   </div>
                 )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Calendar View
-function CalendarView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskClick:(t:Task)=>void }){
-  const [currentDate,setCurrentDate] = useState(new Date())
-  const year = currentDate.getFullYear()
-  const month = currentDate.getMonth()
-  const firstDay = new Date(year,month,1).getDay()
-  const daysInMonth = new Date(year,month+1,0).getDate()
-  const days:Array<{day:number;tasks:Task[]}> = []
-  
-  for(let i=0;i<firstDay;i++) days.push({day:0,tasks:[]})
-  for(let d=1;d<=daysInMonth;d++){
-    const dayTasks = boardData.tasks.filter(t=>{
-      if(!t.due_date) return false
-      const dd = new Date(t.due_date)
-      return dd.getFullYear()===year && dd.getMonth()===month && dd.getDate()===d
-    })
-    days.push({day:d,tasks:dayTasks})
-  }
-  
-  return (
-    <div style={{ height:'100%', overflow:'auto', padding:'16px' }}>
-      <div style={{ maxWidth:1200, margin:'0 auto' }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-          <h3 style={{ color:DS.textWhite, fontSize:18, fontWeight:600, margin:0 }}>
-            {currentDate.toLocaleDateString('en-US',{month:'long',year:'numeric'})}
-          </h3>
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={()=>setCurrentDate(new Date(year,month-1))}
-              style={{ padding:'6px 12px', background:DS.bg2, border:`1px solid ${DS.bg3}`, borderRadius:5,
-                color:DS.textPrimary, cursor:'pointer', fontSize:13 }}>← Prev</button>
-            <button onClick={()=>setCurrentDate(new Date())}
-              style={{ padding:'6px 12px', background:DS.bg2, border:`1px solid ${DS.bg3}`, borderRadius:5,
-                color:DS.textPrimary, cursor:'pointer', fontSize:13 }}>Today</button>
-            <button onClick={()=>setCurrentDate(new Date(year,month+1))}
-              style={{ padding:'6px 12px', background:DS.bg2, border:`1px solid ${DS.bg3}`, borderRadius:5,
-                color:DS.textPrimary, cursor:'pointer', fontSize:13 }}>Next →</button>
-          </div>
-        </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:1, background:DS.bg3 }}>
-          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>(
-            <div key={d} style={{ padding:10, background:DS.bg1, textAlign:'center', color:DS.textMuted, fontSize:11, fontWeight:600 }}>{d}</div>
-          ))}
-          {days.map((d,i)=>(
-            <div key={i} style={{ minHeight:100, padding:8, background:d.day?DS.bg1:DS.bg0, position:'relative' }}>
-              {d.day>0&&<span style={{ color:DS.textPrimary, fontSize:13, fontWeight:500 }}>{d.day}</span>}
-              <div style={{ marginTop:6, display:'flex', flexDirection:'column', gap:2 }}>
-                {d.tasks.slice(0,3).map(t=>(
-                  <div key={t.id} onClick={()=>onTaskClick(t)}
-                    style={{ padding:'3px 6px', background:DS.bg2, borderRadius:3, fontSize:10,
-                      color:DS.textPrimary, cursor:'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {t.title}
-                  </div>
-                ))}
-                {d.tasks.length>3&&<span style={{ fontSize:9, color:DS.textMuted, paddingLeft:6 }}>+{d.tasks.length-3} more</span>}
               </div>
             </div>
           ))}
@@ -345,7 +285,7 @@ function DashboardView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskC
   return (
     <div style={{ height:'100%', overflow:'auto', padding:'20px' }}>
       <div style={{ maxWidth:1200, margin:'0 auto' }}>
-        <h3 style={{ color:DS.textWhite, fontSize:20, fontWeight:700, marginBottom:24 }}>Project Dashboard</h3>
+        <h3 style={{ color:DS.textPrimary, fontSize:20, fontWeight:700, marginBottom:24 }}>Project Dashboard</h3>
         
         {/* Stats Cards */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:16, marginBottom:24 }}>
@@ -442,7 +382,7 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   const { user } = useAuth()
   const role = user?.role
 
-  const [loading,setLoading]       = useState(true)
+  const [loading,setLoading]       = useState(true)  // Start true - show loader immediately
   const [boards,setBoards]         = useState<BoardObj[]>([])
   const [selectedBoard,setSelectedBoard] = useState<BoardObj|null>(null)
   
@@ -457,24 +397,56 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
     if (!newBoardName.trim() || !currentProjectId) return
     setCreatingBoard(true)
     setErrorMsg('')
+    
+    // OPTIMISTIC UPDATE - Add board to UI immediately
+    const optimisticId = `temp-${Date.now()}`
+    const optimisticBoard = {
+      id: optimisticId,
+      name: newBoardName.trim(),
+      description: newBoardDesc.trim() || undefined,
+      project_id: currentProjectId,
+      position: boards.length,
+      created_at: new Date().toISOString()
+    }
+    
+    // Add to UI and select it
+    setBoards(prev => [...prev, optimisticBoard])
+    setSelectedBoard(optimisticBoard)
+    setShowCreateBoardModal(false)
+    const savedName = newBoardName
+    const savedDesc = newBoardDesc
+    setNewBoardName('')
+    setNewBoardDesc('')
+    
     try {
       const r = await boardsAPI.createBoard({
         project_id: currentProjectId,
-        name: newBoardName.trim(),
-        description: newBoardDesc.trim() || undefined
+        name: savedName.trim(),
+        description: savedDesc.trim() || undefined
       })
+      
       if (r.success && r.data) {
         const board = (r.data as any).board || r.data
-        setBoards(prev => [...prev, board])
+        // Replace optimistic board with real one
+        setBoards(prev => prev.map(b => b.id === optimisticId ? board : b))
         setSelectedBoard(board)
-        setShowCreateBoardModal(false)
-        setNewBoardName('')
-        setNewBoardDesc('')
       } else {
+        // Rollback on error
+        setBoards(prev => prev.filter(b => b.id !== optimisticId))
+        setSelectedBoard(boards[0] || null)
         setErrorMsg(r.error || 'Failed to create board')
+        setShowCreateBoardModal(true)
+        setNewBoardName(savedName)
+        setNewBoardDesc(savedDesc)
       }
     } catch (err: any) {
+      // Rollback on error
+      setBoards(prev => prev.filter(b => b.id !== optimisticId))
+      setSelectedBoard(boards[0] || null)
       setErrorMsg(err.message || 'Error creating board')
+      setShowCreateBoardModal(true)
+      setNewBoardName(savedName)
+      setNewBoardDesc(savedDesc)
     } finally {
       setCreatingBoard(false)
     }
@@ -612,14 +584,61 @@ useEffect(() => {
   const createList = async (name?: string)=>{
     const listName = name || newListName
     if(!listName.trim()||!selectedBoard||!currentProjectId) return
+    
+    // Show loading state
     setCreating(true)
+    
+    // OPTIMISTIC UPDATE - Add list to UI immediately
+    const optimisticId = `temp-${Date.now()}`
+    const optimisticList = {
+      id: optimisticId,
+      public_id: optimisticId,
+      name: listName.trim(),
+      position: boardData?.lists.length || 0,
+      color: '#FFFFFF',
+      board_id: selectedBoard.id
+    }
+    
+    // Add to UI immediately
+    setBoardData(p => p ? { ...p, lists: [...p.lists, optimisticList] } : null)
+    setShowCreateList(false)
+    setNewListName('')
+    
     try{
-      const r = await listsAPI.createList({ project_id:currentProjectId, board_id:selectedBoard.id, name:listName, position:boardData?.lists.length||0 })
-      if(r.success&&r.data){
-        setBoardData(p=>p?{...p,lists:[...p.lists,(r.data as any).list||r.data]}:null)
-        setShowCreateList(false); setNewListName('')
+      const r = await listsAPI.createList({ 
+        project_id: currentProjectId, 
+        board_id: selectedBoard.id, 
+        name: listName.trim(), 
+        position: boardData?.lists.length || 0 
+      })
+      
+      if(r.success && r.data){
+        // Replace optimistic list with real one
+        const realList = (r.data as any).list || r.data
+        setBoardData(p => p ? {
+          ...p,
+          lists: p.lists.map(l => l.id === optimisticId ? realList : l)
+        } : null)
+      } else {
+        // Rollback on error
+        setBoardData(p => p ? {
+          ...p,
+          lists: p.lists.filter(l => l.id !== optimisticId)
+        } : null)
+        setShowCreateList(true)
+        setNewListName(listName)
       }
-    } finally { setCreating(false) }
+    } catch(error) {
+      // Rollback on error
+      setBoardData(p => p ? {
+        ...p,
+        lists: p.lists.filter(l => l.id !== optimisticId)
+      } : null)
+      setShowCreateList(true)
+      setNewListName(listName)
+    } finally { 
+      setCreating(false) 
+    }
   }
 
   const saveRename = async ()=>{
@@ -1101,6 +1120,65 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* ════════════ VIEW SWITCHER ════════════ */}
+      {boardData && (
+        <div style={{
+          background: '#FFFFFF',
+          borderBottom: `1px solid ${DS.headerBorder}`,
+          padding: '8px 20px',
+          display: 'flex',
+          gap: 4,
+          flexShrink: 0,
+        }}>
+          {[
+            { id: 'board', icon: LayoutGrid, label: 'Board' },
+            { id: 'table', icon: TableIcon, label: 'Table' },
+            { id: 'calendar', icon: CalendarIcon, label: 'Calendar' },
+            { id: 'timeline', icon: Clock, label: 'Timeline' },
+            { id: 'dashboard', icon: BarChart3, label: 'Dashboard' },
+            { id: 'map', icon: MapIcon, label: 'Map' },
+          ].map(view => {
+            const Icon = view.icon
+            const isActive = currentView === view.id
+            return (
+              <button
+                key={view.id}
+                onClick={() => setCurrentView(view.id as any)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: isActive ? '#F0F9FF' : 'transparent',
+                  color: isActive ? '#3B82F6' : DS.textMuted,
+                  fontSize: 13,
+                  fontWeight: isActive ? 600 : 500,
+                  cursor: 'pointer',
+                  transition: 'all .15s',
+                }}
+                onMouseEnter={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = '#F3F4F6'
+                    e.currentTarget.style.color = DS.textPrimary
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = DS.textMuted
+                  }
+                }}
+              >
+                <Icon size={14} />
+                <span>{view.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* ════════════ BOARD CONTENT ════════════ */}
       <div style={{ flex:1, minHeight:0, overflow:'hidden', position: 'relative', zIndex: 1 }}>
         {loading&&!boardData ? (
@@ -1137,7 +1215,63 @@ useEffect(() => {
             )}
             {currentView==='table' && <TableView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
             {currentView==='timeline' && <TimelineView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
-            {currentView==='calendar' && <CalendarView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
+            {currentView==='calendar' && (
+              <CalendarViewComponent 
+                tasks={boardData.tasks} 
+                onTaskClick={task=>setSelectedTask(task)}
+                onCreateTask={async (date) => {
+                  if (!selectedBoard || !currentProjectId) return
+                  
+                  // Find the first list (typically "To Do")
+                  const firstList = boardData.lists[0]
+                  if (!firstList) {
+                    alert('Please create a list first')
+                    return
+                  }
+                  
+                  // Create task with the selected date
+                  const token = localStorage.getItem('authToken')
+                  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+                  
+                  try {
+                    const res = await fetch(`${BACKEND_URL}/api/v1/tasks/quick-create`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                      },
+                      body: JSON.stringify({
+                        title: `New Task`,
+                        list_id: firstList.id,
+                        project_id: currentProjectId,
+                        board_id: selectedBoard.id,
+                        due_date: date.toISOString(),
+                        position: boardData.tasks.length * 1000
+                      })
+                    })
+                    
+                    if (res.ok) {
+                      const result = await res.json()
+                      const newTask = result.data?.task || result.data
+                      
+                      // Add the new task to boardData
+                      setBoardData(prev => prev ? {
+                        ...prev,
+                        tasks: [...prev.tasks, newTask]
+                      } : null)
+                      
+                      // Open the task detail modal for editing
+                      setSelectedTask(newTask)
+                    } else {
+                      alert('Failed to create task')
+                    }
+                  } catch (err) {
+                    console.error('Error creating task:', err)
+                    alert('Error creating task')
+                  }
+                }}
+              />
+            )}
             {currentView==='dashboard' && <DashboardView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
             {currentView==='map' && <MapView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
           </>

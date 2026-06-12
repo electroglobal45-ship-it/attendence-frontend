@@ -8,6 +8,7 @@ export default function DebugAuthPage() {
   const [authToken, setAuthToken] = useState<string | null>(null)
   const [tokenInfo, setTokenInfo] = useState<any>(null)
   const [testResult, setTestResult] = useState<string>('')
+  const [localData, setLocalData] = useState<any>(null)
 
   useEffect(() => {
     // Get token from localStorage
@@ -24,6 +25,12 @@ export default function DebugAuthPage() {
         console.error('Failed to decode token:', e)
       }
     }
+
+    setLocalData({
+      authToken: localStorage.getItem('authToken') ? 'EXISTS' : 'MISSING',
+      user: localStorage.getItem('user') ? 'EXISTS' : 'MISSING',
+      supabase_session: localStorage.getItem('supabase_session') ? 'EXISTS' : 'MISSING',
+    })
   }, [])
 
   const testAPI = async () => {
@@ -114,15 +121,7 @@ export default function DebugAuthPage() {
       <div className="bg-white border rounded-lg p-4">
         <h2 className="font-semibold mb-2">LocalStorage Contents:</h2>
         <pre className="bg-gray-50 p-3 rounded text-sm overflow-auto">
-          {JSON.stringify(
-            {
-              authToken: localStorage.getItem('authToken') ? 'EXISTS' : 'MISSING',
-              user: localStorage.getItem('user') ? 'EXISTS' : 'MISSING',
-              supabase_session: localStorage.getItem('supabase_session') ? 'EXISTS' : 'MISSING',
-            },
-            null,
-            2
-          )}
+          {localData ? JSON.stringify(localData, null, 2) : 'Loading...'}
         </pre>
       </div>
     </div>

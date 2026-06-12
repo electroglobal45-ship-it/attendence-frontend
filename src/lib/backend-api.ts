@@ -7,13 +7,21 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:500
 
 // Store token in memory and localStorage
 let authToken: string | null = null
+let authRefreshToken: string | null = null
 
-export const setAuthToken = (token: string) => {
+export const setAuthToken = (token: string, refreshToken?: string) => {
   authToken = token
+  if (refreshToken) {
+    authRefreshToken = refreshToken
+  }
   if (typeof window !== 'undefined') {
     localStorage.setItem('auth_token', token)
     // Also set authToken for backward compatibility with old code
     localStorage.setItem('authToken', token)
+    
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken)
+    }
   }
 }
 
@@ -25,12 +33,22 @@ export const getAuthToken = (): string | null => {
   return authToken
 }
 
+export const getRefreshToken = (): string | null => {
+  if (authRefreshToken) return authRefreshToken
+  if (typeof window !== 'undefined') {
+    authRefreshToken = localStorage.getItem('refresh_token')
+  }
+  return authRefreshToken
+}
+
 export const clearAuthToken = () => {
   authToken = null
+  authRefreshToken = null
   if (typeof window !== 'undefined') {
     localStorage.removeItem('auth_token')
     // Also remove authToken for backward compatibility
     localStorage.removeItem('authToken')
+    localStorage.removeItem('refresh_token')
   }
 }
 
@@ -90,7 +108,7 @@ export const authAPI = {
     })
 
     if (response.data.token) {
-      setAuthToken(response.data.token)
+      setAuthToken(response.data.token, response.data.session?.refresh_token)
     }
 
     return response.data
@@ -108,6 +126,25 @@ export const authAPI = {
         is_active: boolean
       }
     }>('/api/v1/auth/me')
+  },
+
+  async refreshToken(refreshToken: string) {
+    const response = await apiRequest<{
+      success: boolean
+      data: {
+        token: string
+        session: any
+      }
+    }>('/api/v1/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    })
+
+    if (response.data?.token) {
+      setAuthToken(response.data.token, response.data.session?.refresh_token)
+    }
+
+    return response.data
   },
 
   async changePassword(oldPassword: string, newPassword: string) {

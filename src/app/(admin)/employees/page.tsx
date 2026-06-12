@@ -19,6 +19,8 @@ const employeeSchema = z.object({
 
 type EmployeeForm = z.infer<typeof employeeSchema>
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -34,11 +36,15 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('authToken')
-    fetch('/api/employees', {
+    fetch(`${BACKEND_URL}/api/v1/users`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
-      .then((d) => setEmployees(d.employees || []))
+      .then((d) => {
+        const users = d.data?.users || []
+        // Filter to show only employees or those not strictly admin
+        setEmployees(users.filter((u: any) => u.role === 'employee'))
+      })
   }, [])
 
   const onSubmit = async (data: EmployeeForm) => {
@@ -46,13 +52,18 @@ export default function EmployeesPage() {
     setError(null)
 
     const token = localStorage.getItem('authToken')
-    const res = await fetch('/api/employees', {
+    const res = await fetch(`${BACKEND_URL}/api/v1/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        monthly_salary: data.monthlySalary,
+        joining_date: data.joiningDate,
+        role: 'employee'
+      }),
     })
 
     const result = await res.json()
@@ -63,11 +74,11 @@ export default function EmployeesPage() {
       return
     }
 
-    setEmployees((prev) => [result.employee, ...prev])
+    setEmployees((prev) => [result.data.employee, ...prev])
     setShowForm(false)
     reset()
     // Show credentials popup
-    setCreatedCreds({ email: result.employee.email, tempPassword: result.tempPassword })
+    setCreatedCreds({ email: result.data.employee.email, tempPassword: result.data.tempPassword })
   }
 
   const copyPassword = () => {

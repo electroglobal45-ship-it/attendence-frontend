@@ -5,8 +5,8 @@
 
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { authAPI, getAuthToken, clearAuthToken } from '@/lib/backend-api'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
+import { authAPI, getAuthToken, getRefreshToken, clearAuthToken } from '@/lib/backend-api'
 
 interface User {
   id: string
@@ -29,35 +29,107 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)  // Start as false for instant UI
+  const hasLoadedRef = useRef(false)
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // Initialize - check if user is logged in
   useEffect(() => {
+    if (hasLoadedRef.current) return
+    hasLoadedRef.current = true
+    
+    // Load user from cache INSTANTLY (no loading state)
+    const cachedUser = localStorage.getItem('user')
+    if (cachedUser) {
+      try {
+        setUser(JSON.parse(cachedUser))
+      } catch (e) {
+        console.error('Failed to parse cached user')
+      }
+    }
+    
+    // Verify token in background
     loadUser()
+    
+    // Setup token refresh
+    setupTokenRefresh()
+    
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current)
+      }
+    }
   }, [])
 
+  // Setup automatic token refresh
+  const setupTokenRefresh = () => {
+    const token = getAuthToken()
+    if (!token) return
+    
+    try {
+      // Decode JWT to get expiry
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const expiresAt = payload.exp * 1000 // Convert to milliseconds
+      const now = Date.now()
+      const timeUntilExpiry = expiresAt - now
+      
+      // Refresh 5 minutes before expiry
+      const refreshTime = timeUntilExpiry - (5 * 60 * 1000)
+      
+      if (refreshTime > 0) {
+        refreshTimerRef.current = setTimeout(() => {
+          refreshToken()
+        }, refreshTime)
+      } else {
+        // Token already expired or will expire soon
+        refreshToken()
+      }
+    } catch (e) {
+      console.error('Failed to parse token for refresh:', e)
+    }
+  }
+
+  // Refresh the auth token
+  const refreshToken = async () => {
+    try {
+      const rToken = getRefreshToken()
+      if (!rToken) {
+        throw new Error('No refresh token available')
+      }
+
+      const response = await authAPI.refreshToken(rToken)
+      if (response && response.token) {
+        // Note: authAPI.refreshToken already calls setAuthToken
+        // Setup next refresh
+        setupTokenRefresh()
+      } else {
+        // Token invalid, logout
+        await logout()
+      }
+    } catch (error) {
+      console.error('Token refresh failed:', error)
+      await logout()
+    }
+  }
+
   const loadUser = async () => {
-    setIsLoading(true)
     try {
       const token = getAuthToken()
       
       if (!token) {
         console.log('No auth token found')
         setUser(null)
-        setIsLoading(false)
         return
       }
 
-      // First try to load from localStorage to avoid delay
+      // Load from localStorage first (instant UI update - NEVER make API call)
       if (typeof window !== 'undefined') {
         const cachedUser = localStorage.getItem('user')
         if (cachedUser) {
           try {
             const parsedUser = JSON.parse(cachedUser)
             setUser(parsedUser)
-            setIsLoading(false)
-            // Verify token in background
-            verifyToken()
+            // NO API CALL - trust cached data completely
             return
           } catch (e) {
             console.error('Failed to parse cached user')
@@ -65,11 +137,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      console.log('Loading user profile from backend...')
+      // Only fetch from API if no cache exists (first login only)
+      console.log('No cached user, fetching from backend...')
       const response = await authAPI.getProfile()
       
       if (response.success && response.data) {
-        console.log('User loaded:', response.data.email, 'role:', response.data.role)
+        console.log('User verified:', response.data.email, 'role:', response.data.role)
         setUser(response.data)
         
         // Cache user data
@@ -77,31 +150,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('user', JSON.stringify(response.data))
           localStorage.setItem('userRole', response.data.role)
         }
-      } else {
-        console.log('Failed to load user profile - keeping cached user if available')
-        // Don't force logout if we have cached user - prevents rate limit issues
-        if (!user) {
-          setUser(null)
-          clearAuthToken()
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('user')
-            localStorage.removeItem('userRole')
-          }
-        }
+        
+        // Setup token refresh
+        setupTokenRefresh()
       }
     } catch (err) {
-      console.error('Failed to load user (network/rate limit issue):', err)
-      // Don't force logout on network errors - prevents "Too many requests" logout
-      if (!user) {
-        setUser(null)
-        clearAuthToken()
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('user')
-          localStorage.removeItem('userRole')
-        }
-      }
-    } finally {
-      setIsLoading(false)
+      console.error('Failed to verify user:', err)
+      // Keep cached user, token will naturally expire
     }
   }
 
@@ -135,11 +190,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Login successful:', result.user.email, 'role:', result.user.role)
         setUser(result.user)
         
-        // Store user data and role for backward compatibility
+        // Store user data and role
         if (typeof window !== 'undefined') {
           localStorage.setItem('user', JSON.stringify(result.user))
           localStorage.setItem('userRole', result.user.role)
         }
+        
+        // Store in cookies for middleware
+        if (typeof document !== 'undefined' && result.token) {
+          document.cookie = `authToken=${result.token}; path=/; max-age=604800; SameSite=Lax`
+          document.cookie = `userRole=${result.user.role}; path=/; max-age=604800; SameSite=Lax`
+        }
+        
+        // Setup token refresh
+        setupTokenRefresh()
         
         return result.user
       }
@@ -157,16 +221,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
+      // Clear refresh timer
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current)
+      }
+      
       setUser(null)
       clearAuthToken()
       if (typeof window !== 'undefined') {
         localStorage.removeItem('user')
         localStorage.removeItem('userRole')
       }
+      
+      // Clear cookies
+      if (typeof document !== 'undefined') {
+        document.cookie = 'authToken=; path=/; max-age=0'
+        document.cookie = 'userRole=; path=/; max-age=0'
+      }
     }
   }
 
   const refreshUser = async () => {
+    hasLoadedRef.current = false
     await loadUser()
   }
 

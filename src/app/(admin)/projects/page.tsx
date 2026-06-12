@@ -16,7 +16,7 @@ interface Board {
 
 export default function BoardsPage() {
   const [boards, setBoards] = useState<Board[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)  // Start false - UI first!
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [creatingBoard, setCreatingBoard] = useState(false)
@@ -64,7 +64,11 @@ export default function BoardsPage() {
     finally { setCreatingBoard(false) }
   }
 
-  useEffect(() => { fetchBoards() }, [])
+  // Fetch data AFTER UI renders (non-blocking)
+  useEffect(() => { 
+    const timer = setTimeout(() => fetchBoards(), 0)
+    return () => clearTimeout(timer)
+  }, [])
 
   // If a board is selected, show the BoardView for that board
   if (selectedBoardId) {

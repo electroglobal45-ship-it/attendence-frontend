@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, memo, useCallback, startTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -21,12 +21,49 @@ import {
   ChevronRight,
   FolderKanban,
   CheckSquare,
+  HardDrive,
 } from 'lucide-react'
+
+const DriveBadge = memo(() => {
+  const [unread, setUnread] = useState(0)
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const token = localStorage.getItem('authToken')
+        if (!token) return
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+        const res = await fetch(`${BACKEND_URL}/api/v1/drive/shared/with-me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        const data = await res.json()
+        if (data.data?.shares) {
+          const count = data.data.shares.filter((s: any) => !s.viewed).length
+          setUnread(count)
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (unread === 0) return null
+  return (
+    <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
+      {unread > 99 ? '99+' : unread}
+    </span>
+  )
+})
+DriveBadge.displayName = 'DriveBadge'
 
 interface NavItem {
   label: string
   href: string
   icon: React.ReactNode
+  badge?: React.ReactNode
 }
 
 const employeeNav: NavItem[] = [
@@ -36,6 +73,7 @@ const employeeNav: NavItem[] = [
   { label: 'My Calendar',     href: '/my-calendar',  icon: <CalendarDays size={18} /> },
   { label: 'My Leaves',       href: '/leaves',       icon: <FileCheck size={18} /> },
   { label: 'Salary',          href: '/salary',       icon: <DollarSign size={18} /> },
+  { label: 'Drive',           href: '/drive',        icon: <HardDrive size={18} />, badge: <DriveBadge /> },
 ]
 
 const adminNav: NavItem[] = [
@@ -47,6 +85,7 @@ const adminNav: NavItem[] = [
   { label: 'Calendar',    href: '/calendar',     icon: <CalendarDays size={18} /> },
   { label: 'Holidays',    href: '/holidays',     icon: <Gift size={18} /> },
   { label: 'Reports',     href: '/reports',      icon: <FileText size={18} /> },
+  { label: 'Drive',       href: '/drive',        icon: <HardDrive size={18} />, badge: <DriveBadge /> },
   { label: 'Settings',    href: '/settings',     icon: <Settings size={18} /> },
 ]
 
@@ -55,24 +94,81 @@ interface SidebarProps {
   onClose?: () => void
 }
 
-export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
+// Memoize individual nav item to prevent re-renders
+const NavItemComponent = memo(({ 
+  item, 
+  isActive, 
+  isCollapsed, 
+  onClick 
+}: { 
+  item: NavItem
+  isActive: boolean
+  isCollapsed: boolean
+  onClick: (href: string) => void
+}) => {
+  const router = useRouter()
+  
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    onClick(item.href)
+    // Use startTransition for non-blocking navigation
+    startTransition(() => {
+      router.push(item.href)
+    })
+  }, [item.href, onClick, router])
+  
+  return (
+    <Link
+      href={item.href}
+      onClick={handleClick}
+      prefetch={true}
+      title={isCollapsed ? item.label : undefined}
+      className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
+        isActive
+          ? 'bg-gray-900 text-white'
+          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+      }`}
+    >
+      <div className="flex-shrink-0">{item.icon}</div>
+      {!isCollapsed && <span className="truncate">{item.label}</span>}
+      {!isCollapsed && item.badge}
+    </Link>
+  )
+})
+NavItemComponent.displayName = 'NavItemComponent'
+
+export const Sidebar = memo(function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
-  const router   = useRouter()
+  const router = useRouter()
   const { user, logout } = useAuth()
-  const role     = user?.role
-  const navItems = role === 'admin' ? adminNav : employeeNav
   
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false)
+  const [optimisticPathname, setOptimisticPathname] = useState<string | null>(null)
 
-  const handleLogout = () => {
-    logout()
-    router.push('/login')
-  }
+  // Clear optimistic pathname when actual pathname changes
+  useEffect(() => {
+    setOptimisticPathname(null)
+  }, [pathname])
 
-  const handleLinkClick = () => {
-    // Close mobile menu when link is clicked
+  // Get role from user object
+  const role = user?.role || 'employee'
+
+  // Memoize nav items based on role
+  const navItems = useMemo(() => {
+    return user?.role === 'admin' ? adminNav : employeeNav
+  }, [user?.role])
+
+  const handleLogout = useCallback(async () => {
+    await logout()
+    window.location.href = '/login'
+  }, [logout])
+
+  const handleLinkClick = useCallback((href: string) => {
+    setOptimisticPathname(href)
     if (onClose) onClose()
-  }
+  }, [onClose])
+
+  const currentPath = optimisticPathname || pathname
 
   return (
     <>
@@ -89,7 +185,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         fixed lg:static inset-y-0 left-0 z-50
         ${isDesktopCollapsed ? 'w-20' : 'w-64 lg:w-60'} 
         h-screen bg-white border-r border-gray-200 flex flex-col
-        transform transition-all duration-300 ease-in-out
+        transform transition-all duration-100 ease-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Mobile close button */}
@@ -128,22 +224,15 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto overflow-x-hidden">
           {navItems.map((item) => {
-            const isActive = pathname === item.href
+            const isActive = currentPath === item.href
             return (
-              <Link
+              <NavItemComponent
                 key={item.href}
-                href={item.href}
+                item={item}
+                isActive={isActive}
+                isCollapsed={isDesktopCollapsed}
                 onClick={handleLinkClick}
-                title={isDesktopCollapsed ? item.label : undefined}
-                className={`flex items-center ${isDesktopCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-              >
-                <div className="flex-shrink-0">{item.icon}</div>
-                {!isDesktopCollapsed && <span className="truncate">{item.label}</span>}
-              </Link>
+              />
             )
           })}
         </nav>
@@ -173,5 +262,4 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       </aside>
     </>
   )
-}
-
+})

@@ -497,7 +497,7 @@ export default function AttendancePage() {
   }
 
   return (
-    <PageWrapper title="Mark Attendance" subtitle={`Welcome, ${user.name}`}>
+    <PageWrapper title="Mark Attendance" subtitle={`Welcome, ${user?.name}`}>
       <div className="max-w-xl mx-auto px-4 sm:px-0 space-y-4 sm:space-y-5 pb-6">
 
         {/* Attendance Blocked Message */}

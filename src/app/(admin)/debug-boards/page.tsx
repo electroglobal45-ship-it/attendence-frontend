@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { RefreshCw } from 'lucide-react'
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+
 export default function DebugBoardsPage() {
   const [debugInfo, setDebugInfo] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -33,7 +35,7 @@ export default function DebugBoardsPage() {
 
       // Test 2: Fetch employees
       console.log('Test 2: Fetching employees...')
-      const employeesRes = await fetch('/api/employees', {
+      const employeesRes = await fetch(`${BACKEND_URL}/api/v1/users`, {
         headers: { Authorization: `Bearer ${token()}` }
       })
       info.tests.employees = {

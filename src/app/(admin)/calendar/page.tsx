@@ -20,6 +20,8 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> 
   future:              { bg: 'bg-white',      text: 'text-gray-300',   label: '' },
 }
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+
 export default function AdminCalendarPage() {
   const now = new Date()
   const [month,      setMonth]      = useState(now.getMonth() + 1)
@@ -34,10 +36,11 @@ export default function AdminCalendarPage() {
   const token = () => localStorage.getItem('authToken')
 
   useEffect(() => {
-    fetch('/api/employees', { headers: { Authorization: `Bearer ${token()}` } })
+    fetch(`${BACKEND_URL}/api/v1/users`, { headers: { Authorization: `Bearer ${token()}` } })
       .then(r => r.json())
       .then(d => {
-        const emps = d.employees || []
+        const users = d.data?.users || []
+        const emps = users.filter((u: any) => u.role === 'employee')
         setEmployees(emps)
         if (emps.length > 0) setSelectedEmp(emps[0].id)
       })

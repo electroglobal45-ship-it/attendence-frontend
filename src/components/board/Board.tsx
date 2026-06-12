@@ -2,8 +2,23 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Loader2 } from 'lucide-react'
 import { List } from './List'
+
+/* Add CSS animation for spinner */
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style')
+  style.textContent = `
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  `
+  if (!document.querySelector('style[data-board-animations]')) {
+    style.setAttribute('data-board-animations', 'true')
+    document.head.appendChild(style)
+  }
+}
 
 /* ── Design tokens — light theme ── */
 const DS = {
@@ -75,10 +90,13 @@ export function Board({
 }: BoardProps) {
   const [localLists, setLocalLists]   = useState(lists)
   const [localTasks, setLocalTasks]   = useState(tasks)
+  const [optimisticTasks, setOptimisticTasks] = useState<Task[]>([]) // New optimistic tasks
   const [isAddingList, setIsAddingList] = useState(false)
   const [newListName, setNewListName]  = useState('')
+  const [addingListLoading, setAddingListLoading] = useState(false)
   const [addHov, setAddHov]           = useState(false)
   const isUpdatingListsRef = useRef(false)
+  const isUpdatingTasksRef = useRef(false)
 
   // Only update local lists if we're not in the middle of dragging/updating
   useEffect(() => {
@@ -87,10 +105,41 @@ export function Board({
     }
   }, [lists])
   
-  useEffect(() => { setLocalTasks(tasks) }, [tasks])
+  useEffect(() => { 
+    if (!isUpdatingTasksRef.current) {
+      setLocalTasks(tasks)
+      // Clear optimistic tasks that now exist in real tasks
+      setOptimisticTasks(prev => prev.filter(opt => !tasks.some(t => t.id === opt.id || t.title === opt.title)))
+    }
+  }, [tasks])
 
-  /* ── group + sort tasks by list ── */
-  const tasksByList = localTasks.reduce((acc, task) => {
+  /* ── Add optimistic task directly to UI ── */
+  const addOptimisticTask = (listId: string, title: string) => {
+    const optimisticId = `temp-${Date.now()}`
+    // Calculate position from all tasks (local + optimistic)
+    const allCurrentTasks = [...localTasks, ...optimisticTasks]
+    const existingTasks = allCurrentTasks.filter(t => t.list_id === listId)
+    const newTask: Task = {
+      id: optimisticId,
+      public_id: optimisticId,
+      title: title.trim(),
+      list_id: listId,
+      position: existingTasks.length > 0 ? existingTasks[existingTasks.length - 1].position + 65536 : 65536,
+      priority: 'medium',
+      status: 'todo',
+      completion_percentage: 0,
+      description: '',
+      assigned_to: undefined,
+      due_date: undefined,
+      cover_color: undefined,
+      labels: [],
+    }
+    setOptimisticTasks(prev => [...prev, newTask])
+  }
+
+  /* ── group + sort tasks by list (including optimistic) ── */
+  const allTasks = [...localTasks, ...optimisticTasks]
+  const tasksByList = allTasks.reduce((acc, task) => {
     if (!acc[task.list_id]) acc[task.list_id] = []
     acc[task.list_id].push(task)
     return acc
@@ -110,17 +159,23 @@ export function Board({
       const newLists = Array.from(localLists)
       const [moved] = newLists.splice(source.index, 1)
       newLists.splice(destination.index, 0, moved)
-      setLocalLists(newLists)
+      
+      // Update positions immediately so UI doesn't revert on sort
+      const updatedLists = newLists.map((list, i) => ({
+        ...list,
+        position: (i + 1) * 65536
+      }))
+      
+      setLocalLists(updatedLists)
       
       // Update backend positions
       const token = localStorage.getItem('authToken')
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
-      const updates = newLists.map((list, i) => {
-        const newPosition = (i + 1) * 65536
+      const updates = updatedLists.map((list) => {
         return fetch(`${BACKEND_URL}/api/v1/lists/${list.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ position: newPosition }),
+          body: JSON.stringify({ position: list.position }),
         })
       })
       
@@ -136,15 +191,39 @@ export function Board({
       return
     }
 
-    const newTasks = [...localTasks]
+    const newTasks = [...allTasks]
     const idx = newTasks.findIndex(t => t.id === draggableId)
     const task = newTasks[idx]
     newTasks.splice(idx, 1)
+    
+    // Find siblings in the destination list to calculate an optimistic position
+    const destTasks = newTasks.filter(t => t.list_id === destination.droppableId)
+    destTasks.sort((a, b) => a.position - b.position)
+    
+    let newPosition = 65536
+    if (destTasks.length === 0) {
+      newPosition = 65536
+    } else if (destination.index === 0) {
+      newPosition = destTasks[0].position / 2
+    } else if (destination.index >= destTasks.length) {
+      newPosition = destTasks[destTasks.length - 1].position + 65536
+    } else {
+      newPosition = (destTasks[destination.index - 1].position + destTasks[destination.index].position) / 2
+    }
+
     task.list_id = destination.droppableId
-    task.position = destination.index
+    task.position = newPosition
     const destStart = newTasks.findIndex(t => t.list_id === destination.droppableId)
     newTasks.splice(destStart >= 0 ? destStart + destination.index : newTasks.length, 0, task)
-    setLocalTasks(newTasks)
+    
+    isUpdatingTasksRef.current = true
+    
+    // Update both local and optimistic appropriately
+    if (task.id.startsWith('temp-')) {
+      setOptimisticTasks(newTasks.filter(t => t.id.startsWith('temp-')))
+    } else {
+      setLocalTasks(newTasks.filter(t => !t.id.startsWith('temp-')))
+    }
     
     // Save to backend
     const token = localStorage.getItem('authToken')
@@ -162,12 +241,28 @@ export function Board({
       if (!res.ok) {
         console.error('Failed to move task')
         setLocalTasks(tasks)
+        isUpdatingTasksRef.current = false
+      } else {
+        onRefresh?.()
+        setTimeout(() => { isUpdatingTasksRef.current = false }, 2000)
       }
-    }).catch(() => setLocalTasks(tasks))
+    }).catch(() => {
+      setLocalTasks(tasks)
+      isUpdatingTasksRef.current = false
+    })
   }
 
-  const handleAddList = () => {
-    if (newListName.trim()) { onAddList?.(newListName.trim()); setNewListName(''); setIsAddingList(false) }
+  const handleAddList = async () => {
+    if (newListName.trim()) {
+      setAddingListLoading(true)
+      try {
+        await onAddList?.(newListName.trim())
+        setNewListName('')
+        setIsAddingList(false)
+      } finally {
+        setAddingListLoading(false)
+      }
+    }
   }
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleAddList()
@@ -196,6 +291,7 @@ export function Board({
                             tasks={tasksByList[list.id] || []}
                             onTaskClick={onTaskClick}
                             onAddTask={onAddTask}
+                            onAddOptimisticTask={addOptimisticTask}
                             onEditList={onEditList}
                             onDeleteList={onRefresh}
                             dragHandleProps={provided.dragHandleProps}
@@ -222,35 +318,43 @@ export function Board({
                         onChange={e => setNewListName(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Enter list title…"
+                        disabled={addingListLoading}
                         style={{
                           width:'100%', boxSizing:'border-box',
                           background:DS.inputBg, border:`2px solid ${DS.accent}`,
                           borderRadius:5, padding:'7px 10px',
                           color:'#111827', fontSize:13, outline:'none',
                           marginBottom:8,
+                          opacity: addingListLoading ? 0.6 : 1,
                         }}
                       />
                       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                         <button
                           onClick={handleAddList}
+                          disabled={addingListLoading}
                           style={{
                             padding:'6px 14px', background:DS.accentDark, color:'#fff',
-                            border:'none', borderRadius:5, cursor:'pointer',
+                            border:'none', borderRadius:5, cursor: addingListLoading ? 'not-allowed' : 'pointer',
                             fontSize:13, fontWeight:600, transition:'background .12s',
+                            opacity: addingListLoading ? 0.7 : 1,
+                            display: 'flex', alignItems: 'center', gap: 6,
                           }}
-                          onMouseEnter={e=>(e.currentTarget.style.background='#1D4ED8')}
+                          onMouseEnter={e=>!addingListLoading&&(e.currentTarget.style.background='#1D4ED8')}
                           onMouseLeave={e=>(e.currentTarget.style.background=DS.accentDark)}
                         >
-                          Add list
+                          {addingListLoading && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />}
+                          {addingListLoading ? 'Creating...' : 'Add list'}
                         </button>
                         <button
                           onClick={() => { setIsAddingList(false); setNewListName('') }}
+                          disabled={addingListLoading}
                           style={{
-                            background:'transparent', border:'none', cursor:'pointer',
+                            background:'transparent', border:'none', cursor: addingListLoading ? 'not-allowed' : 'pointer',
                             color:DS.textMuted, display:'flex', alignItems:'center',
                             padding:5, borderRadius:4, transition:'color .12s',
+                            opacity: addingListLoading ? 0.5 : 1,
                           }}
-                          onMouseEnter={e=>(e.currentTarget.style.color='#111827')}
+                          onMouseEnter={e=>!addingListLoading&&(e.currentTarget.style.color='#111827')}
                           onMouseLeave={e=>(e.currentTarget.style.color=DS.textMuted)}
                         >
                           <X size={16}/>

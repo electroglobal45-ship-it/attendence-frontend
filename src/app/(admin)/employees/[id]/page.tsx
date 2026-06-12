@@ -7,6 +7,8 @@ import { ArrowLeft, Calendar, DollarSign, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import { formatTimeIST, calculateHours } from '@/lib/time-utils'
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+
 export default function EmployeeDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -23,12 +25,12 @@ export default function EmployeeDetailPage() {
     const token = localStorage.getItem('authToken')
     
     // Fetch employee details
-    fetch(`/api/employees`, {
+    fetch(`${BACKEND_URL}/api/v1/users`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((d) => {
-        const emp = d.employees?.find((e: any) => e.id === employeeId)
+        const emp = d.data?.users?.find((e: any) => e.id === employeeId)
         setEmployee(emp)
       })
 

@@ -262,6 +262,9 @@ export default function MyTasksPage() {
   }, [tasks])
 
   const completeTask = async (taskId: string) => {
+    // Optimistic Update: instantly remove from UI
+    setTasks(prev => prev.filter(t => t.id !== taskId))
+    
     try {
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const res = await fetch(`${BACKEND_URL}/api/v1/tasks/${taskId}`, {
@@ -269,11 +272,13 @@ export default function MyTasksPage() {
         headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'done' }),
       })
-      if (res.ok) {
-        // Remove from list (since this page only shows todo/in_progress)
-        setTasks(prev => prev.filter(t => t.id !== taskId))
+      if (!res.ok) {
+        // Revert on failure
+        fetchMyTasks(true)
       }
-    } catch {}
+    } catch {
+      fetchMyTasks(true)
+    }
   }
 
   // Apply filters

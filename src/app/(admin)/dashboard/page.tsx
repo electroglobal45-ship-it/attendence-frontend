@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { ChangePasswordModal } from '@/components/ChangePasswordModal'
+import { StatsLoadingSkeleton, TableLoadingSkeleton } from '@/components/ui/LoadingSkeleton'
 import {
   Users, Clock, Calendar, CheckCircle, XCircle,
   AlertCircle, RefreshCw, UserPlus, Settings, FileText, Lock,
@@ -56,7 +57,7 @@ export default function AdminDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([])
   const [leaves, setLeaves] = useState<LeaveRequest[]>([])
   const [shortLeaves, setShortLeaves] = useState<ShortLeave[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)  // Start false - UI first!
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'shortLeaves'>('attendance')
   const [showPasswordModal, setShowPasswordModal] = useState(false)
@@ -87,7 +88,12 @@ export default function AdminDashboard() {
     }
   }
 
-  useEffect(() => { fetchAll() }, [])
+  // Fetch data AFTER UI renders (non-blocking)
+  useEffect(() => { 
+    // Use setTimeout to ensure UI renders first
+    const timer = setTimeout(() => fetchAll(), 0)
+    return () => clearTimeout(timer)
+  }, [])
 
   const handleLeaveAction = async (leaveId: string, status: 'approved' | 'rejected') => {
     setApprovingId(leaveId)
@@ -226,25 +232,29 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {[
-            { label: 'Total Employees', value: stats?.totalEmployees ?? 0, icon: <Users size={20} />, color: 'text-blue-600 bg-blue-50' },
-            { label: 'Present Today', value: stats?.presentToday ?? 0, icon: <CheckCircle size={20} />, color: 'text-green-600 bg-green-50' },
-            { label: 'Absent Today', value: stats?.absentToday ?? 0, icon: <XCircle size={20} />, color: 'text-red-600 bg-red-50' },
-            { label: 'Pending Leaves', value: stats?.pendingLeaves ?? 0, icon: <Calendar size={20} />, color: 'text-yellow-600 bg-yellow-50' },
-            { label: 'Pending Short Leaves', value: stats?.pendingShortLeaves ?? 0, icon: <Clock size={20} />, color: 'text-orange-600 bg-orange-50' },
-          ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${s.color}`}>
-                {s.icon}
+        {loading && !stats ? (
+          <StatsLoadingSkeleton count={5} />
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              { label: 'Total Employees', value: stats?.totalEmployees ?? 0, icon: <Users size={20} />, color: 'text-blue-600 bg-blue-50' },
+              { label: 'Present Today', value: stats?.presentToday ?? 0, icon: <CheckCircle size={20} />, color: 'text-green-600 bg-green-50' },
+              { label: 'Absent Today', value: stats?.absentToday ?? 0, icon: <XCircle size={20} />, color: 'text-red-600 bg-red-50' },
+              { label: 'Pending Leaves', value: stats?.pendingLeaves ?? 0, icon: <Calendar size={20} />, color: 'text-yellow-600 bg-yellow-50' },
+              { label: 'Pending Short Leaves', value: stats?.pendingShortLeaves ?? 0, icon: <Clock size={20} />, color: 'text-orange-600 bg-orange-50' },
+            ].map((s) => (
+              <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${s.color}`}>
+                  {s.icon}
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{s.value}</p>
+                  <p className="text-xs text-gray-500">{s.label}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-xs text-gray-500">{s.label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -270,7 +280,9 @@ export default function AdminDashboard() {
           {activeTab === 'attendance' && (
             <div className="overflow-x-auto">
               {loading ? (
-                <div className="py-12 text-center text-gray-400 text-sm">Loading...</div>
+                <div className="p-6">
+                  <TableLoadingSkeleton rows={5} cols={5} />
+                </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -310,7 +322,9 @@ export default function AdminDashboard() {
           {activeTab === 'leaves' && (
             <div className="overflow-x-auto">
               {loading ? (
-                <div className="py-12 text-center text-gray-400 text-sm">Loading...</div>
+                <div className="p-6">
+                  <TableLoadingSkeleton rows={5} cols={6} />
+                </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -364,7 +378,9 @@ export default function AdminDashboard() {
           {activeTab === 'shortLeaves' && (
             <div className="overflow-x-auto">
               {loading ? (
-                <div className="py-12 text-center text-gray-400 text-sm">Loading...</div>
+                <div className="p-6">
+                  <TableLoadingSkeleton rows={5} cols={6} />
+                </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">

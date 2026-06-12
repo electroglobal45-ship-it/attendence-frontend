@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { Sidebar } from './Sidebar'
 import { Menu } from 'lucide-react'
 
@@ -11,7 +11,8 @@ interface PageWrapperProps {
   actions?: React.ReactNode
 }
 
-export function PageWrapper({ children, title, subtitle, actions }: PageWrapperProps) {
+// Memoize PageWrapper to prevent re-renders
+export const PageWrapper = memo(function PageWrapper({ children, title, subtitle, actions }: PageWrapperProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
@@ -50,4 +51,4 @@ export function PageWrapper({ children, title, subtitle, actions }: PageWrapperP
       </main>
     </div>
   )
-}
+})

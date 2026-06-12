@@ -32,9 +32,9 @@ export default function LoginPage() {
 
       // Redirect based on role
       if (userRole === 'admin') {
-        router.push('/dashboard')
+        window.location.href = '/dashboard'
       } else {
-        router.push('/home')
+        window.location.href = '/home'
       }
     } catch (err: any) {
       setError(err.message || 'Failed to login. Please try again.')

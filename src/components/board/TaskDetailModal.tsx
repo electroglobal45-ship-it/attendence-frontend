@@ -8,7 +8,7 @@ import {
   Search, AlignLeft, MessageSquare, Calendar, MoreHorizontal,
   LogOut, Move, Copy, Layers, FileText, Eye, Share2, Archive, Image,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  Download, Send, Clock, User2
+  Download, Send, Clock, User2, Tag, Users
 } from 'lucide-react'
 
 // ── Quill (SSR-safe) ──────────────────────────────────────────────────────────
@@ -888,147 +888,128 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 min-w-0">
 
             {/* Action buttons */}
-            <div className="flex items-center gap-2">
-              {[
-                ...(isAdmin ? [{ label: 'Add', icon: <Plus size={13} />, onClick: () => setShowMembersMenu(v => !v) }] : []),
-                { label: 'Checklist',  icon: <CheckSquare size={13} />, onClick: () => setShowAddItem(true) },
-              ].map(btn => (
+            <div className="flex items-center gap-2 flex-wrap">
+              {isAdmin && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMembersMenu(v => !v)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-600 font-medium transition-colors"
+                  >
+                    <Users size={13} /> Members
+                  </button>
+                  {showMembersMenu && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 z-30 w-52 max-h-52 overflow-y-auto">
+                      {availableUsers.map(u => (
+                        <button
+                          key={u.id}
+                          onClick={() => { toggleMember(u.id); setShowMembersMenu(false) }}
+                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-gray-50 rounded-lg text-sm"
+                        >
+                          <Avatar name={u.name} px={26} />
+                          <span className="flex-1 truncate text-gray-700">{u.name}</span>
+                          {assignedMembers.some(m => m.id === u.id) && <Check size={12} className="text-green-500 shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => setShowLabelsMenu(v => !v)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-600 font-medium transition-colors"
+              >
+                <Tag size={13} /> Labels
+              </button>
+              {isAdmin && (
                 <button
-                  key={btn.label}
-                  onClick={btn.onClick}
+                  onClick={() => setShowDueDatePicker(v => !v)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-600 font-medium transition-colors"
                 >
-                  {btn.icon}{btn.label}
+                  <Calendar size={13} /> Dates
                 </button>
-              ))}
+              )}
+              <button
+                onClick={() => setShowAddItem(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-600 font-medium transition-colors"
+              >
+                <CheckSquare size={13} /> Checklist
+              </button>
               <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-600 font-medium transition-colors cursor-pointer">
                 <Paperclip size={13} /> Attachment
                 <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploading} />
               </label>
             </div>
 
-            {/* ── Meta row ── */}
+            {/* ── Meta row (Read-only display) ── */}
             <div className="grid grid-cols-3 gap-5">
 
-              {/* Members */}
+              {/* Members - Display only */}
               <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Members</p>
+                <div className="flex items-center gap-1 mb-2">
+                  <Users size={14} className="text-gray-400" />
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Members</p>
+                </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {assignedMembers.map(m => (
-                    <div key={m.id} title={m.name} className="relative group cursor-default">
-                      <Avatar name={m.name} px={30} />
-                      {isAdmin && (
-                        <button
-                          onClick={() => toggleMember(m.id)}
-                          className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 text-white rounded-full hidden group-hover:flex items-center justify-center"
-                        >
-                          <X size={7} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {isAdmin && (
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowMembersMenu(v => !v)}
-                        className="w-7 h-7 rounded-full border-2 border-dashed border-gray-300 hover:border-gray-400 flex items-center justify-center text-gray-400 transition-colors"
-                      >
-                        <Plus size={12} />
-                      </button>
-                      {showMembersMenu && (
-                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 z-30 w-52 max-h-52 overflow-y-auto">
-                          {availableUsers.map(u => (
-                            <button
-                              key={u.id}
-                              onClick={() => { toggleMember(u.id); setShowMembersMenu(false) }}
-                              className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-gray-50 rounded-lg text-sm"
-                            >
-                              <Avatar name={u.name} px={26} />
-                              <span className="flex-1 truncate text-gray-700">{u.name}</span>
-                              {assignedMembers.some(m => m.id === u.id) && <Check size={12} className="text-green-500 shrink-0" />}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                  {assignedMembers.length > 0 ? (
+                    assignedMembers.map(m => (
+                      <div key={m.id} title={m.name} className="cursor-default">
+                        <Avatar name={m.name} px={30} />
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-xs text-gray-400 italic">No members</span>
                   )}
                 </div>
               </div>
 
-              {/* Labels */}
+              {/* Labels - Display only */}
               <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Labels</p>
+                <div className="flex items-center gap-1 mb-2">
+                  <Tag size={14} className="text-gray-400" />
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Labels</p>
+                </div>
                 <div className="flex items-center gap-1 flex-wrap">
                   {selectedLabel ? (
-                    <button
-                      onClick={() => setShowLabelsMenu(true)}
+                    <div
                       style={{ 
                         background: currentLabel?.color || '#E2B203',
                         color: '#FFFFFF'
                       }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold tracking-wide hover:opacity-90 transition-opacity"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold tracking-wide"
                     >
                       {currentLabel?.name || 'No Label'}
-                    </button>
+                    </div>
                   ) : (
-                    <button
-                      onClick={() => setShowLabelsMenu(true)}
-                      className="w-7 h-7 rounded border-2 border-dashed border-gray-300 hover:border-gray-400 flex items-center justify-center text-gray-400 transition-colors"
-                    >
-                      <Plus size={12} />
-                    </button>
+                    <span className="text-xs text-gray-400 italic">No label</span>
                   )}
                 </div>
               </div>
 
-              {/* Due date */}
+              {/* Due date - Display only */}
               <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Due date</p>
+                <div className="flex items-center gap-1 mb-2">
+                  <Calendar size={14} className="text-gray-400" />
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Due date</p>
+                </div>
                 <div className="relative">
                   {dueDate ? (
-                    isAdmin ? (
-                      <button
-                        onClick={() => setShowDueDatePicker(v => !v)}
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
-                          isOverdue
-                            ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        <Calendar size={11} className="shrink-0" />
-                        <span className="leading-tight">{formatDueDate(dueDate)}</span>
-                        {isOverdue && (
-                          <span className="px-1 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded leading-tight">
-                            Overdue
-                          </span>
-                        )}
-                      </button>
-                    ) : (
-                      <div
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border border-gray-200 ${
-                          isOverdue ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-700'
-                        }`}
-                      >
-                        <Calendar size={11} className="shrink-0" />
-                        <span className="leading-tight">{formatDueDate(dueDate)}</span>
-                        {isOverdue && (
-                          <span className="px-1 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded leading-tight">
-                            Overdue
-                          </span>
-                        )}
-                      </div>
-                    )
+                    <div
+                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium ${
+                        isOverdue
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      <Calendar size={11} className="shrink-0" />
+                      <span className="leading-tight">{formatDueDate(dueDate)}</span>
+                      {isOverdue && (
+                        <span className="px-1 py-0.5 bg-red-500 text-white text-[9px] font-bold rounded leading-tight">
+                          Overdue
+                        </span>
+                      )}
+                    </div>
                   ) : (
-                    isAdmin ? (
-                      <button
-                        onClick={() => setShowDueDatePicker(true)}
-                        className="w-7 h-7 rounded border-2 border-dashed border-gray-300 hover:border-gray-400 flex items-center justify-center text-gray-400 transition-colors"
-                      >
-                        <Plus size={12} />
-                      </button>
-                    ) : (
-                      <span className="text-xs text-gray-400 italic">No due date</span>
-                    )
+                    <span className="text-xs text-gray-400 italic">No due date</span>
                   )}
                 </div>
               </div>

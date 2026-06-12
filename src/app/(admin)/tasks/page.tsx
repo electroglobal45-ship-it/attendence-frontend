@@ -1,10 +1,28 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, RefreshCw, LayoutGrid, CheckCircle2 } from 'lucide-react'
+import { Clock, RefreshCw, LayoutGrid, CheckCircle2, GripVertical } from 'lucide-react'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TaskDetailModal } from '@/components/board/TaskDetailModal'
 import { BoardView } from '@/components/board/BoardView'
+import Link from 'next/link'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface Task {
   id: string
@@ -164,6 +182,224 @@ function TaskCard({ task, onClick, onComplete }: { task: Task; onClick: () => vo
 
 type FilterKey = 'all' | 'todo' | 'in_progress' | 'done' | 'blocked'
 
+/* ─── Sortable Task Row ─── */
+function SortableTaskRow({ 
+  task, 
+  idx, 
+  totalTasks,
+  onTaskClick, 
+  onComplete 
+}: { 
+  task: Task
+  idx: number
+  totalTasks: number
+  onTaskClick: () => void
+  onComplete: () => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  const p = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.medium
+  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done'
+  const assigneeName = task.assigned_user?.name || task.assigned_to_name
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onClick={onTaskClick}
+      className="task-row"
+    >
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '40px 1fr 200px 180px 120px 60px',
+        gap: 16,
+        padding: '16px 20px',
+        borderBottom: idx < totalTasks - 1 ? '1px solid #F3F4F6' : 'none',
+        cursor: 'pointer',
+        transition: 'background 0.15s',
+        alignItems: 'center',
+        background: isDragging ? '#F3F4F6' : 'transparent',
+      }}>
+        {/* Drag Handle */}
+        <div 
+          {...attributes}
+          {...listeners}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical size={16} color="#9CA3AF" />
+        </div>
+
+        {/* Name with Board Badge */}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {task.title}
+          </div>
+          {task.board?.name && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <Link
+                href={`/board/${task.board_id}`}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  background: '#F3F4F6',
+                  color: '#6B7280',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: 140,
+                  textDecoration: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                📋 {task.board.name}
+              </Link>
+              {/* Labels */}
+              {task.labels && task.labels.length > 0 && task.labels.slice(0, 2).map((lbl: any, labelIdx: number) => (
+                <span
+                  key={labelIdx}
+                  style={{
+                    backgroundColor: lbl.color || '#E2B203',
+                    color: '#FFFFFF',
+                    padding: '2px 6px',
+                    borderRadius: 3,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  {lbl.name || 'LABEL'}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Assignee */}
+        <div>
+          {assigneeName ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg,#3B82F6,#8B5CF6)',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  flexShrink: 0
+                }}
+              >
+                {assigneeName.charAt(0).toUpperCase()}
+              </div>
+              <span style={{ fontSize: 13, color: '#111827', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {assigneeName}
+              </span>
+            </div>
+          ) : (
+            <span style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Unassigned</span>
+          )}
+        </div>
+
+        {/* Due Date */}
+        <div>
+          {task.due_date ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <Clock size={14} color={isOverdue ? '#EF4444' : '#6B7280'} />
+              <span style={{ fontSize: 13, color: isOverdue ? '#EF4444' : '#111827', fontWeight: isOverdue ? 600 : 500 }}>
+                {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+              {isOverdue && (
+                <span style={{
+                  padding: '1px 5px',
+                  background: '#FEE2E2',
+                  color: '#EF4444',
+                  borderRadius: 3,
+                  fontSize: 9,
+                  fontWeight: 700
+                }}>
+                  OVERDUE
+                </span>
+              )}
+            </div>
+          ) : (
+            <span style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>No due date</span>
+          )}
+        </div>
+
+        {/* Priority */}
+        <div>
+          <span style={{
+            padding: '4px 10px',
+            borderRadius: 20,
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: '.5px',
+            background: p.bg,
+            color: '#FFFFFF',
+            textTransform: 'uppercase',
+            display: 'inline-block'
+          }}>
+            {p.label}
+          </span>
+        </div>
+
+        {/* Complete Button */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          {task.status !== 'done' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onComplete()
+              }}
+              title="Mark as Done"
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: '50%',
+                background: '#F0FDF4',
+                border: '1.5px solid #22C55E',
+                color: '#22C55E',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 700,
+                transition: 'background 0.15s'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#DCFCE7')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#F0FDF4')}
+            >
+              ✓
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Page ─── */
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -182,6 +418,14 @@ export default function TasksPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [boards, setBoards] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   const fetchTasks = async (silent = false) => {
     if (!silent) setLoading(true)
@@ -296,6 +540,48 @@ export default function TasksPage() {
     } catch {}
   }
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      setTasks((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id)
+        const newIndex = items.findIndex((item) => item.id === over.id)
+
+        const newItems = arrayMove(items, oldIndex, newIndex)
+        
+        // Update positions in database
+        updateTaskPositions(newItems)
+        
+        return newItems
+      })
+    }
+  }
+
+  const updateTaskPositions = async (reorderedTasks: Task[]) => {
+    try {
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      
+      // Update position for each task
+      const updates = reorderedTasks.map((task, index) => ({
+        id: task.id,
+        position: (index + 1) * 1000 // Use increments of 1000 for easier reordering
+      }))
+
+      // Send batch update to backend
+      await fetch(`${BACKEND_URL}/api/v1/tasks/reorder`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tasks: updates }),
+      })
+    } catch (err) {
+      console.error('Failed to update task positions:', err)
+    }
+  }
+
   // Apply all filters
   const filteredTasks = tasks.filter(task => {
     // Status filter
@@ -392,6 +678,9 @@ export default function TasksPage() {
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
           border-color: #3B82F6;
+        }
+        .task-row:hover > div {
+          background: #F9FAFB !important;
         }
         .tab-btn {
           padding: 6px 14px;
@@ -656,27 +945,69 @@ export default function TasksPage() {
                 <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>Try adjusting your filters or create a new task</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-                {filtered.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    onClick={() => setSelectedTask(task)}
-                    onComplete={() => completeTask(task.id)}
-                  />
-                ))}
+              <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
+                {/* Table Header */}
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '40px 1fr 200px 180px 120px 60px', 
+                  gap: 16, 
+                  padding: '14px 20px', 
+                  background: '#F9FAFB', 
+                  borderBottom: '1px solid #E5E7EB',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: '#6B7280',
+                  textTransform: 'uppercase',
+                  letterSpacing: '.5px'
+                }}>
+                  <div></div>
+                  <div>Name</div>
+                  <div>Assignee</div>
+                  <div>Due Date</div>
+                  <div>Priority</div>
+                  <div></div>
+                </div>
+
+                {/* Table Body with Drag and Drop */}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={filtered.map(t => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div>
+                      {filtered.map((task, idx) => (
+                        <SortableTaskRow
+                          key={task.id}
+                          task={task}
+                          idx={idx}
+                          totalTasks={filtered.length}
+                          onTaskClick={() => setSelectedTask(task)}
+                          onComplete={() => completeTask(task.id)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
             )}
           </div>
         </div>
       </div>
 
+      {/* Task Detail Modal */}
       {selectedTask && (
         <TaskDetailModal
-          task={{ ...selectedTask, list_id: selectedTask.list_id ?? '' } as any}
+          task={{ ...selectedTask, list_id: selectedTask.list_id || '', position: selectedTask.position ?? 0 }}
           onClose={() => setSelectedTask(null)}
-          onUpdate={() => fetchTasks(true)}
-          boardId={selectedTask.board_id || ''}
+          onUpdate={() => {
+            fetchTasks(true)
+            setSelectedTask(null)
+          }}
+          boardId={selectedTask.board?.id || ''}
           projectId={projectId}
         />
       )}
