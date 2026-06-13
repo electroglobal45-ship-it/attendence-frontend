@@ -52,10 +52,52 @@ export const clearAuthToken = () => {
   }
 }
 
-// Generic API request function
+// Attempt to refresh the Supabase session and persist the new tokens.
+// Returns the new access token on success, or null on failure.
+let _refreshPromise: Promise<string | null> | null = null
+const refreshAccessToken = async (): Promise<string | null> => {
+  if (_refreshPromise) return _refreshPromise
+
+  _refreshPromise = (async () => {
+    try {
+      const rToken = getRefreshToken()
+      if (!rToken) return null
+
+      const res = await fetch(`${BACKEND_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: rToken }),
+      })
+
+      if (!res.ok) return null
+
+      const json = await res.json()
+      const newToken: string | undefined = json?.data?.token
+      const newRefresh: string | undefined = json?.data?.session?.refresh_token
+
+      if (!newToken) return null
+
+      setAuthToken(newToken, newRefresh)
+      // Update cookie for Next.js middleware
+      if (typeof document !== 'undefined') {
+        document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
+      }
+      return newToken
+    } catch {
+      return null
+    } finally {
+      _refreshPromise = null
+    }
+  })()
+
+  return _refreshPromise
+}
+
+// Generic API request function with automatic 401 → refresh → retry
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  _isRetry = false
 ): Promise<T> {
   const token = getAuthToken()
   
@@ -72,6 +114,24 @@ async function apiRequest<T>(
     ...options,
     headers,
   })
+
+  // On 401: try to refresh the token once, then retry
+  if (response.status === 401 && !_isRetry) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      return apiRequest<T>(endpoint, options, true)
+    }
+    // Refresh also failed → clear session and redirect to login
+    clearAuthToken()
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user')
+      localStorage.removeItem('userRole')
+      document.cookie = 'authToken=; path=/; max-age=0'
+      document.cookie = 'userRole=; path=/; max-age=0'
+      window.location.href = '/login'
+    }
+    throw new Error('Session expired. Please log in again.')
+  }
 
   const data = await response.json()
 

@@ -13,13 +13,71 @@ const getAuthToken = (): string | null => {
   return null
 }
 
-// Generic API request function
+// Get refresh token from localStorage
+const getRefreshToken = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('refresh_token')
+  }
+  return null
+}
+
+// Save a new access token (and optionally a new refresh token)
+const saveAuthToken = (token: string, refreshToken?: string) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('auth_token', token)
+    localStorage.setItem('authToken', token) // backward compat
+    if (refreshToken) localStorage.setItem('refresh_token', refreshToken)
+    // Update the cookie used by Next.js middleware
+    document.cookie = `authToken=${token}; path=/; max-age=604800; SameSite=Lax`
+  }
+}
+
+// Attempt to refresh the Supabase session and persist the new tokens.
+// Returns the new access token on success, or null on failure.
+let _refreshPromise: Promise<string | null> | null = null
+const refreshAccessToken = async (): Promise<string | null> => {
+  // Deduplicate concurrent refresh attempts
+  if (_refreshPromise) return _refreshPromise
+
+  _refreshPromise = (async () => {
+    try {
+      const rToken = getRefreshToken()
+      if (!rToken) return null
+
+      const res = await fetch(`${BACKEND_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: rToken }),
+      })
+
+      if (!res.ok) return null
+
+      const json = await res.json()
+      const newToken: string | undefined = json?.data?.token
+      const newRefresh: string | undefined = json?.data?.session?.refresh_token
+
+      if (!newToken) return null
+
+      saveAuthToken(newToken, newRefresh)
+      return newToken
+    } catch {
+      return null
+    } finally {
+      _refreshPromise = null
+    }
+  })()
+
+  return _refreshPromise
+}
+
+// Generic API request function with automatic 401 → refresh → retry
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  _isRetry = false
 ): Promise<T> {
   const token = getAuthToken()
-  
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...options.headers as Record<string, string>,
@@ -33,6 +91,27 @@ async function apiRequest<T>(
     ...options,
     headers,
   })
+
+  // On 401: try to refresh the token once, then retry the request
+  if (response.status === 401 && !_isRetry) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      // Retry with the fresh token
+      return apiRequest<T>(endpoint, options, true)
+    }
+    // Refresh also failed → redirect to login
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('authToken')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('userRole')
+      document.cookie = 'authToken=; path=/; max-age=0'
+      document.cookie = 'userRole=; path=/; max-age=0'
+      window.location.href = '/login'
+    }
+    throw new Error('Session expired. Please log in again.')
+  }
 
   const data = await response.json()
 
