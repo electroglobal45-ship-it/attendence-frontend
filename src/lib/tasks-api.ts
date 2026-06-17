@@ -96,6 +96,9 @@ async function apiRequest<T>(
   if (response.status === 401 && !_isRetry) {
     const newToken = await refreshAccessToken()
     if (newToken) {
+      if (typeof document !== 'undefined') {
+        document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
+      }
       // Retry with the fresh token
       return apiRequest<T>(endpoint, options, true)
     }
@@ -405,12 +408,14 @@ export const adminAPI = {
     })
   },
 
-  // Mark attendance (admin manually marks absent/half-day/checkout)
+  // Mark attendance (admin manually overrides attendance status/times)
   async markAttendance(data: {
     employeeId: string
     date: string
-    action: 'absent' | 'half_day' | 'mark_checkout'
+    action: 'present' | 'absent' | 'half_day' | 'late_within_buffer' | 'mark_checkout'
     reason?: string
+    checkIn?: string
+    checkOut?: string
   }) {
     return apiRequest<{
       success: boolean
@@ -678,3 +683,240 @@ export const attendanceAPI = {
     }>(`/api/v1/attendance/history${query}`)
   },
 }
+
+// =====================================================
+// VAULT API (Password Vault)
+// =====================================================
+
+export interface VaultAssignment {
+  id: string
+  assigned_to: string
+  is_revealed: boolean
+  assignee?: { id: string; name: string; email: string }
+}
+
+// Admin view — each entry has a list of assignments (one per employee)
+export interface AdminVaultEntry {
+  id: string
+  service_name: string
+  username: string
+  created_by: string
+  notes?: string | null
+  created_at: string
+  creator?: { id: string; name: string; email: string }
+  assignments: VaultAssignment[]
+  password?: string
+}
+
+// Employee view — flattened single-assignment shape
+export interface EmployeeVaultEntry {
+  id: string              // vault_id
+  assignment_id: string
+  service_name: string
+  username: string
+  notes?: string | null
+  created_at: string
+  creator?: { id: string; name: string; email: string }
+  is_revealed: boolean
+}
+
+export const vaultAPI = {
+  // List vault entries (admin = all with assignments, employee = own flat list)
+  async getEntries() {
+    return apiRequest<{
+      success: boolean
+      data: { entries: AdminVaultEntry[] | EmployeeVaultEntry[] }
+    }>('/api/v1/vault')
+  },
+
+  // Admin: Create a new vault entry assigned to multiple employees
+  async createEntry(data: {
+    service_name: string
+    username: string
+    password: string
+    assigned_to: string[]   // array of employee UUIDs
+    notes?: string
+  }) {
+    return apiRequest<{
+      success: boolean
+      data: { entry: AdminVaultEntry }
+    }>('/api/v1/vault', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  // Employee: One-time reveal (uses vault entry id, not assignment id)
+  async revealPassword(vaultId: string) {
+    return apiRequest<{
+      success: boolean
+      data: { password: string }
+    }>(`/api/v1/vault/${vaultId}/reveal`, { method: 'POST' })
+  },
+
+  // Admin: Delete vault entry (cascades to all assignments)
+  async deleteEntry(id: string) {
+    return apiRequest<{ success: boolean }>(`/api/v1/vault/${id}`, { method: 'DELETE' })
+  },
+
+  // Admin: Reset reveal for a specific employee, or all employees if no employeeId
+  async resetReveal(vaultId: string, employeeId?: string) {
+    return apiRequest<{ success: boolean }>(`/api/v1/vault/${vaultId}/reset`, {
+      method: 'POST',
+      body: JSON.stringify({ employeeId }),
+    })
+  },
+
+  // Admin: Assign employees to an existing entry
+  async assignEmployees(vaultId: string, employeeIds: string[]) {
+    return apiRequest<{
+      success: boolean
+      data: { entry: AdminVaultEntry }
+    }>(`/api/v1/vault/${vaultId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ assigned_to: employeeIds }),
+    })
+  },
+}
+
+// =====================================================
+// MEETINGS API (Video Conferencing)
+// =====================================================
+
+export interface MeetingAssignment {
+  id: string
+  user_id: string
+  assignee?: { id: string; name: string; email: string }
+}
+
+export interface Meeting {
+  id: string
+  title: string
+  room_name: string
+  is_permanent: boolean
+  scheduled_at?: string | null
+  started_at?: string | null
+  ended_at?: string | null
+  created_by?: string
+  created_at: string
+  creator?: { id: string; name: string; email: string }
+  assignments?: MeetingAssignment[]
+}
+
+export const meetingsAPI = {
+  // List all meetings
+  async getMeetings() {
+    return apiRequest<{
+      success: boolean
+      data: { meetings: Meeting[] }
+    }>('/api/v1/meetings')
+  },
+
+  // Create a meeting
+  async createMeeting(data: {
+    title: string
+    is_permanent?: boolean
+    scheduled_at?: string | null
+    assigned_to?: string[]
+  }) {
+    return apiRequest<{
+      success: boolean
+      data: { meeting: Meeting }
+    }>('/api/v1/meetings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  // Delete a meeting
+  async deleteMeeting(id: string) {
+    return apiRequest<{ success: boolean }>(`/api/v1/meetings/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  // Start a meeting (Host)
+  async startMeeting(id: string) {
+    return apiRequest<{
+      success: boolean
+      data: { meeting: Meeting }
+    }>(`/api/v1/meetings/${id}/start`, {
+      method: 'POST',
+    })
+  },
+
+  // End a meeting (Host)
+  async endMeeting(id: string) {
+    return apiRequest<{
+      success: boolean
+      data: { meeting: Meeting }
+    }>(`/api/v1/meetings/${id}/end`, {
+      method: 'POST',
+    })
+  },
+
+  // Ping presence
+  async pingMeeting(id: string) {
+    return apiRequest<{
+      success: boolean
+      ended: boolean
+      activeParticipantsCount: number
+    }>(`/api/v1/meetings/${id}/ping`, {
+      method: 'POST',
+    })
+  },
+}
+
+// =====================================================
+// BOARDS API
+// =====================================================
+
+export const boardsAPI = {
+  async getProjectBoards(projectId: string) {
+    return apiRequest<{
+      success: boolean
+      data: {
+        boards: any[]
+      }
+    }>(`/api/v1/boards/project/${projectId}`)
+  },
+
+  async createBoard(data: { project_id: string; name: string }) {
+    return apiRequest<{
+      success: boolean
+      data: {
+        board: any
+      }
+    }>('/api/v1/boards', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+}
+
+// =====================================================
+// SALARY API
+// =====================================================
+
+export const salaryAPI = {
+  async getSalarySlips(month: number, year: number) {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || localStorage.getItem('authToken')) : null
+    const response = await fetch('/api/salary/calculate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ month, year }),
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || 'Failed to calculate salary')
+    }
+
+    return response.json()
+  },
+}
+
+

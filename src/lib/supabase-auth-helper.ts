@@ -12,14 +12,19 @@ import { supabaseServer } from './supabase-server'
  */
 export async function getAuthenticatedUser(req: NextRequest) {
   try {
+    let accessToken: string | null = null
     const authHeader = req.headers.get('authorization')
     
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.log('❌ No Bearer token found')
-      return null
+    if (authHeader?.startsWith('Bearer ')) {
+      accessToken = authHeader.substring(7)
+    } else {
+      accessToken = req.cookies.get('authToken')?.value || null
     }
 
-    const accessToken = authHeader.substring(7)
+    if (!accessToken) {
+      console.log('❌ No token found in Authorization header or cookies')
+      return null
+    }
 
     // Verify the access token with Supabase Auth using service role
     const { data: { user }, error: authError } = await supabaseServer.auth.getUser(accessToken)

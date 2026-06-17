@@ -7,6 +7,7 @@
 
 import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { authAPI, getAuthToken, getRefreshToken, clearAuthToken } from '@/lib/backend-api'
+import { usePrefetchStore } from '@/lib/store/prefetch-store'
 
 interface User {
   id: string
@@ -60,6 +61,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [])
+
+  // Trigger prefetch when user state is initialized/logged in
+  useEffect(() => {
+    if (user) {
+      usePrefetchStore.getState().prefetchAll().catch(() => {})
+    }
+  }, [user])
 
   // Setup automatic token refresh
   const setupTokenRefresh = () => {
@@ -205,6 +213,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Setup token refresh
         setupTokenRefresh()
         
+        // Prefetch all data in background (don't await — non-blocking)
+        usePrefetchStore.getState().prefetchAll().catch(() => {})
+        
         return result.user
       }
 
@@ -216,28 +227,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = async () => {
+    // 1. Instantly clear local state and cache to make UI feel snappy
+    setUser(null)
+    clearAuthToken()
+    usePrefetchStore.getState().reset()
+
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current)
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user')
+      localStorage.removeItem('userRole')
+    }
+
+    if (typeof document !== 'undefined') {
+      document.cookie = 'authToken=; path=/; max-age=0'
+      document.cookie = 'userRole=; path=/; max-age=0'
+    }
+
+    // 2. Perform server-side cleanup in the background without blocking the client redirect
     try {
-      await authAPI.logout()
+      authAPI.logout().catch(e => console.warn('Background logout request error:', e))
     } catch (error) {
       console.error('Logout error:', error)
-    } finally {
-      // Clear refresh timer
-      if (refreshTimerRef.current) {
-        clearTimeout(refreshTimerRef.current)
-      }
-      
-      setUser(null)
-      clearAuthToken()
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('user')
-        localStorage.removeItem('userRole')
-      }
-      
-      // Clear cookies
-      if (typeof document !== 'undefined') {
-        document.cookie = 'authToken=; path=/; max-age=0'
-        document.cookie = 'userRole=; path=/; max-age=0'
-      }
     }
   }
 

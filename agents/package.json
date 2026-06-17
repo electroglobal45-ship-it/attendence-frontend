@@ -1,0 +1,33 @@
+{
+  "name": "attendance-agents",
+  "version": "1.0.0",
+  "description": "Multi-agent AI system with skill learning capabilities",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "agents": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "execute": "node dist/cli.js execute",
+    "stats": "node dist/cli.js stats",
+    "skills": "node dist/cli.js skills"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "multi-agent",
+    "learning",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

@@ -30,12 +30,8 @@ export default function LoginPage() {
 
       console.log('Login successful, role:', userRole)
 
-      // Redirect based on role
-      if (userRole === 'admin') {
-        window.location.href = '/dashboard'
-      } else {
-        window.location.href = '/home'
-      }
+      // Redirect based on role — client-side push keeps SPA state intact
+      router.push(userRole === 'admin' ? '/dashboard' : '/home')
     } catch (err: any) {
       setError(err.message || 'Failed to login. Please try again.')
       setLoading(false)

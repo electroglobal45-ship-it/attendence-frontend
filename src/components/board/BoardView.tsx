@@ -469,6 +469,19 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   const [filterDueDate, setFilterDueDate] = useState<Set<string>>(new Set())
   const [boardLabels, setBoardLabels] = useState<any[]>([])
   const [allUsers, setAllUsers] = useState<any[]>([]) // persistent user list — never gets reset
+  const [boardBgColor, setBoardBgColor] = useState<string>('#F8F9FA')
+
+  // Load user custom background color from localStorage
+  useEffect(() => {
+    if (selectedBoard && user?.id) {
+      const savedColor = localStorage.getItem(`board-bg-${user.id}-${selectedBoard.id}`)
+      if (savedColor) {
+        setBoardBgColor(savedColor)
+      } else {
+        setBoardBgColor('#F8F9FA')
+      }
+    }
+  }, [selectedBoard, user?.id])
 
   /* hover states for header buttons */
   const [hov,setHov] = useState<Record<string,boolean>>({})
@@ -499,7 +512,7 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
     }
   }
 
-// Poll board details every 2 minutes (reduced frequency to avoid rate limits)
+// Poll board details every 10 minutes (reduced frequency to avoid rate limits and optimize background queries)
 useEffect(() => {
   if (!selectedBoard) return;
   const poll = setInterval(() => {
@@ -513,7 +526,7 @@ useEffect(() => {
     }).catch(() => {
       // Silently ignore polling errors to prevent disruption
     });
-  }, 120_000);
+  }, 600_000);
   return () => clearInterval(poll);
 }, [selectedBoard?.id, allUsers]);
 
@@ -698,11 +711,10 @@ useEffect(() => {
     return matchesMember && matchesLabel && matchesDue
   }) || []
 
-  /* ══ RENDER ══ */
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%',
       background:DS.bg0,
-      fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif' }}>
+      fontFamily:'var(--font-inter), sans-serif' }}>
 
       {/* ════════════ SIMPLIFIED HEADER ════════════ */}
       <div style={{
@@ -756,6 +768,7 @@ useEffect(() => {
                 color: '#111827', fontSize: 16, fontWeight: 700,
                 cursor: 'pointer', transition: 'all .15s',
                 maxWidth: 300,
+                fontFamily: 'var(--font-plus-jakarta), sans-serif',
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = DS.bg2
@@ -1110,6 +1123,44 @@ useEffect(() => {
                     close() 
                   }}/>
                 )}
+                <PanelDivider/>
+                <PanelSection label="Personalize Color"/>
+                <div style={{ padding: '4px 14px 10px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+                  {[
+                    { id: 'blue', color: '#EFF6FF' },
+                    { id: 'green', color: '#ECFDF5' },
+                    { id: 'orange', color: '#FFF7ED' },
+                    { id: 'purple', color: '#F5F3FF' },
+                    { id: 'red', color: '#FEF2F2' },
+                    { id: 'pink', color: '#FDF2F8' },
+                    { id: 'lime', color: '#F0FDF4' },
+                    { id: 'sky', color: '#E0F2FE' },
+                    { id: 'grey', color: '#F9FAFB' },
+                    { id: 'white', color: '#FFFFFF' },
+                  ].map(bg => (
+                    <button
+                      key={bg.id}
+                      onClick={() => {
+                        if (selectedBoard && user?.id) {
+                          localStorage.setItem(`board-bg-${user.id}-${selectedBoard.id}`, bg.color)
+                          setBoardBgColor(bg.color)
+                        }
+                      }}
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 6,
+                        background: bg.color,
+                        border: boardBgColor === bg.color ? '2px solid #3B82F6' : '1px solid #D1D5DB',
+                        cursor: 'pointer',
+                        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
+                        display: 'block'
+                      }}
+                      title={`Set background to ${bg.id}`}
+                    />
+                  ))}
+                </div>
+                <PanelDivider/>
                 <PanelRow icon={<Copy size={13}/>}   label="Copy board"   onClick={close}/>
                 <PanelRow icon={<Eye size={13}/>}    label="Watch"        onClick={close}/>
                 <PanelDivider/>
@@ -1157,6 +1208,7 @@ useEffect(() => {
                   fontWeight: isActive ? 600 : 500,
                   cursor: 'pointer',
                   transition: 'all .15s',
+                  fontFamily: 'var(--font-inter), sans-serif',
                 }}
                 onMouseEnter={e => {
                   if (!isActive) {
@@ -1206,9 +1258,19 @@ useEffect(() => {
                 projectId={currentProjectId||''}
                 lists={boardData.lists}
                 tasks={filteredTasks}
-                boardBackground="dark"
+                boardBackground={boardBgColor}
                 onRefresh={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
                 onAddTask={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
+                onTaskCreated={(newTask) => {
+                  setBoardData(prev => {
+                    if (!prev) return null
+                    if (prev.tasks.some(t => t.id === newTask.id)) return prev
+                    return {
+                      ...prev,
+                      tasks: [...prev.tasks, newTask]
+                    }
+                  })
+                }}
                 onAddList={(name)=>createList(name)}
                 onTaskClick={task=>setSelectedTask(task)}
               />

@@ -104,7 +104,8 @@ const config: Config = {
         'trello-modal': '0 8px 16px rgba(9, 30, 66, 0.25)',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Noto Sans', 'Ubuntu', 'Helvetica Neue', 'sans-serif'],
+        sans: ['var(--font-inter)', 'sans-serif'],
+        jakarta: ['var(--font-plus-jakarta)', 'sans-serif'],
       },
       spacing: {
         'trello-1': '4px',

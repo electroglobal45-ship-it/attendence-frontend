@@ -28,7 +28,8 @@ export function middleware(request: NextRequest) {
     '/holidays',
     '/reports',
     '/settings',
-    '/board'
+    '/board',
+    '/vault',
   ]
   const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route))
   
@@ -40,7 +41,9 @@ export function middleware(request: NextRequest) {
     '/my-calendar',
     '/leaves',
     '/salary',
-    '/drive'
+    '/drive',
+    '/my-passwords',
+    '/meetings',
   ]
   const isEmployeeRoute = employeeRoutes.some(route => pathname.startsWith(route))
   

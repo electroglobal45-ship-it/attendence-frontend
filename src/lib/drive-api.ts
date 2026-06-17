@@ -103,9 +103,8 @@ class DriveAPI {
     if (!res.ok) throw new Error(data.error || 'Failed to upload file')
     return data.data.file
   }
-
   async createFolder(folderName: string, parentFolderId?: string) {
-    const res = await fetch(`${API_BASE}/folder`, {
+    const res = await fetch(`${API_BASE}/folders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

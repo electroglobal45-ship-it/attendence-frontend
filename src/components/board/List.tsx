@@ -43,7 +43,8 @@ interface ListProps {
   tasks: Task[]
   onTaskClick?: (task: Task) => void
   onAddTask?: (listId: string) => void
-  onAddOptimisticTask?: (listId: string, title: string) => void
+  onAddOptimisticTask?: (listId: string, title: string) => string
+  onTaskCreated?: (task: Task, tempId?: string) => void
   onEditList?: (list: ListObj) => void
   onDeleteList?: (listId: string) => void
   dragHandleProps?: any
@@ -56,6 +57,7 @@ export function List({
   onTaskClick, 
   onAddTask,
   onAddOptimisticTask,
+  onTaskCreated,
   onEditList,
   onDeleteList,
   dragHandleProps,
@@ -72,7 +74,7 @@ export function List({
     const cardTitle = newCardTitle.trim()
     
     // STEP 1: ADD TO UI IMMEDIATELY - NO WAITING!
-    onAddOptimisticTask?.(list.id, cardTitle)
+    const tempId = onAddOptimisticTask?.(list.id, cardTitle) || ''
     
     // STEP 2: Clear form immediately
     setNewCardTitle('')
@@ -98,8 +100,14 @@ export function List({
       })
 
       if (response.ok) {
-        // Success - refresh to replace optimistic with real card
-        setTimeout(() => onAddTask?.(list.id), 500)
+        const resData = await response.json()
+        const realTask = resData.data?.task
+        if (realTask && onTaskCreated) {
+          onTaskCreated(realTask, tempId)
+        } else {
+          // Success fallback - refresh to replace optimistic with real card
+          setTimeout(() => onAddTask?.(list.id), 500)
+        }
       } else {
         const error = await response.json()
         console.error('Failed to create card:', error)

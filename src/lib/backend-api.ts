@@ -119,6 +119,9 @@ async function apiRequest<T>(
   if (response.status === 401 && !_isRetry) {
     const newToken = await refreshAccessToken()
     if (newToken) {
+      if (typeof document !== 'undefined') {
+        document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
+      }
       return apiRequest<T>(endpoint, options, true)
     }
     // Refresh also failed → clear session and redirect to login

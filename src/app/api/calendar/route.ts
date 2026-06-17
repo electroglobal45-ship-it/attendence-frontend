@@ -206,8 +206,12 @@ export async function GET(req: NextRequest) {
         absentDays,
       },
     })
-  } catch (err) {
+  } catch (err: any) {
     console.error('GET /api/calendar error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const status = err.message === 'Unauthorized' ? 401 : err.message.includes('Forbidden') ? 403 : 500
+    return NextResponse.json(
+      { error: status === 500 ? 'Internal server error' : err.message },
+      { status }
+    )
   }
 }

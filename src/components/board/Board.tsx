@@ -72,6 +72,7 @@ interface BoardProps {
   boardBackground?: string
   onTaskClick?: (task: Task) => void
   onAddTask?: (listId: string) => void
+  onTaskCreated?: (task: Task) => void
   onAddList?: (name: string) => void
   onEditList?: (list: ListObj) => void
   onRefresh?: () => void
@@ -84,6 +85,7 @@ export function Board({
   boardBackground,
   onTaskClick,
   onAddTask,
+  onTaskCreated,
   onAddList,
   onEditList,
   onRefresh,
@@ -114,7 +116,7 @@ export function Board({
   }, [tasks])
 
   /* ── Add optimistic task directly to UI ── */
-  const addOptimisticTask = (listId: string, title: string) => {
+  const addOptimisticTask = (listId: string, title: string): string => {
     const optimisticId = `temp-${Date.now()}`
     // Calculate position from all tasks (local + optimistic)
     const allCurrentTasks = [...localTasks, ...optimisticTasks]
@@ -135,6 +137,7 @@ export function Board({
       labels: [],
     }
     setOptimisticTasks(prev => [...prev, newTask])
+    return optimisticId
   }
 
   /* ── group + sort tasks by list (including optimistic) ── */
@@ -213,6 +216,24 @@ export function Board({
 
     task.list_id = destination.droppableId
     task.position = newPosition
+
+    // Update status based on list name
+    const destList = localLists.find(l => l.id === destination.droppableId)
+    if (destList && destList.name) {
+      const name = destList.name.toLowerCase().trim()
+      if (name.includes('to do') || name.includes('todo')) {
+        task.status = 'todo'
+      } else if (name.includes('in progress') || name.includes('progress')) {
+        task.status = 'in_progress'
+      } else if (name.includes('done') || name.includes('complete')) {
+        task.status = 'done'
+      } else if (name.includes('blocked')) {
+        task.status = 'blocked'
+      } else if (name.includes('review')) {
+        task.status = 'review'
+      }
+    }
+
     const destStart = newTasks.findIndex(t => t.list_id === destination.droppableId)
     newTasks.splice(destStart >= 0 ? destStart + destination.index : newTasks.length, 0, task)
     
@@ -269,8 +290,15 @@ export function Board({
     else if (e.key === 'Escape') { setIsAddingList(false); setNewListName('') }
   }
 
+  const handleTaskCreated = (newTask: Task, tempId?: string) => {
+    if (tempId) {
+      setOptimisticTasks(prev => prev.filter(t => t.id !== tempId))
+    }
+    onTaskCreated?.(newTask)
+  }
+
   return (
-    <div style={{ position:'relative', height:'100%', display:'flex', flexDirection:'column', overflow:'hidden', background:DS.boardBg }}>
+    <div style={{ position:'relative', height:'100%', display:'flex', flexDirection:'column', overflow:'hidden', background: boardBackground || DS.boardBg }}>
       <DragDropContext onDragEnd={handleDragEnd}>
         <div style={{ flex: 1, minHeight: 0, overflowX:'auto', overflowY:'auto', padding:'12px 16px', boxSizing:'border-box' }}>
           <Droppable droppableId="all-lists" direction="horizontal" type="list">
@@ -292,6 +320,7 @@ export function Board({
                             onTaskClick={onTaskClick}
                             onAddTask={onAddTask}
                             onAddOptimisticTask={addOptimisticTask}
+                            onTaskCreated={handleTaskCreated}
                             onEditList={onEditList}
                             onDeleteList={onRefresh}
                             dragHandleProps={provided.dragHandleProps}
