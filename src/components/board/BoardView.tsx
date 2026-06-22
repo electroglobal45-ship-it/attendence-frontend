@@ -14,6 +14,7 @@ import { TaskDetailModal } from './TaskDetailModal'
 import { CalendarView as CalendarViewComponent } from './CalendarView'
 import { BoardSkeleton, BoardLoadingIndicator } from './BoardSkeleton'
 import { useAuth } from '@/lib/auth-context'
+import { usePrefetchStore } from '@/lib/store/prefetch-store'
 
 /* ─────────────────────────── Design tokens (LIGHT THEME) ── */
 const DS = {
@@ -382,9 +383,28 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   const { user } = useAuth()
   const role = user?.role
 
-  const [loading,setLoading]       = useState(true)  // Start true - show loader immediately
-  const [boards,setBoards]         = useState<BoardObj[]>([])
-  const [selectedBoard,setSelectedBoard] = useState<BoardObj|null>(null)
+  const storeProjects = usePrefetchStore((state) => state.projects)
+  const boardDetailsCache = usePrefetchStore((state) => state.boardDetailsCache)
+
+  const [boards,setBoards]         = useState<BoardObj[]>(() => storeProjects || [])
+  const [selectedBoard,setSelectedBoard] = useState<BoardObj|null>(() => {
+    if (storeProjects && storeProjects.length > 0) {
+      if (initialBoardId) {
+        return storeProjects.find((b: BoardObj) => b.id === initialBoardId) || storeProjects[0]
+      }
+      return storeProjects[0]
+    }
+    return null
+  })
+  const [loading,setLoading]       = useState(() => {
+    if (storeProjects && storeProjects.length > 0) {
+      const targetId = initialBoardId || storeProjects[0]?.id
+      if (targetId && boardDetailsCache[targetId]) {
+        return false
+      }
+    }
+    return true
+  })
   const [teamLeaders, setTeamLeaders] = useState<any[]>([])
   
   // Compute canManageBoard permission
@@ -460,7 +480,15 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
       setCreatingBoard(false)
     }
   }
-  const [boardData,setBoardData]   = useState<BoardData|null>(null)
+  const [boardData,setBoardData]   = useState<BoardData|null>(() => {
+    if (storeProjects && storeProjects.length > 0) {
+      const targetId = initialBoardId || storeProjects[0]?.id
+      if (targetId && boardDetailsCache[targetId]) {
+        return boardDetailsCache[targetId]
+      }
+    }
+    return null
+  })
   const [showCreateList,setShowCreateList] = useState(false)
   const [newListName,setNewListName] = useState('')
   const [creating,setCreating]     = useState(false)
@@ -521,6 +549,13 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   }
 
   const fetchAllUsers = async () => {
+    // Check if we already have users cached globally
+    const cachedUsers = usePrefetchStore.getState().allUsers
+    if (cachedUsers && cachedUsers.length > 0) {
+      setAllUsers(cachedUsers)
+      return
+    }
+
     try {
       const token = localStorage.getItem('authToken')
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
@@ -530,6 +565,7 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
         const users = u.data?.users || []
         if (users.length > 0) {
           setAllUsers(users)
+          usePrefetchStore.setState({ allUsers: users })
           console.log(`✓ Loaded ${users.length} users for board members display`)
         }
       }
@@ -558,64 +594,125 @@ useEffect(() => {
 
   const fetchBoards = async ()=>{
     if(!currentProjectId){ setError('No project ID'); setLoading(false); return }
+    
+    // First, try loading boards from cached store projects
+    const cachedProjects = usePrefetchStore.getState().projects
+    if (cachedProjects && cachedProjects.length > 0) {
+      setBoards(cachedProjects)
+      const target = initialBoardId ? cachedProjects.find((b:BoardObj)=>b.id===initialBoardId) : null
+      const nextBoard = target || cachedProjects[0]
+      setSelectedBoard(nextBoard)
+      
+      const hasCachedDetails = usePrefetchStore.getState().boardDetailsCache[nextBoard.id]
+      if (hasCachedDetails) {
+        setLoading(false)
+      }
+    }
+    
     try{
       const r = await boardsAPI.getProjectBoards(currentProjectId)
       if(r.success&&r.data){
         const list = Array.isArray(r.data)?r.data:((r.data as any).boards||[])
         setBoards(list)
+        usePrefetchStore.setState({ projects: list })
+        
         if(list.length>0){
-          // If an initialBoardId is provided, select that board; otherwise select first
           const target = initialBoardId ? list.find((b:BoardObj)=>b.id===initialBoardId) : null
-          setSelectedBoard(target || list[0])
+          const nextBoard = target || list[0]
+          setSelectedBoard(nextBoard)
+          
+          const hasCachedDetails = usePrefetchStore.getState().boardDetailsCache[nextBoard.id]
+          if (hasCachedDetails) {
+            setLoading(false)
+          }
+        } else {
+          if (!cachedProjects || cachedProjects.length === 0) {
+            setError('No boards found. Create one first.')
+            setLoading(false)
+          }
         }
-        else { setError('No boards found. Create one first.'); setLoading(false) }
-      } else { setError(r.error||'Failed to fetch boards'); setLoading(false) }
-    } catch { setError('Error fetching boards'); setLoading(false) }
+      } else {
+        if (!cachedProjects || cachedProjects.length === 0) {
+          setError(r.error||'Failed to fetch boards')
+          setLoading(false)
+        }
+      }
+    } catch {
+      if (!cachedProjects || cachedProjects.length === 0) {
+        setError('Error fetching boards')
+        setLoading(false)
+      }
+    }
   }
 
   const fetchBoardData = async (boardId:string)=>{
-    setLoading(true)
+    // Try to load from Zustand cache first (SWR pattern)
+    const cachedData = usePrefetchStore.getState().boardDetailsCache[boardId]
+    if (cachedData) {
+      setBoardData(cachedData)
+      setNameInput(cachedData.board.name)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
+    
     try{
-      const r = await boardsAPI.getBoardDetails(boardId)
-      if(r.success&&r.data){
-        const data = r.data as BoardData
-        const token = localStorage.getItem('authToken')
-        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const token = localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const cachedGlobalUsers = usePrefetchStore.getState().allUsers
+      
+      const [boardDetailsRes, usersRes, labelsRes] = await Promise.allSettled([
+        boardsAPI.getBoardDetails(boardId),
+        cachedGlobalUsers && cachedGlobalUsers.length > 0 
+          ? Promise.resolve({ success: true, data: { users: cachedGlobalUsers } })
+          : fetch(`${BACKEND_URL}/api/v1/users`, { headers: { Authorization: `Bearer ${token}` } }).then(res => res.json().catch(() => ({}))),
+        fetch(`${BACKEND_URL}/api/v1/labels/boards/${boardId}`, { headers: { Authorization: `Bearer ${token}` } }).then(res => res.json().catch(() => ({})))
+      ])
+      
+      let success = false
+      let freshData: BoardData | null = null
+      
+      if (boardDetailsRes.status === 'fulfilled' && boardDetailsRes.value.success && boardDetailsRes.value.data) {
+        success = true
+        freshData = boardDetailsRes.value.data as BoardData
         
-        // ALWAYS fetch and use ALL users as members (ensures header shows all employees consistently)
-        try {
-          const res = await fetch(`${BACKEND_URL}/api/v1/users`,{ headers:{ Authorization:`Bearer ${token}` }})
-          if(res.ok){
-            const u=await res.json()
-            const users = u.data?.users || []
-            if (users.length > 0) {
-              data.members = users
-              setAllUsers(users) // persist for polling and future use
-            } else if (allUsers.length > 0) {
-              data.members = allUsers // use cached if API returns empty
-            }
-          } else if (allUsers.length > 0) {
-            data.members = allUsers // fallback to cached on error
+        let finalUsers = cachedGlobalUsers || []
+        if (usersRes.status === 'fulfilled') {
+          const uVal = usersRes.value as any
+          const users = uVal.data?.users || uVal.users || []
+          if (users.length > 0) {
+            finalUsers = users
+            setAllUsers(users)
+            usePrefetchStore.setState({ allUsers: users })
           }
-        } catch {
-          // Network error - use cached users
-          if (allUsers.length > 0) data.members = allUsers
         }
         
-        // Fetch board-specific labels
-        try {
-          const labelsRes = await fetch(`${BACKEND_URL}/api/v1/labels/boards/${boardId}`,{ headers:{ Authorization:`Bearer ${token}` }})
-          if(labelsRes.ok){ 
-            const labelsData=await labelsRes.json()
-            setBoardLabels(labelsData.data?.labels||[])
-          }
-        } catch {
-          // Silently ignore label fetch errors
+        if (finalUsers.length > 0) {
+          freshData.members = finalUsers
         }
         
-        setBoardData(data); setNameInput(data.board.name); setLoading(false)
-      } else { setError(r.error||'Failed to load'); setLoading(false) }
-    } catch { setError('Error loading board'); setLoading(false) }
+        if (labelsRes.status === 'fulfilled') {
+          const lVal = labelsRes.value as any
+          const labelsList = lVal.data?.labels || lVal.labels || []
+          setBoardLabels(labelsList)
+        }
+        
+        setBoardData(freshData)
+        setNameInput(freshData.board.name)
+        usePrefetchStore.getState().updateBoardDetailsCache(boardId, freshData)
+        setLoading(false)
+      }
+      
+      if (!success && !cachedData) {
+        setError('Failed to load board data')
+        setLoading(false)
+      }
+    } catch {
+      if (!cachedData) {
+        setError('Error loading board')
+        setLoading(false)
+      }
+    }
   }
 
   useEffect(()=>{ if(selectedBoard) fetchBoardData(selectedBoard.id) },[selectedBoard])
@@ -705,6 +802,8 @@ useEffect(() => {
   })
 
   const filteredTasks = boardData?.tasks.filter(task => {
+    if (task.id.startsWith('temp-')) return true
+    
     let matchesMember = filterMembers.size === 0
     if (!matchesMember && task.assigned_user) {
       matchesMember = filterMembers.has(task.assigned_user.id) || filterMembers.has(task.assigned_user.email)
@@ -750,7 +849,7 @@ useEffect(() => {
         borderBottom:`1px solid ${DS.headerBorder}`,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         position: 'relative',
-        zIndex: 100,
+        zIndex: 30,
       }}>
 
         {/* LEFT - Back Button + Board Name */}
@@ -1289,15 +1388,60 @@ useEffect(() => {
                 boardBackground={boardBgColor}
                 canManageBoard={canManageBoard}
                 onRefresh={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
-                onAddTask={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
-                onTaskCreated={(newTask) => {
+                onAddTask={(listId, title) => {
+                  if (!selectedBoard) return ''
+                  const optimisticId = `temp-${Date.now()}`
+                  const newTask: Task = {
+                    id: optimisticId,
+                    public_id: optimisticId,
+                    title: title || 'New Card',
+                    list_id: listId,
+                    position: boardData.tasks.filter(t => t.list_id === listId).length * 1000,
+                    priority: 'medium',
+                    status: 'todo',
+                    completion_percentage: 0,
+                    description: '',
+                    assigned_to: undefined,
+                    due_date: undefined,
+                    cover_color: undefined,
+                    labels: [],
+                  }
+                  
+                  const updated = {
+                    ...boardData,
+                    tasks: [...boardData.tasks, newTask]
+                  }
+                  setBoardData(updated)
+                  usePrefetchStore.getState().updateBoardDetailsCache(selectedBoard.id, updated)
+                  return optimisticId
+                }}
+                onTaskCreated={(newTask, tempId) => {
+                  if (!selectedBoard) return
                   setBoardData(prev => {
                     if (!prev) return null
-                    if (prev.tasks.some(t => t.id === newTask.id)) return prev
-                    return {
+                    const filtered = tempId 
+                      ? prev.tasks.filter(t => t.id !== tempId)
+                      : prev.tasks
+                    
+                    if (filtered.some(t => t.id === newTask.id)) return { ...prev, tasks: filtered }
+                    const updated = {
                       ...prev,
-                      tasks: [...prev.tasks, newTask]
+                      tasks: [...filtered, newTask]
                     }
+                    usePrefetchStore.getState().updateBoardDetailsCache(selectedBoard.id, updated)
+                    return updated
+                  })
+                }}
+                onDeleteTask={(taskId) => {
+                  if (!selectedBoard) return
+                  setBoardData(prev => {
+                    if (!prev) return null
+                    const updated = {
+                      ...prev,
+                      tasks: prev.tasks.filter(t => t.id !== taskId)
+                    }
+                    usePrefetchStore.getState().updateBoardDetailsCache(selectedBoard.id, updated)
+                    return updated
                   })
                 }}
                 onAddList={(name)=>createList(name)}

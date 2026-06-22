@@ -8,10 +8,10 @@ import { useSocket } from '@/hooks/useSocket'
 export default function MessagesPage() {
   const router = useRouter()
   const [isMounted, setIsMounted] = useState(false)
-  
+
   // Get token from localStorage (consistent with auth system)
   const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
-  
+
   // Initialize socket connection
   const { isConnected, connectionError } = useSocket(token || undefined)
 
@@ -28,27 +28,27 @@ export default function MessagesPage() {
 
   if (!isMounted || !token) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     )
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Connection Status Bar */}
       {connectionError && (
-        <div className="bg-red-500 text-white px-4 py-2 text-sm text-center">
+        <div className="bg-red-500 text-white px-4 py-2 text-sm text-center flex-shrink-0">
           {connectionError}
         </div>
       )}
       {!isConnected && !connectionError && (
-        <div className="bg-yellow-500 text-white px-4 py-2 text-sm text-center">
+        <div className="bg-yellow-500 text-white px-4 py-2 text-sm text-center flex-shrink-0">
           Connecting to messaging server...
         </div>
       )}
-      
-      {/* Main Messaging Layout */}
+
+      {/* Main Messaging Layout — no back button, no full-screen wrapper */}
       <MessagingLayout />
     </div>
   )

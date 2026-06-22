@@ -8,6 +8,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { authAPI, getAuthToken, getRefreshToken, clearAuthToken } from '@/lib/backend-api'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
+import { setSecureCookie, clearSecureCookie } from '@/lib/cookie-utils'
 
 interface User {
   id: string
@@ -170,10 +171,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('user')
           localStorage.removeItem('userRole')
         }
-        if (typeof document !== 'undefined') {
-          document.cookie = 'authToken=; path=/; max-age=0'
-          document.cookie = 'userRole=; path=/; max-age=0'
-        }
+        clearSecureCookie('authToken')
+        clearSecureCookie('userRole')
       }
     } catch (err) {
       console.error('Failed to verify user:', err)
@@ -220,9 +219,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         
         // Store in cookies for middleware
-        if (typeof document !== 'undefined' && result.token) {
-          document.cookie = `authToken=${result.token}; path=/; max-age=604800; SameSite=Lax`
-          document.cookie = `userRole=${result.user.role}; path=/; max-age=604800; SameSite=Lax`
+        if (result.token) {
+          setSecureCookie('authToken', result.token)
+          setSecureCookie('userRole', result.user.role)
         }
         
         // Setup token refresh
@@ -256,10 +255,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('userRole')
     }
 
-    if (typeof document !== 'undefined') {
-      document.cookie = 'authToken=; path=/; max-age=0'
-      document.cookie = 'userRole=; path=/; max-age=0'
-    }
+    clearSecureCookie('authToken')
+    clearSecureCookie('userRole')
 
     // 2. Perform server-side cleanup in the background without blocking the client redirect
     try {

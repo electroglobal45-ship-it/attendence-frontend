@@ -43,11 +43,12 @@ interface ListProps {
   tasks: Task[]
   canManageBoard?: boolean
   onTaskClick?: (task: Task) => void
-  onAddTask?: (listId: string) => void
-  onAddOptimisticTask?: (listId: string, title: string) => string
+  onAddTask?: (listId: string, title?: string) => string | void
   onTaskCreated?: (task: Task, tempId?: string) => void
   onEditList?: (list: ListObj) => void
   onDeleteList?: (listId: string) => void
+  onRefresh?: () => void
+  onDeleteTask?: (taskId: string) => void
   dragHandleProps?: any
   isDragging?: boolean
 }
@@ -58,10 +59,11 @@ export function List({
   canManageBoard = true,
   onTaskClick, 
   onAddTask,
-  onAddOptimisticTask,
   onTaskCreated,
   onEditList,
   onDeleteList,
+  onRefresh,
+  onDeleteTask,
   dragHandleProps,
   isDragging,
 }: ListProps) {
@@ -76,7 +78,7 @@ export function List({
     const cardTitle = newCardTitle.trim()
     
     // STEP 1: ADD TO UI IMMEDIATELY - NO WAITING!
-    const tempId = onAddOptimisticTask?.(list.id, cardTitle) || ''
+    const tempId = (onAddTask?.(list.id, cardTitle) as string) || ''
     
     // STEP 2: Clear form immediately
     setNewCardTitle('')
@@ -242,6 +244,8 @@ export function List({
                         task={task}
                         onClick={() => onTaskClick?.(task)}
                         isDragging={snapshot.isDragging}
+                        onRefresh={onRefresh}
+                        onDeleteTask={onDeleteTask}
                       />
                     </div>
                   )}

@@ -72,11 +72,12 @@ interface BoardProps {
   boardBackground?: string
   canManageBoard?: boolean
   onTaskClick?: (task: Task) => void
-  onAddTask?: (listId: string) => void
-  onTaskCreated?: (task: Task) => void
+  onAddTask?: (listId: string, title?: string) => string | void
+  onTaskCreated?: (task: Task, tempId?: string) => void
   onAddList?: (name: string) => void
   onEditList?: (list: ListObj) => void
   onRefresh?: () => void
+  onDeleteTask?: (taskId: string) => void
 }
 
 export function Board({
@@ -91,10 +92,10 @@ export function Board({
   onAddList,
   onEditList,
   onRefresh,
+  onDeleteTask,
 }: BoardProps) {
   const [localLists, setLocalLists]   = useState(lists)
   const [localTasks, setLocalTasks]   = useState(tasks)
-  const [optimisticTasks, setOptimisticTasks] = useState<Task[]>([]) // New optimistic tasks
   const [isAddingList, setIsAddingList] = useState(false)
   const [newListName, setNewListName]  = useState('')
   const [addingListLoading, setAddingListLoading] = useState(false)
@@ -102,49 +103,23 @@ export function Board({
   const isUpdatingListsRef = useRef(false)
   const isUpdatingTasksRef = useRef(false)
 
-  // Only update local lists if we're not in the middle of dragging/updating
+  // Only update local lists if we're not in the middle of dragging/updating or list count changed
   useEffect(() => {
-    if (!isUpdatingListsRef.current) {
+    if (!isUpdatingListsRef.current || lists.length !== localLists.length) {
       setLocalLists(lists)
     }
   }, [lists])
   
   useEffect(() => { 
-    if (!isUpdatingTasksRef.current) {
+    if (!isUpdatingTasksRef.current || tasks.length !== localTasks.length) {
       setLocalTasks(tasks)
-      // Clear optimistic tasks that now exist in real tasks
-      setOptimisticTasks(prev => prev.filter(opt => !tasks.some(t => t.id === opt.id || t.title === opt.title)))
     }
   }, [tasks])
 
-  /* ── Add optimistic task directly to UI ── */
-  const addOptimisticTask = (listId: string, title: string): string => {
-    const optimisticId = `temp-${Date.now()}`
-    // Calculate position from all tasks (local + optimistic)
-    const allCurrentTasks = [...localTasks, ...optimisticTasks]
-    const existingTasks = allCurrentTasks.filter(t => t.list_id === listId)
-    const newTask: Task = {
-      id: optimisticId,
-      public_id: optimisticId,
-      title: title.trim(),
-      list_id: listId,
-      position: existingTasks.length > 0 ? existingTasks[existingTasks.length - 1].position + 65536 : 65536,
-      priority: 'medium',
-      status: 'todo',
-      completion_percentage: 0,
-      description: '',
-      assigned_to: undefined,
-      due_date: undefined,
-      cover_color: undefined,
-      labels: [],
-    }
-    setOptimisticTasks(prev => [...prev, newTask])
-    return optimisticId
-  }
-
-  /* ── group + sort tasks by list (including optimistic) ── */
-  const allTasks = [...localTasks, ...optimisticTasks]
+  /* ── group + sort tasks by list ── */
+  const allTasks = localTasks
   const tasksByList = allTasks.reduce((acc, task) => {
+    if (!acc[task.list_id]) acc[acc.findIndex ? task.list_id : task.list_id] = [] // avoid TS error or keep simple array
     if (!acc[task.list_id]) acc[task.list_id] = []
     acc[task.list_id].push(task)
     return acc
@@ -240,13 +215,7 @@ export function Board({
     newTasks.splice(destStart >= 0 ? destStart + destination.index : newTasks.length, 0, task)
     
     isUpdatingTasksRef.current = true
-    
-    // Update both local and optimistic appropriately
-    if (task.id.startsWith('temp-')) {
-      setOptimisticTasks(newTasks.filter(t => t.id.startsWith('temp-')))
-    } else {
-      setLocalTasks(newTasks.filter(t => !t.id.startsWith('temp-')))
-    }
+    setLocalTasks(newTasks)
     
     // Save to backend
     const token = localStorage.getItem('authToken')
@@ -293,10 +262,7 @@ export function Board({
   }
 
   const handleTaskCreated = (newTask: Task, tempId?: string) => {
-    if (tempId) {
-      setOptimisticTasks(prev => prev.filter(t => t.id !== tempId))
-    }
-    onTaskCreated?.(newTask)
+    onTaskCreated?.(newTask, tempId)
   }
 
   return (
@@ -322,10 +288,11 @@ export function Board({
                             canManageBoard={canManageBoard}
                             onTaskClick={onTaskClick}
                             onAddTask={onAddTask}
-                            onAddOptimisticTask={addOptimisticTask}
                             onTaskCreated={handleTaskCreated}
                             onEditList={onEditList}
                             onDeleteList={onRefresh}
+                            onRefresh={onRefresh}
+                            onDeleteTask={onDeleteTask}
                             dragHandleProps={provided.dragHandleProps}
                             isDragging={snapshot.isDragging}
                           />

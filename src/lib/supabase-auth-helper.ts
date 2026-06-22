@@ -1,50 +1,62 @@
 /**
- * Supabase Auth Helper for API Routes
- * Helper functions to verify authentication in API routes using Supabase Auth
+ * Supabase Auth Helper for Next.js API Routes
+ *
+ * Validates tokens by calling the Express backend (/api/v1/auth/me).
+ * This keeps auth consistent with the rest of the app — the backend
+ * handles Supabase token refresh automatically, so we never get
+ * "token is expired" errors from hitting Supabase Auth directly.
  */
 
 import { NextRequest } from 'next/server'
-import { supabaseServer } from './supabase-server'
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
 
 /**
- * Get authenticated user from request using Supabase Auth
- * Returns user if authenticated, null otherwise
+ * Extract the Bearer token from the request.
+ * Checks Authorization header first, then the authToken cookie.
+ */
+function extractToken(req: NextRequest): string | null {
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.substring(7)
+  }
+  return req.cookies.get('authToken')?.value || null
+}
+
+/**
+ * Get authenticated user from request.
+ * Validates the token by calling the backend /auth/me endpoint.
+ * Returns user profile or null if invalid / expired.
  */
 export async function getAuthenticatedUser(req: NextRequest) {
   try {
-    let accessToken: string | null = null
-    const authHeader = req.headers.get('authorization')
-    
-    if (authHeader?.startsWith('Bearer ')) {
-      accessToken = authHeader.substring(7)
-    } else {
-      accessToken = req.cookies.get('authToken')?.value || null
-    }
+    const token = extractToken(req)
 
-    if (!accessToken) {
+    if (!token) {
       console.log('❌ No token found in Authorization header or cookies')
       return null
     }
 
-    // Verify the access token with Supabase Auth using service role
-    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(accessToken)
+    // Validate via Express backend — it handles Supabase refresh internally
+    const response = await fetch(`${BACKEND_URL}/api/v1/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      // Short timeout so we don't block the route handler for too long
+      signal: AbortSignal.timeout(8000),
+    })
 
-    if (authError || !user) {
-      console.log('❌ Invalid token:', authError?.message)
+    if (!response.ok) {
+      console.log('❌ Invalid token:', response.status, response.statusText)
       return null
     }
 
-    console.log('✅ Token verified for user:', user.id)
+    const json = await response.json()
+    const profile = json?.data
 
-    // Get user profile from users table using service role
-    const { data: profile, error: profileError } = await supabaseServer
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || !profile) {
-      console.error('❌ Profile fetch error:', profileError)
+    if (!profile) {
+      console.log('❌ No profile in backend response')
       return null
     }
 
@@ -53,13 +65,13 @@ export async function getAuthenticatedUser(req: NextRequest) {
       return null
     }
 
-    console.log('✅ User authenticated:', profile.email, 'role:', profile.role)
+    console.log('✅ Token verified via backend for user:', profile.email, 'role:', profile.role)
 
     return {
-      userId: user.id,
-      email: user.email!,
-      role: profile.role,
-      profile: profile
+      userId: profile.id,
+      email: profile.email as string,
+      role: profile.role as string,
+      profile,
     }
   } catch (error) {
     console.error('❌ Auth error:', error)
@@ -68,31 +80,30 @@ export async function getAuthenticatedUser(req: NextRequest) {
 }
 
 /**
- * Verify user is authenticated
- * Throws error if not authenticated
+ * Verify user is authenticated — throws if not.
  */
 export async function requireAuth(req: NextRequest) {
   const user = await getAuthenticatedUser(req)
-  
+
   if (!user) {
     throw new Error('Unauthorized')
   }
-  
+
   return user
 }
 
 /**
- * Verify user is admin
- * Throws error if not admin
+ * Verify user is admin — throws if not authenticated or not admin.
  */
 export async function requireAdmin(req: NextRequest) {
   const user = await requireAuth(req)
-  
+
   if (user.role !== 'admin') {
     console.log('❌ User is not admin:', user.role)
     throw new Error('Forbidden: Admin access required')
   }
-  
+
   console.log('✅ Admin access granted')
   return user
 }
+

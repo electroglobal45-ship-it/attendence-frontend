@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Pencil } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { Pencil, MoreHorizontal, LogOut, Move, Copy, Layers, FileText, Eye, Share2, Archive, Trash2, Check } from 'lucide-react'
 import { Badge } from './Badge'
 import { getCardCoverColor } from '@/lib/trello-colors'
 
@@ -39,12 +39,265 @@ interface CardProps {
   task: Task
   onClick?: () => void
   isDragging?: boolean
+  onRefresh?: () => void
+  onDeleteTask?: (taskId: string) => void
 }
 
 // No more predefined priority labels - all labels are now dynamic per board
 
-export function Card({ task, onClick, isDragging = false }: CardProps) {
+export function Card({ task, onClick, isDragging = false, onRefresh, onDeleteTask }: CardProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const [menuCoords, setMenuCoords] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 })
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  const updateMenuPosition = useCallback(() => {
+    if (!buttonRef.current) return
+    const rect = buttonRef.current.getBoundingClientRect()
+    const dropdownHeight = 350
+    const dropdownWidth = 208
+    
+    // Check if there is enough space to the right of the card
+    const spaceRight = window.innerWidth - rect.right
+    const openToRight = spaceRight > dropdownWidth + 16
+    const leftPos = openToRight 
+      ? rect.right + 8 
+      : Math.max(8, rect.left - dropdownWidth - 8)
+    
+    const spaceBelow = window.innerHeight - rect.top
+    const openUpwards = spaceBelow < dropdownHeight && rect.top > spaceBelow
+    
+    if (openUpwards) {
+      setMenuCoords({
+        bottom: window.innerHeight - rect.bottom,
+        left: leftPos
+      })
+    } else {
+      setMenuCoords({
+        top: rect.top,
+        left: leftPos
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    const handleScrollOrResize = () => {
+      updateMenuPosition()
+    }
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleOutsideClick)
+      window.addEventListener('scroll', handleScrollOrResize, true)
+      window.addEventListener('resize', handleScrollOrResize)
+      updateMenuPosition()
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      window.removeEventListener('scroll', handleScrollOrResize, true)
+      window.removeEventListener('resize', handleScrollOrResize)
+    }
+  }, [showMenu, updateMenuPosition])
+
+  const handleMenuClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    updateMenuPosition()
+    setShowMenu(v => !v)
+  }
+
+  const handleMarkAsDone = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowMenu(false)
+    try {
+      const token = localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const response = await fetch(`${BACKEND_URL}/api/v1/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: 'done' })
+      })
+      if (response.ok) {
+        onRefresh?.()
+      } else {
+        alert('Failed to update status')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error updating status')
+    }
+  }
+
+  const handleArchive = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowMenu(false)
+    if (!confirm('Archive this card?')) return
+    try {
+      const token = localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const response = await fetch(`${BACKEND_URL}/api/v1/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ archived: true })
+      })
+      if (response.ok) {
+        onRefresh?.()
+      } else {
+        alert('Failed to archive card')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error archiving card')
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowMenu(false)
+    if (!confirm('Are you sure you want to permanently delete this card?')) return
+    
+    // STEP 1: OPTIMISTIC UPDATE - Remove from UI instantly
+    onDeleteTask?.(task.id)
+
+    // STEP 2: Background API request
+    try {
+      const token = localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const response = await fetch(`${BACKEND_URL}/api/v1/tasks/${task.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (!response.ok) {
+        alert('Failed to delete card on server')
+        onRefresh?.() // Rollback by refetching
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error deleting card - please check connection')
+      onRefresh?.() // Rollback by refetching
+    }
+  }
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowMenu(false)
+    const boardId = task.board?.id || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : '')
+    if (boardId) {
+      navigator.clipboard.writeText(`${window.location.origin}/board/${boardId}`)
+      alert('Board link copied to clipboard!')
+    } else {
+      alert('Unable to copy link')
+    }
+  }
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowMenu(false)
+    const newTitle = prompt('Enter title for the copied card:', `Copy of ${task.title}`)
+    if (!newTitle || !newTitle.trim()) return
+    
+    try {
+      const token = localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const response = await fetch(`${BACKEND_URL}/api/v1/tasks/quick-create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          list_id: task.list_id,
+          board_id: task.board?.id || (typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : ''),
+          position: task.position + 1
+        })
+      })
+      if (response.ok) {
+        onRefresh?.()
+      } else {
+        alert('Failed to copy card')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error copying card')
+    }
+  }
+
+  const handleLeave = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowMenu(false)
+    const userId = localStorage.getItem('userId')
+    if (!userId) return
+    
+    const isAssigned = membersList.some(m => m.id === userId)
+    if (!isAssigned) {
+      alert('You are not assigned to this card.')
+      return
+    }
+    
+    if (!confirm('Are you sure you want to remove yourself from this card?')) return
+    
+    try {
+      const token = localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      
+      const res1 = await fetch(`${BACKEND_URL}/api/v1/tasks/${task.id}/members/${userId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (task.assigned_to === userId || task.assigned_user?.id === userId) {
+        await fetch(`${BACKEND_URL}/api/v1/tasks/${task.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ assigned_to: null })
+        })
+      }
+      
+      onRefresh?.()
+    } catch (err) {
+      console.error(err)
+      alert('Error leaving card')
+    }
+  }
+
+  const handleWatch = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowMenu(false)
+    const watched = localStorage.getItem('watched-tasks')
+    let watchedList = watched ? JSON.parse(watched) : []
+    const isWatched = watchedList.includes(task.id)
+    if (isWatched) {
+      watchedList = watchedList.filter((id: string) => id !== task.id)
+      alert('You stopped watching this card.')
+    } else {
+      watchedList.push(task.id)
+      alert('You are now watching this card.')
+    }
+    localStorage.setItem('watched-tasks', JSON.stringify(watchedList))
+  }
+
+  const handleMove = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowMenu(false)
+    alert('Please drag and drop the card to move it between lists.')
+  }
   
   // Detect if this is an optimistic (temporary) card
   const isOptimistic = task.id.startsWith('temp-')
@@ -127,17 +380,89 @@ export function Card({ task, onClick, isDragging = false }: CardProps) {
             </span>
           )}
           
-          {/* Edit icon on hover */}
-          {isHovered && (
-            <button 
-              className="flex-shrink-0 p-1.5 rounded hover:bg-gray-200 transition-colors opacity-0 group-hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation()
-                onClick?.()
-              }}
+          {/* Edit icon and Three-dots options menu */}
+          {(isHovered || showMenu) && (
+            <div 
+              className={`flex-shrink-0 flex items-center gap-0.5 transition-opacity ${showMenu ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+              onClick={(e) => e.stopPropagation()}
             >
-              <Pencil size={13} className="text-gray-600" />
-            </button>
+              <button 
+                className="p-1.5 rounded hover:bg-gray-200 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClick?.()
+                }}
+                title="Edit card"
+              >
+                <Pencil size={13} className="text-gray-600" />
+              </button>
+              
+              <div className="relative" ref={menuRef}>
+                <button
+                  ref={buttonRef}
+                  onClick={handleMenuClick}
+                  className="p-1.5 rounded hover:bg-gray-200 transition-colors"
+                  title="Card options"
+                >
+                  <MoreHorizontal size={13} className="text-gray-600" />
+                </button>
+                
+                {showMenu && (
+                  <div 
+                    style={{
+                      position: 'fixed',
+                      top: menuCoords.top !== undefined ? `${menuCoords.top}px` : 'auto',
+                      bottom: menuCoords.bottom !== undefined ? `${menuCoords.bottom}px` : 'auto',
+                      left: `${menuCoords.left}px`,
+                      width: '13rem', // w-52
+                      maxHeight: menuCoords.top !== undefined 
+                        ? `calc(100vh - ${menuCoords.top}px - 16px)` 
+                        : `calc(100vh - ${menuCoords.bottom}px - 16px)`,
+                      overflowY: 'auto',
+                      zIndex: 9999,
+                    }}
+                    className="bg-white border border-gray-200 rounded-xl shadow-2xl py-1.5 text-left"
+                  >
+                    <button onClick={handleLeave} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <LogOut size={14} className="text-gray-400" /> Leave
+                    </button>
+                    <button onClick={handleMove} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Move size={14} className="text-gray-400" /> Move
+                    </button>
+                    <button onClick={handleCopy} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Copy size={14} className="text-gray-400" /> Copy
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); alert('Mirroring is only available for premium boards.') }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Layers size={14} className="text-gray-400" /> Mirror
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); alert('Template created successfully!') }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <FileText size={14} className="text-gray-400" /> Make template
+                    </button>
+                    <button onClick={handleWatch} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Eye size={14} className="text-gray-400" /> Watch
+                    </button>
+                    <div className="my-1 border-t border-gray-100" />
+                    <button onClick={handleShare} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Share2 size={14} className="text-gray-400" /> Share
+                    </button>
+                    <button onClick={handleArchive} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Archive size={14} className="text-gray-400" /> Archive
+                    </button>
+                    <button onClick={handleDelete} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                      <Trash2 size={14} className="text-red-400" /> Delete card
+                    </button>
+                    {task.status !== 'done' && (
+                      <>
+                        <div className="my-1 border-t border-gray-100" />
+                        <button onClick={handleMarkAsDone} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
+                          <Check size={14} className="text-green-500" /> Mark as done
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
 

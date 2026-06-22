@@ -398,6 +398,11 @@ export default function TasksPage() {
   }
   
   const fetchBoards = async () => {
+    const cachedBoards = usePrefetchStore.getState().projects
+    if (cachedBoards && cachedBoards.length > 0) {
+      setBoards(cachedBoards)
+    }
+
     try {
       console.log('Fetching boards for project:', projectId)
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
@@ -408,18 +413,18 @@ export default function TasksPage() {
       if (res.ok) {
         const data = await res.json()
         console.log('Boards data:', data)
-        setBoards(data.data?.boards || [])
+        const fetchedBoards = data.data?.boards || []
+        setBoards(fetchedBoards)
+        usePrefetchStore.setState({ projects: fetchedBoards })
       } else {
         console.error('Failed to fetch boards, status:', res.status, await res.text())
-        // Fallback to extracting from tasks if API fails
-        if (tasks.length > 0) {
+        if (tasks.length > 0 && (!cachedBoards || cachedBoards.length === 0)) {
           extractBoardsFromTasks()
         }
       }
     } catch (err) {
       console.error('Error fetching boards:', err)
-      // Fallback to extracting from tasks if error
-      if (tasks.length > 0) {
+      if (tasks.length > 0 && (!cachedBoards || cachedBoards.length === 0)) {
         extractBoardsFromTasks()
       }
     }
@@ -434,7 +439,6 @@ export default function TasksPage() {
           uniqueBoards.set(task.board.id, task.board)
         }
       } else if (task.board_id) {
-        // If board object doesn't exist, create one from board_id
         if (!uniqueBoards.has(task.board_id)) {
           uniqueBoards.set(task.board_id, {
             id: task.board_id,
@@ -451,6 +455,11 @@ export default function TasksPage() {
   }
   
   const fetchUsers = async () => {
+    const cachedUsers = usePrefetchStore.getState().allUsers
+    if (cachedUsers && cachedUsers.length > 0) {
+      setUsers(cachedUsers)
+    }
+
     try {
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const res = await fetch(`${BACKEND_URL}/api/v1/users`, {
@@ -458,7 +467,9 @@ export default function TasksPage() {
       })
       if (res.ok) {
         const data = await res.json()
-        setUsers(data.data?.users || [])
+        const fetchedUsers = data.data?.users || []
+        setUsers(fetchedUsers)
+        usePrefetchStore.setState({ allUsers: fetchedUsers })
       }
     } catch {}
   }

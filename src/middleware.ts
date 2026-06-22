@@ -11,7 +11,12 @@ export function middleware(request: NextRequest) {
   
   // Get auth token from cookies
   const token = request.cookies.get('authToken')?.value
+  // userRole is set by the client after login using the role returned by the backend.
+  // The Supabase JWT contains role:"authenticated" (not the app role), so we
+  // cannot decode the app role from the token itself without backend changes.
+  // API-level security is still enforced server-side on every request.
   const userRole = request.cookies.get('userRole')?.value
+
   
   // Public routes that don't need auth
   const publicRoutes = ['/login', '/']

@@ -234,27 +234,17 @@ export default function EmployeeVaultPage() {
         setShowForm(false)
         resetForm()
       } else {
-        const res = await vaultAPI.createEntry({
+        const optimisticId = `temp-${Date.now()}`
+        const newEntry: EmployeeVaultEntry = {
+          id: optimisticId,
+          assignment_id: `new-a-${optimisticId}`,
           service_name: form.service_name,
           username: form.username,
-          password: form.password,
-          site_url: form.site_url,
           notes: form.notes,
-          assigned_to: [], // Handled on backend to assign to creator
-        })
-        
-        // Since backend create returns AdminVaultEntry, we adapt it to EmployeeVaultEntry
-        const newRawEntry = res.data.entry
-        const newEntry: EmployeeVaultEntry = {
-          id: newRawEntry.id,
-          assignment_id: newRawEntry.assignments?.[0]?.id || `new-a-${newRawEntry.id}`,
-          service_name: newRawEntry.service_name,
-          username: newRawEntry.username,
-          notes: newRawEntry.notes,
-          site_url: newRawEntry.site_url,
-          created_at: newRawEntry.created_at,
+          site_url: form.site_url,
+          created_at: new Date().toISOString(),
           creator: { id: currentUser?.id || '', name: currentUser?.name || '', email: currentUser?.email || '' },
-          is_revealed: true // since we just created it
+          is_revealed: true
         }
 
         // Cache password in session decrypted list
@@ -267,8 +257,61 @@ export default function EmployeeVaultPage() {
         usePrefetchStore.setState({ vaultEntries: updatedList })
         setSelectedEntryId(newEntry.id)
         setShowCredentials(true)
+
+        // Close form instantly
         setShowForm(false)
+        const savedForm = { ...form }
         resetForm()
+
+        // Kick off background API call
+        vaultAPI.createEntry({
+          service_name: savedForm.service_name,
+          username: savedForm.username,
+          password: savedForm.password,
+          site_url: savedForm.site_url,
+          notes: savedForm.notes,
+          assigned_to: [],
+        }).then(res => {
+          const newRawEntry = res.data.entry
+          const realEntry: EmployeeVaultEntry = {
+            id: newRawEntry.id,
+            assignment_id: newRawEntry.assignments?.[0]?.id || `new-a-${newRawEntry.id}`,
+            service_name: newRawEntry.service_name,
+            username: newRawEntry.username,
+            notes: newRawEntry.notes,
+            site_url: newRawEntry.site_url,
+            created_at: newRawEntry.created_at,
+            creator: { id: currentUser?.id || '', name: currentUser?.name || '', email: currentUser?.email || '' },
+            is_revealed: true
+          }
+
+          if (savedForm.password) {
+            setRevealedPasswords(prev => {
+              const next = { ...prev, [realEntry.id]: savedForm.password }
+              delete next[optimisticId]
+              return next
+            })
+          }
+
+          setEntries(prev => {
+            const nextList = prev.map(e => e.id === optimisticId ? realEntry : e)
+            usePrefetchStore.setState({ vaultEntries: nextList })
+            return nextList
+          })
+          setSelectedEntryId(realEntry.id)
+        }).catch(err => {
+          // Rollback
+          setEntries(prev => {
+            const nextList = prev.filter(e => e.id !== optimisticId)
+            usePrefetchStore.setState({ vaultEntries: nextList })
+            return nextList
+          })
+          setSelectedEntryId(prevId => prevId === optimisticId ? null : prevId)
+          setError(err.message || 'Failed to create credential')
+          // Re-open form with saved data
+          setForm(savedForm)
+          setShowForm(true)
+        })
       }
     } catch (err: any) {
       setError(err.message || 'Failed to save credential')

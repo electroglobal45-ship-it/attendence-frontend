@@ -814,6 +814,32 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
   }, [allActivity, activityTab])
 
   // ── render ────────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div 
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4"
+        onClick={handleClose}
+      >
+        <div
+          className="bg-white rounded-2xl w-full max-w-[450px] shadow-2xl flex flex-col p-6 gap-4 my-auto animate-pulse"
+          style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <h2 className="text-base font-semibold text-gray-900 truncate flex-1 pr-4">{task.title}</h2>
+            <button onClick={handleClose} className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="flex flex-col items-center justify-center py-6 gap-3">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-gray-400">Loading card details...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div 
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-4 overflow-y-auto"
@@ -838,43 +864,6 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
             <button className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
               <Image size={15} />
             </button>
-
-            {/* ⋯ */}
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setShowMenu(v => !v)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-              >
-                <MoreHorizontal size={15} />
-              </button>
-              {showMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl py-1.5 w-52 z-50">
-                  {[
-                    { icon: <LogOut size={14} />,   label: 'Leave' },
-                    { icon: <Move size={14} />,     label: 'Move' },
-                    { icon: <Copy size={14} />,     label: 'Copy' },
-                    { icon: <Layers size={14} />,   label: 'Mirror' },
-                    { icon: <FileText size={14} />, label: 'Make template' },
-                    { icon: <Eye size={14} />,      label: 'Watch' },
-                  ].map(item => (
-                    <button key={item.label} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <span className="text-gray-400">{item.icon}</span>{item.label}
-                    </button>
-                  ))}
-                  <div className="my-1 border-t border-gray-100" />
-                  <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    <Share2 size={14} className="text-gray-400" /> Share
-                  </button>
-                  <button onClick={archiveTask} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    <Archive size={14} className="text-gray-400" /> Archive
-                  </button>
-                  <button onClick={deleteCard} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                    <Trash2 size={14} className="text-red-400" /> Delete card
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* close */}
             <button onClick={handleClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
               <X size={15} />

@@ -193,16 +193,33 @@ export default function DrivePage() {
     const file = formData.get('file') as File
     if (!file) return
 
-    setUploading(true)
-    try {
-      await driveAPI.uploadFile(file)
-      setShowUpload(false)
-      loadFiles(true)
-    } catch (err: any) {
-      alert(err.message)
-    } finally {
-      setUploading(false)
+    const optimisticId = `temp-${Date.now()}`
+    const optimisticFile: DriveFile = {
+      id: optimisticId,
+      name: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      size: file.size.toString(),
+      createdTime: new Date().toISOString(),
+      modifiedTime: new Date().toISOString(),
+      webViewLink: ''
     }
+
+    const updatedFiles = [optimisticFile, ...files]
+    setFiles(updatedFiles)
+    usePrefetchStore.setState({ driveFiles: updatedFiles })
+
+    setShowUpload(false)
+
+    driveAPI.uploadFile(file).then(() => {
+      loadFiles(true)
+    }).catch((err: any) => {
+      alert(`Upload failed: ${err.message}`)
+      setFiles(prev => {
+        const reverted = prev.filter(f => f.id !== optimisticId)
+        usePrefetchStore.setState({ driveFiles: reverted })
+        return reverted
+      })
+    })
   }
 
   const handleCreateFolder = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -211,13 +228,33 @@ export default function DrivePage() {
     const folderName = formData.get('folderName') as string
     if (!folderName) return
 
-    try {
-      await driveAPI.createFolder(folderName)
-      setShowNewFolder(false)
-      loadFiles(true)
-    } catch (err: any) {
-      alert(err.message)
+    const optimisticId = `temp-${Date.now()}`
+    const optimisticFolder: DriveFile = {
+      id: optimisticId,
+      name: folderName,
+      mimeType: 'application/vnd.google-apps.folder',
+      size: '',
+      createdTime: new Date().toISOString(),
+      modifiedTime: new Date().toISOString(),
+      webViewLink: ''
     }
+
+    const updatedFiles = [optimisticFolder, ...files]
+    setFiles(updatedFiles)
+    usePrefetchStore.setState({ driveFiles: updatedFiles })
+
+    setShowNewFolder(false)
+
+    driveAPI.createFolder(folderName).then(() => {
+      loadFiles(true)
+    }).catch((err: any) => {
+      alert(`Failed to create folder: ${err.message}`)
+      setFiles(prev => {
+        const reverted = prev.filter(f => f.id !== optimisticId)
+        usePrefetchStore.setState({ driveFiles: reverted })
+        return reverted
+      })
+    })
   }
 
   const handleDelete = async (fileId: string, fileName: string) => {
@@ -373,54 +410,68 @@ export default function DrivePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {files.map((file) => (
-                    <tr key={file.id}>
-                      <td className="flex items-center gap-2">
-                        <span className="text-2xl">{driveAPI.getFileIcon(file.mimeType)}</span>
-                        <span className="font-medium">{file.name}</span>
-                      </td>
-                      <td>{new Date(file.modifiedTime).toLocaleDateString()}</td>
-                      <td>{driveAPI.formatFileSize(file.size)}</td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          {file.webViewLink && (
-                            <a
-                              href={file.webViewLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 hover:bg-gray-100 rounded transition"
-                              title="Open in Google Drive"
-                            >
-                              <ExternalLink size={16} />
-                            </a>
-                          )}
-                          {!file.mimeType.includes('folder') && (
-                            <button
-                              onClick={() => handleDownload(file.id, file.name)}
-                              className="p-1.5 hover:bg-gray-100 rounded transition"
-                              title="Download"
-                            >
-                              <Download size={16} />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setShowShare(file)}
-                            className="p-1.5 hover:bg-gray-100 rounded transition"
-                            title="Share"
-                          >
-                            <Share2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(file.id, file.name)}
-                            className="p-1.5 hover:bg-red-100 text-red-600 rounded transition"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {files.map((file) => {
+                    const isOptimistic = file.id.startsWith('temp-')
+                    return (
+                      <tr key={file.id} style={isOptimistic ? { opacity: 0.5 } : undefined}>
+                        <td className="flex items-center gap-2">
+                          <span className="text-2xl">{driveAPI.getFileIcon(file.mimeType)}</span>
+                          <span className="font-medium flex items-center gap-2">
+                            {file.name}
+                            {isOptimistic && (
+                              <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-semibold animate-pulse">
+                                {file.mimeType.includes('folder') ? 'Creating...' : 'Uploading...'}
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td>{new Date(file.modifiedTime).toLocaleDateString()}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{driveAPI.formatFileSize(file.size)}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            {!isOptimistic && file.webViewLink && (
+                              <a
+                                href={file.webViewLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 hover:bg-gray-100 rounded transition"
+                                title="Open in Google Drive"
+                              >
+                                <ExternalLink size={16} />
+                              </a>
+                            )}
+                            {!isOptimistic && !file.mimeType.includes('folder') && (
+                              <button
+                                onClick={() => handleDownload(file.id, file.name)}
+                                className="p-1.5 hover:bg-gray-100 rounded transition"
+                                title="Download"
+                              >
+                                <Download size={16} />
+                              </button>
+                            )}
+                            {!isOptimistic && (
+                              <button
+                                onClick={() => setShowShare(file)}
+                                className="p-1.5 hover:bg-gray-100 rounded transition"
+                                title="Share"
+                              >
+                                <Share2 size={16} />
+                              </button>
+                            )}
+                            {!isOptimistic && (
+                              <button
+                                onClick={() => handleDelete(file.id, file.name)}
+                                className="p-1.5 hover:bg-red-100 text-red-600 rounded transition"
+                                title="Delete"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -458,7 +509,7 @@ export default function DrivePage() {
                         <span className="font-medium">{file.name}</span>
                       </td>
                       <td>{new Date(file.modifiedTime).toLocaleDateString()}</td>
-                      <td>{driveAPI.formatFileSize(file.size)}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{driveAPI.formatFileSize(file.size)}</td>
                       <td>
                         <div className="flex items-center gap-2">
                           {file.webViewLink && (

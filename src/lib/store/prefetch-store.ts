@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { 
   attendanceAPI, holidaysAPI, leavesAPI, tasksAPI, 
   vaultAPI, meetingsAPI, employeesAPI, settingsAPI, boardsAPI,
-  salaryAPI, adminAPI
+  salaryAPI, adminAPI, usersAPI
 } from '@/lib/tasks-api'
 import { driveAPI } from '@/lib/drive-api'
 import { agentsAPI } from '@/lib/backend-api'
@@ -42,6 +42,8 @@ interface PrefetchState {
   driveConnected: boolean | null
   driveEmail: string | null
   agents: any[]
+  allUsers: any[]
+  boardDetailsCache: Record<string, any>
 
   // ── Admin Specific Data ───────────────────────────────────────────────────
   adminStats: any | null
@@ -74,6 +76,8 @@ interface PrefetchState {
   removeVaultEntry: (entryId: string) => void
   addMeeting: (meeting: any) => void
   addProject: (project: any) => void
+  setAllUsers: (users: any[]) => void
+  updateBoardDetailsCache: (boardId: string, data: any) => void
 
   reset: () => void
 }
@@ -112,6 +116,8 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
   driveConnected:    null,
   driveEmail:        null,
   agents:            [],
+  allUsers:          [],
+  boardDetailsCache: {},
 
   adminStats:        null,
   adminAttendance:   [],
@@ -175,6 +181,7 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
       adminShortLeaves: isAdmin ? leavesAPI.getShortLeaves(true).catch(() => null) : Promise.resolve(null),
       adminTasks: isAdmin ? tasksAPI.getAllTasks().catch(() => null) : Promise.resolve(null),
       agents: isAdmin ? agentsAPI.getAgents().catch(() => null) : Promise.resolve(null),
+      allUsers: usersAPI.getAllUsers().catch(() => ({ data: { users: [] } })),
     }
 
     const keys = Object.keys(promises) as (keyof typeof promises)[]
@@ -306,6 +313,12 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
       } else {
         updates.driveConnected = false
         updates.driveEmail = null
+      }
+
+      // All Users
+      const allUsersResult = resultsMap.allUsers
+      if (allUsersResult && allUsersResult.status === 'fulfilled') {
+        updates.allUsers = allUsersResult.value?.data?.users ?? []
       }
 
       // Admin updates
@@ -553,6 +566,10 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
   removeVaultEntry: (entryId) => set((state) => ({ vaultEntries: state.vaultEntries.filter((v) => v.id !== entryId) })),
   addMeeting: (meeting) => set((state) => ({ meetings: [meeting, ...state.meetings] })),
   addProject: (project) => set((state) => ({ projects: [project, ...state.projects] })),
+  setAllUsers: (users) => set({ allUsers: users }),
+  updateBoardDetailsCache: (boardId, data) => set((state) => ({
+    boardDetailsCache: { ...state.boardDetailsCache, [boardId]: data }
+  })),
 
   // ── Reset on logout ───────────────────────────────────────────────────────
   reset: () =>
@@ -572,6 +589,8 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
       salaryData:        null,
       driveConnected:    null,
       driveEmail:        null,
+      allUsers:          [],
+      boardDetailsCache: {},
 
       adminStats:        null,
       adminAttendance:   [],

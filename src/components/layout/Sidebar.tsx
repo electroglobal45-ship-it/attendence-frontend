@@ -32,7 +32,11 @@ import {
   Hash,
   Lock,
   MoreVertical,
+  Plus,
 } from 'lucide-react'
+
+import CreateChannelModal from '@/components/messaging/CreateChannelModal'
+import NewMessageModal from '@/components/messaging/NewMessageModal'
 
 const DriveBadge = memo(() => {
   const [unread, setUnread] = useState(0)
@@ -210,6 +214,8 @@ export const Sidebar = memo(function Sidebar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [messagesHeight, setMessagesHeight] = useState<number | null>(null)
   const [isResizing, setIsResizing] = useState(false)
+  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
+  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false)
   
   const dropdownRef = useRef<HTMLDivElement>(null)
   const heightRef = useRef(300)
@@ -446,7 +452,7 @@ export const Sidebar = memo(function Sidebar() {
           {/* Desktop collapse toggle */}
           <button 
             onClick={() => setCollapsed(!isDesktopCollapsed)}
-            className="hidden lg:flex absolute -right-3.5 top-6 bg-white border border-slate-200/80 rounded-full p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-50 shadow-md hover:shadow-lg hover:scale-110 z-10 transition-all duration-200 cursor-pointer active:scale-95"
+            className="hidden lg:flex absolute -right-3.5 top-6 bg-white border border-slate-200/80 rounded-full p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-50 shadow-md hover:shadow-lg hover:scale-110 z-50 transition-all duration-200 cursor-pointer active:scale-95"
             title={isDesktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isDesktopCollapsed ? <ChevronRight size={13} strokeWidth={2.5} /> : <ChevronLeft size={13} strokeWidth={2.5} />}
@@ -537,9 +543,39 @@ export const Sidebar = memo(function Sidebar() {
           >
             {/* Messages Header */}
             <div className="px-4 py-2 bg-slate-100/60 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-              <span className={`text-[10px] font-extrabold uppercase tracking-wider text-slate-500 font-jakarta ${isDesktopCollapsed ? 'text-center w-full' : ''}`}>
-                {isDesktopCollapsed ? 'Chat' : 'Channels & DMs'}
-              </span>
+              {isDesktopCollapsed ? (
+                <div className="flex flex-col items-center gap-1 w-full">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 font-jakarta text-center">
+                    Chat
+                  </span>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsCreateChannelOpen(true)
+                      }}
+                      className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+                      title="Create Channel"
+                    >
+                      <Plus size={10} strokeWidth={2.5} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsNewMessageOpen(true)
+                      }}
+                      className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+                      title="New Message"
+                    >
+                      <MessageSquare size={10} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 font-jakarta">
+                  Channels & DMs
+                </span>
+              )}
             </div>
             
             {/* Messages List */}
@@ -547,9 +583,21 @@ export const Sidebar = memo(function Sidebar() {
               {!isDesktopCollapsed ? (
                 <div className="space-y-4">
                   {/* Channels list */}
-                  {channels.length > 0 && (
-                    <div className="px-2">
-                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 mb-1 px-2 font-jakarta">Channels</p>
+                  <div className="px-2">
+                    <div className="flex items-center justify-between mb-1 px-2">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 font-jakarta">Channels</p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsCreateChannelOpen(true)
+                        }}
+                        className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+                        title="Create Channel"
+                      >
+                        <Plus size={11} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                    {channels.length > 0 ? (
                       <div className="space-y-0.5">
                         {channels.map((channel) => {
                           const isChanActive = activeChannelId === channel.id
@@ -579,13 +627,27 @@ export const Sidebar = memo(function Sidebar() {
                           )
                         })}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <p className="text-[10px] text-slate-400 px-2 italic">No channels</p>
+                    )}
+                  </div>
 
                   {/* Direct Messages list */}
-                  {conversations.length > 0 && (
-                    <div className="px-2">
-                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 mb-1 px-2 font-jakarta">Direct Messages</p>
+                  <div className="px-2">
+                    <div className="flex items-center justify-between mb-1 px-2">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 font-jakarta">Direct Messages</p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setIsNewMessageOpen(true)
+                        }}
+                        className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+                        title="New Message"
+                      >
+                        <Plus size={11} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                    {conversations.length > 0 ? (
                       <div className="space-y-0.5">
                         {conversations.map((conv) => {
                           const isConvActive = activeConversationId === conv.id
@@ -627,8 +689,10 @@ export const Sidebar = memo(function Sidebar() {
                           )
                         })}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <p className="text-[10px] text-slate-400 px-2 italic">No messages</p>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="px-2 space-y-2 flex flex-col items-center">
@@ -703,6 +767,16 @@ export const Sidebar = memo(function Sidebar() {
           </div>
         </div>
       </aside>
+
+      {/* Messaging Modals */}
+      <CreateChannelModal
+        isOpen={isCreateChannelOpen}
+        onClose={() => setIsCreateChannelOpen(false)}
+      />
+      <NewMessageModal
+        isOpen={isNewMessageOpen}
+        onClose={() => setIsNewMessageOpen(false)}
+      />
     </>
   )
 })

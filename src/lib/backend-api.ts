@@ -4,6 +4,7 @@
  */
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+import { setSecureCookie, clearSecureCookie } from '@/lib/cookie-utils'
 
 // Store token in memory and localStorage
 let authToken: string | null = null
@@ -78,10 +79,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
       if (!newToken) return null
 
       setAuthToken(newToken, newRefresh)
-      // Update cookie for Next.js middleware
-      if (typeof document !== 'undefined') {
-        document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
-      }
+      setSecureCookie('authToken', newToken)
       return newToken
     } catch {
       return null
@@ -120,9 +118,7 @@ async function apiRequest<T>(
     if (!_isRetry) {
       const newToken = await refreshAccessToken()
       if (newToken) {
-        if (typeof document !== 'undefined') {
-          document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
-        }
+        setSecureCookie('authToken', newToken)
         return apiRequest<T>(endpoint, options, true)
       }
     }
@@ -131,8 +127,8 @@ async function apiRequest<T>(
     if (typeof window !== 'undefined') {
       localStorage.removeItem('user')
       localStorage.removeItem('userRole')
-      document.cookie = 'authToken=; path=/; max-age=0'
-      document.cookie = 'userRole=; path=/; max-age=0'
+      clearSecureCookie('authToken')
+      clearSecureCookie('userRole')
       window.location.href = '/login'
     }
     throw new Error('Session expired. Please log in again.')
