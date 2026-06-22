@@ -225,11 +225,12 @@ export function List({
               {...provided.droppableProps}
               className={`
                 px-2.5 py-3 space-y-2 overflow-y-auto overflow-x-hidden
-                ${snapshot.isDraggingOver ? 'bg-blue-50/60 rounded-lg' : ''}
+                ${snapshot.isDraggingOver ? 'rounded-lg' : ''}
               `}
               style={{
                 minHeight: '40px',
                 maxHeight: 'calc(100vh - 210px)',
+                background: snapshot.isDraggingOver ? 'rgba(74,31,111,0.06)' : 'transparent',
               }}
             >
               {tasks.map((task, index) => (
@@ -267,7 +268,7 @@ export function List({
                 onChange={(e) => setNewCardTitle(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter a title for this card..."
-                className="w-full p-2.5 text-sm bg-white text-gray-800 border border-gray-200 rounded-lg resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm placeholder-gray-400"
+                className="w-full p-2.5 text-sm bg-white text-gray-800 border border-gray-200 rounded-lg resize-none focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 shadow-sm placeholder-gray-400"
                 rows={3}
                 disabled={creating}
               />
@@ -275,7 +276,8 @@ export function List({
                 <button
                   onClick={handleAddCard}
                   disabled={creating || !newCardTitle.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-4 py-2 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  style={{ background: (creating || !newCardTitle.trim()) ? '#9CA3AF' : '#4A1F6F', border: 'none', cursor: (creating || !newCardTitle.trim()) ? 'not-allowed' : 'pointer' }}
                 >
                   {creating ? (
                     <>

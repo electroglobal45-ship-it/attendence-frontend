@@ -51,7 +51,7 @@ interface TaskDetailModalProps {
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 function Avatar({ name, px = 32 }: { name: string; px?: number }) {
-  const palette = ['#F97316','#3B82F6','#8B5CF6','#10B981','#EF4444','#EC4899','#14B8A6']
+  const palette = ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5','#5E2780','#7C3AA7']
   const bg = palette[name.charCodeAt(0) % palette.length]
   return (
     <div

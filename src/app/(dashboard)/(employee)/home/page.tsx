@@ -113,13 +113,13 @@ function WorkingHoursWidget({ todayAttendance }: { todayAttendance: any }) {
   }, [todayAttendance, checkedIn, checkedOut])
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 to-blue-50/50 border border-indigo-100 rounded-2xl p-5 flex items-center justify-between shadow-xs">
+    <div className="bg-[#4A1F6F]/5 border border-[#4A1F6F]/15 rounded-2xl p-5 flex items-center justify-between shadow-[0_4px_16px_rgba(74,31,111,0.06)]">
       <div className="flex items-center gap-3.5">
-        <div className="w-11 h-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm shrink-0">
+        <div className="w-11 h-11 rounded-xl bg-[#4A1F6F] text-white flex items-center justify-center font-bold shadow-sm shrink-0">
           <Clock size={22} />
         </div>
         <div>
-          <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider">Working Hours Today</p>
+          <p className="text-xs text-[#4A1F6F] font-bold uppercase tracking-wider">Working Hours Today</p>
           <p className="text-xl sm:text-2xl font-black text-slate-800 mt-1">{duration}</p>
         </div>
       </div>
@@ -147,6 +147,35 @@ export default function EmployeeDashboard() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState<any>(null)
   const [activeTaskTab, setActiveTaskTab] = useState<'all' | 'todo' | 'in_progress'>('all')
+
+  const [greeting, setGreeting] = useState('Welcome')
+  const [currentTime, setCurrentTime] = useState('')
+
+  useEffect(() => {
+    const updateTimeAndGreeting = () => {
+      const now = new Date()
+      const formattedTime = now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      })
+      setCurrentTime(formattedTime)
+
+      const hours = now.getHours()
+      if (hours < 12) {
+        setGreeting('Good Morning')
+      } else if (hours < 17) {
+        setGreeting('Good Afternoon')
+      } else {
+        setGreeting('Good Evening')
+      }
+    }
+
+    updateTimeAndGreeting()
+    const interval = setInterval(updateTimeAndGreeting, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Read from prefetch store
   const { todayAttendance, attendanceHistory, myTasks, holidays, leaves, status, isPrefetched, prefetchAll } = usePrefetchStore()
@@ -223,13 +252,6 @@ export default function EmployeeDashboard() {
     setSelectedTask(task)
   }
 
-  const getGreeting = () => {
-    const hours = new Date().getHours()
-    if (hours < 12) return 'Good Morning'
-    if (hours < 17) return 'Good Afternoon'
-    return 'Good Evening'
-  }
-
   return (
     <PageWrapper
       title=""
@@ -237,37 +259,55 @@ export default function EmployeeDashboard() {
     >
       <div className="max-w-7xl mx-auto space-y-6 pb-12">
         {/* ── Welcome Banner ──────────────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-900 via-slate-800 to-zinc-900 p-6 sm:p-8 text-white shadow-xl">
+        <div 
+          style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)' }}
+          className="relative overflow-hidden rounded-2xl p-6 sm:p-8 text-white shadow-xl"
+        >
           <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
           <div className="absolute right-1/4 bottom-0 w-24 h-24 bg-white/5 rounded-full blur-lg pointer-events-none" />
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 relative z-10">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-xl font-bold border border-white/20 shadow-md">
+              <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-xl font-bold border border-white/20 shadow-md shrink-0">
                 {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{getGreeting()}, {user?.name}</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-jakarta">{greeting}, {user?.name}</h1>
                   <Sparkles size={18} className="text-yellow-400 animate-pulse hidden sm:inline" />
                 </div>
-                <p className="text-sm text-gray-300 mt-1">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
+                <p className="text-xs text-gray-300 mt-1">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
               </div>
             </div>
 
-            {/* Monthly Progress Stats */}
-            <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-4 min-w-[200px] shadow-sm">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs text-gray-300 font-medium">Month Attendance</span>
-                <span className="text-xs font-bold text-emerald-400">{presentDaysThisMonth} Days</span>
+            <div className="flex flex-wrap items-center gap-3 font-sans shrink-0">
+              {/* Dynamic Clock Widget */}
+              {currentTime && (
+                <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-3.5 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+                    <Clock size={14} className="text-[#D9A441] animate-pulse" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase font-bold text-slate-350 tracking-wider">Local Time</p>
+                    <p className="text-xs font-bold text-white tracking-wider">{currentTime}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Monthly Progress Stats */}
+              <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-3 min-w-[200px] shadow-sm">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs text-gray-300 font-medium">Month Attendance</span>
+                  <span className="text-xs font-bold text-emerald-450">{presentDaysThisMonth} Days</span>
+                </div>
+                <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, (presentDaysThisMonth / 22) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1 text-right">Targeting 22 working days</p>
               </div>
-              <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${Math.min(100, (presentDaysThisMonth / 22) * 100)}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1 text-right">Targeting 22 working days</p>
             </div>
           </div>
         </div>
@@ -279,7 +319,7 @@ export default function EmployeeDashboard() {
           <div className="lg:col-span-8 space-y-6">
             
             {/* Today's Attendance Widget */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-[0_4px_18px_rgba(0,0,0,0.05)] space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <Clock size={18} className="text-slate-500" />
@@ -290,7 +330,7 @@ export default function EmployeeDashboard() {
                     <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-xs rounded-full font-semibold border border-emerald-200 animate-pulse">Checked In</span>
                   )}
                   {checkedIn && checkedOut && (
-                    <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full font-semibold border border-blue-200 flex items-center gap-1">
+                    <span className="px-2.5 py-0.5 bg-[#4A1F6F]/10 text-[#4A1F6F] text-xs rounded-full font-semibold border border-[#4A1F6F]/25 flex items-center gap-1">
                       <CheckCircle size={12} /> Complete
                     </span>
                   )}
@@ -331,7 +371,7 @@ export default function EmployeeDashboard() {
                         <p className="text-sm text-slate-500 mb-4">Begin your work day by marking your attendance.</p>
                         <Link
                           href="/attendance"
-                          className="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-black hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all shadow-sm group"
+                          className="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-[#4A1F6F] hover:bg-[#3b1859] text-white rounded-xl text-sm font-semibold transition-all shadow-sm group"
                         >
                           Mark Attendance
                           <ArrowUpRight size={15} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -347,7 +387,7 @@ export default function EmployeeDashboard() {
                   
                   {checkedIn && !checkedOut && (
                     <div className="mt-4 bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-xs text-slate-500 flex items-start gap-2">
-                      <Sparkles size={14} className="text-indigo-500 mt-0.5 shrink-0" />
+                      <Sparkles size={14} className="text-[#4A1F6F] mt-0.5 shrink-0" />
                       <p>Your working hours are updating live. Remember to mark out at the end of your shift!</p>
                     </div>
                   )}
@@ -356,7 +396,7 @@ export default function EmployeeDashboard() {
             </div>
 
             {/* ClickUp-style Tasks Widget */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-[0_4px_18px_rgba(0,0,0,0.05)]">
               <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <CheckSquare size={18} className="text-slate-500" />
@@ -371,8 +411,8 @@ export default function EmployeeDashboard() {
                       onClick={() => setActiveTaskTab(tab)}
                       className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
                         activeTaskTab === tab
-                          ? 'bg-white text-slate-800 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-[#4A1F6F] text-white shadow-xs'
+                          : 'text-slate-500 hover:text-[#4A1F6F]'
                       }`}
                     >
                       {tab === 'all' ? 'All' : tab === 'todo' ? 'To Do' : 'In Progress'}
@@ -420,7 +460,7 @@ export default function EmployeeDashboard() {
                             <div className="flex flex-wrap items-center gap-2 mt-1">
                               {/* Board name */}
                               {task.board?.name && (
-                                <span className="inline-block text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-100 font-semibold uppercase tracking-wider">
+                                <span className="inline-block text-[10px] px-1.5 py-0.5 bg-[#4A1F6F]/5 text-[#4A1F6F] rounded border border-[#4A1F6F]/10 font-semibold uppercase tracking-wider">
                                   {task.board.name}
                                 </span>
                               )}
@@ -459,14 +499,14 @@ export default function EmployeeDashboard() {
           <div className="lg:col-span-4 space-y-6">
             
             {/* Quick Toolbar */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_4px_18px_rgba(0,0,0,0.05)]">
               <h2 className="font-semibold text-slate-800 text-base mb-4">Workspace Utilities</h2>
               <div className="grid grid-cols-2 gap-3">
                 <Link
                   href="/attendance"
-                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50/50 hover:shadow-sm transition text-center group"
+                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-[#4A1F6F]/30 hover:bg-[#4A1F6F]/5 hover:shadow-sm transition text-center group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2.5 transition group-hover:scale-105">
+                  <div className="w-10 h-10 rounded-xl bg-[#4A1F6F]/5 text-[#4A1F6F] flex items-center justify-center mb-2.5 transition group-hover:scale-105">
                     <Clock size={20} />
                   </div>
                   <span className="text-xs font-semibold text-slate-700">Attendance</span>
@@ -474,9 +514,9 @@ export default function EmployeeDashboard() {
 
                 <Link
                   href="/leaves"
-                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50/50 hover:shadow-sm transition text-center group"
+                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-[#4A1F6F]/30 hover:bg-[#4A1F6F]/5 hover:shadow-sm transition text-center group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2.5 transition group-hover:scale-105">
+                  <div className="w-10 h-10 rounded-xl bg-[#4A1F6F]/5 text-[#4A1F6F] flex items-center justify-center mb-2.5 transition group-hover:scale-105">
                     <CalendarDays size={20} />
                   </div>
                   <span className="text-xs font-semibold text-slate-700">Apply Leave</span>
@@ -484,9 +524,9 @@ export default function EmployeeDashboard() {
 
                 <Link
                   href="/salary"
-                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50/50 hover:shadow-sm transition text-center group"
+                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-[#4A1F6F]/30 hover:bg-[#4A1F6F]/5 hover:shadow-sm transition text-center group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center mb-2.5 transition group-hover:scale-105">
+                  <div className="w-10 h-10 rounded-xl bg-[#4A1F6F]/5 text-[#4A1F6F] flex items-center justify-center mb-2.5 transition group-hover:scale-105">
                     <DollarSign size={20} />
                   </div>
                   <span className="text-xs font-semibold text-slate-700">Salary Slip</span>
@@ -494,9 +534,9 @@ export default function EmployeeDashboard() {
 
                 <Link
                   href="/my-passwords"
-                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50/50 hover:shadow-sm transition text-center group"
+                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-[#4A1F6F]/30 hover:bg-[#4A1F6F]/5 hover:shadow-sm transition text-center group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2.5 transition group-hover:scale-105">
+                  <div className="w-10 h-10 rounded-xl bg-[#4A1F6F]/5 text-[#4A1F6F] flex items-center justify-center mb-2.5 transition group-hover:scale-105">
                     <KeyRound size={20} />
                   </div>
                   <span className="text-xs font-semibold text-slate-700">My Vault</span>
@@ -505,7 +545,7 @@ export default function EmployeeDashboard() {
             </div>
 
             {/* Agenda Widget (Leaves & Holidays) */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm space-y-5">
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_4px_18px_rgba(0,0,0,0.05)] space-y-5">
               {/* Leaves section */}
               <div>
                 <h2 className="font-semibold text-slate-800 text-sm mb-3 flex items-center gap-1.5">
@@ -552,7 +592,7 @@ export default function EmployeeDashboard() {
                             <p className="text-slate-400 mt-0.5">{format(new Date(h.date), 'MMM d, yyyy')}</p>
                           </div>
                           {daysLeft >= 0 && (
-                            <span className="bg-purple-50 text-purple-600 px-2 py-0.5 rounded border border-purple-100 text-[10px] font-bold">
+                            <span className="bg-[#4A1F6F]/5 text-[#4A1F6F] px-2 py-0.5 rounded border border-[#4A1F6F]/10 text-[10px] font-bold">
                               {daysLeft === 0 ? 'Today' : daysLeft === 1 ? 'Tomorrow' : `in ${daysLeft} days`}
                             </span>
                           )}
@@ -569,7 +609,7 @@ export default function EmployeeDashboard() {
               <h2 className="font-semibold text-slate-800 text-base mb-3">Security & Account</h2>
               <button
                 onClick={() => setShowPasswordModal(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 border border-slate-100 hover:border-slate-300 rounded-xl hover:bg-slate-50/50 transition text-left group"
+                className="w-full flex items-center gap-3 px-4 py-3 border border-slate-100 hover:border-[#4A1F6F]/30 rounded-xl hover:bg-[#4A1F6F]/5 transition text-left group"
               >
                 <Lock size={18} className="text-slate-500 shrink-0" />
                 <div className="flex-1">

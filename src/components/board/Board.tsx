@@ -20,7 +20,7 @@ if (typeof document !== 'undefined') {
   }
 }
 
-/* ── Design tokens — light theme ── */
+/* ── Design tokens — Cadbury Purple theme ── */
 const DS = {
   boardBg:     '#F8F9FA',  // light grey board background
   listBg:      '#FFFFFF',  // white list column background
@@ -30,8 +30,8 @@ const DS = {
   textPrimary: '#374151',
   textMuted:   '#6B7280',
   textWhite:   '#111827',
-  accent:      '#3B82F6',
-  accentDark:  '#2563EB',
+  accent:      '#4A1F6F',
+  accentDark:  '#2D0F47',
   hover:       '#F3F4F6',
   movingBg:    '#FFFFFF',
 }
@@ -339,7 +339,7 @@ export function Board({
                             opacity: addingListLoading ? 0.7 : 1,
                             display: 'flex', alignItems: 'center', gap: 6,
                           }}
-                          onMouseEnter={e=>!addingListLoading&&(e.currentTarget.style.background='#1D4ED8')}
+                          onMouseEnter={e=>!addingListLoading&&(e.currentTarget.style.background='#2D0F47')}
                           onMouseLeave={e=>(e.currentTarget.style.background=DS.accentDark)}
                         >
                           {addingListLoading && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />}

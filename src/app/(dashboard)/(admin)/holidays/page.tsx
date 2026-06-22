@@ -107,9 +107,9 @@ export default function HolidaysPage() {
       <div className="max-w-2xl space-y-5">
 
         {/* Add holiday */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-            <Plus size={16} /> Add Company Holiday
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Plus size={16} className="text-[#4A1F6F]" /> Add Company Holiday
           </h3>
 
           {error   && <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>}
@@ -117,19 +117,19 @@ export default function HolidaysPage() {
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Date</label>
               <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-black" />
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#4A1F6F] focus:ring-2 focus:ring-[#4A1F6F]/10 transition-all" />
             </div>
             <div className="flex-1">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Holiday Name</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Holiday Name</label>
               <input type="text" value={name} onChange={e => setName(e.target.value)}
                 placeholder="e.g., Diwali"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-black" />
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#4A1F6F] focus:ring-2 focus:ring-[#4A1F6F]/10 transition-all" />
             </div>
             <div className="flex items-end">
               <button onClick={addHoliday} disabled={saving}
-                className="px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 disabled:opacity-50">
+                className="px-5 py-2 bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] text-white rounded-lg text-sm font-semibold hover:opacity-95 active:scale-98 transition-all disabled:opacity-50 shadow-sm shadow-[#4A1F6F]/10">
                 {saving ? 'Adding...' : 'Add'}
               </button>
             </div>
@@ -137,19 +137,21 @@ export default function HolidaysPage() {
         </div>
 
         {/* Automatic holidays note */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
-          <p className="font-medium mb-1">Automatic Holidays (no setup needed)</p>
-          <ul className="text-xs space-y-0.5 text-blue-600">
-            <li>• Every <strong>Sunday</strong> — weekly off</li>
-            <li>• <strong>3rd Saturday</strong> of every month — monthly off</li>
+        <div className="bg-[#4A1F6F]/5 border border-[#4A1F6F]/10 rounded-xl p-4 text-sm text-[#4A1F6F]">
+          <p className="font-semibold mb-1 flex items-center gap-1.5">
+            <Calendar size={14} /> Automatic Holidays (no setup needed)
+          </p>
+          <ul className="text-xs space-y-0.5 text-[#4A1F6F]/90 ml-5 list-disc">
+            <li>Every <strong className="font-bold">Sunday</strong> — weekly off</li>
+            <li><strong className="font-bold">3rd Saturday</strong> of every month — monthly off</li>
           </ul>
         </div>
 
         {/* Holiday list */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-gray-200 flex items-center gap-2">
-            <Calendar size={16} className="text-gray-500" />
-            <h3 className="font-medium text-gray-900">Company Holidays ({holidays.length})</h3>
+            <Calendar size={16} className="text-[#4A1F6F]" />
+            <h3 className="font-semibold text-gray-900">Company Holidays ({holidays.length})</h3>
           </div>
 
           {holidays.length === 0 ? (
@@ -158,20 +160,20 @@ export default function HolidaysPage() {
             <div className="divide-y divide-gray-100">
               {Object.entries(grouped).sort().map(([ym, hs]) => (
                 <div key={ym}>
-                  <div className="px-5 py-2 bg-gray-50 text-xs font-medium text-gray-500 uppercase">{monthName(ym)}</div>
+                  <div className="px-5 py-2 bg-gray-50 text-xs font-semibold text-[#4A1F6F] uppercase tracking-wider">{monthName(ym)}</div>
                   {hs.map(h => (
-                    <div key={h.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50">
+                    <div key={h.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-sm font-bold text-orange-700">
+                        <div className="w-10 h-10 rounded-lg bg-[#D9A441]/10 flex items-center justify-center text-sm font-bold text-[#D9A441] border border-[#D9A441]/20">
                           {new Date(h.date + 'T00:00:00').getDate()}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{h.name}</p>
+                          <p className="text-sm font-semibold text-gray-900">{h.name}</p>
                           <p className="text-xs text-gray-400">{h.date} · {new Date(h.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long' })}</p>
                         </div>
                       </div>
                       <button onClick={() => removeHoliday(h.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
                         <Trash2 size={15} />
                       </button>
                     </div>

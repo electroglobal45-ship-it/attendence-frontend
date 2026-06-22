@@ -153,6 +153,17 @@ export default function BoardsPage() {
                   padding: '8px 14px', background: '#FFFFFF',
                   border: '1px solid #E5E7EB', borderRadius: 8,
                   color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = '#4A1F6F'
+                  e.currentTarget.style.color = '#4A1F6F'
+                  e.currentTarget.style.background = 'rgba(74,31,111,0.02)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = '#E5E7EB'
+                  e.currentTarget.style.color = '#374151'
+                  e.currentTarget.style.background = '#FFFFFF'
                 }}
               >
                 <RefreshCw size={13} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
@@ -163,10 +174,14 @@ export default function BoardsPage() {
                   onClick={() => setShowCreate(true)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '8px 16px', background: '#111827',
+                    padding: '8px 16px', background: 'linear-gradient(135deg, #4A1F6F 0%, #3B1859 100%)',
                     border: 'none', borderRadius: 8,
                     color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(74,31,111,0.25)',
+                    transition: 'all 0.15s'
                   }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                   <Plus size={14} /> New Board
                 </button>
@@ -181,13 +196,13 @@ export default function BoardsPage() {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, gap: 14 }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #E5E7EB', borderTopColor: '#111827', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #E5E7EB', borderTopColor: '#4A1F6F', animation: 'spin 0.8s linear infinite' }} />
               <p style={{ color: '#6B7280', fontSize: 14 }}>Loading boards...</p>
             </div>
           ) : boards.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, gap: 16, textAlign: 'center' }}>
-              <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Layout size={36} color="#9CA3AF" />
+              <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(74,31,111,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Layout size={36} color="#4A1F6F" />
               </div>
               <h3 style={{ color: '#111827', fontSize: 20, fontWeight: 700, margin: 0 }}>No boards yet</h3>
               <p style={{ color: '#6B7280', fontSize: 14, margin: 0, maxWidth: 360 }}>
@@ -197,10 +212,11 @@ export default function BoardsPage() {
                 onClick={() => setShowCreate(true)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '12px 24px', background: '#111827',
+                  padding: '12px 24px', background: 'linear-gradient(135deg, #4A1F6F 0%, #3B1859 100%)',
                   border: 'none', borderRadius: 10,
                   color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
                   marginTop: 8,
+                  boxShadow: '0 4px 12px rgba(74,31,111,0.25)',
                 }}
               >
                 <Plus size={16} /> Create Your First Board
@@ -209,7 +225,16 @@ export default function BoardsPage() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
               {boards.map((board, i) => {
-                const colors = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#EC4899','#06B6D4','#6366F1']
+                const colors = [
+                  'linear-gradient(135deg, #4A1F6F 0%, #6B2D8E 100%)',
+                  'linear-gradient(135deg, #4A1F6F 0%, #D9A441 100%)',
+                  'linear-gradient(135deg, #2D0F47 0%, #4A1F6F 100%)',
+                  'linear-gradient(135deg, #8B3DB5 0%, #D9A441 100%)',
+                  'linear-gradient(135deg, #4A1F6F 0%, #8B3DB5 100%)',
+                  'linear-gradient(135deg, #2D0F47 0%, #D9A441 100%)',
+                  'linear-gradient(135deg, #5E2780 0%, #4A1F6F 100%)',
+                  'linear-gradient(135deg, #7C3AA7 0%, #D9A441 100%)'
+                ]
                 const color = colors[i % colors.length]
                 return (
                   <button
@@ -224,8 +249,8 @@ export default function BoardsPage() {
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.transform = 'translateY(-3px)'
-                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'
-                      e.currentTarget.style.borderColor = color
+                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(74,31,111,0.12)'
+                      e.currentTarget.style.borderColor = '#4A1F6F'
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.transform = 'translateY(0)'
@@ -279,11 +304,11 @@ export default function BoardsPage() {
                   gap: 10, transition: 'border-color 0.15s, background 0.15s',
                   minHeight: 160,
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#111827'; e.currentTarget.style.background = '#F3F4F6' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#4A1F6F'; e.currentTarget.style.background = 'rgba(74,31,111,0.02)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = '#D1D5DB'; e.currentTarget.style.background = '#F9FAFB' }}
               >
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Plus size={18} color="#6B7280" />
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(74,31,111,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Plus size={18} color="#4A1F6F" />
                 </div>
                 <span style={{ color: '#6B7280', fontSize: 13, fontWeight: 600 }}>Create new board</span>
               </button>
@@ -316,9 +341,16 @@ export default function BoardsPage() {
                 padding: '10px 14px', border: '1px solid #E5E7EB',
                 borderRadius: 8, fontSize: 14, color: '#111827',
                 outline: 'none', marginBottom: 20,
+                transition: 'all 0.2s',
               }}
-              onFocus={e => (e.target.style.borderColor = '#111827')}
-              onBlur={e => (e.target.style.borderColor = '#E5E7EB')}
+              onFocus={e => {
+                e.target.style.borderColor = '#4A1F6F'
+                e.target.style.boxShadow = '0 0 0 3px rgba(74,31,111,0.1)'
+              }}
+              onBlur={e => {
+                e.target.style.borderColor = '#E5E7EB'
+                e.target.style.boxShadow = 'none'
+              }}
             />
             {user?.role === 'admin' && (
               <>
@@ -332,9 +364,16 @@ export default function BoardsPage() {
                     borderRadius: 8, fontSize: 14, color: '#111827',
                     outline: 'none', marginBottom: 20,
                     background: '#FFFFFF',
+                    transition: 'all 0.2s',
                   }}
-                  onFocus={e => (e.target.style.borderColor = '#111827')}
-                  onBlur={e => (e.target.style.borderColor = '#E5E7EB')}
+                  onFocus={e => {
+                    e.target.style.borderColor = '#4A1F6F'
+                    e.target.style.boxShadow = '0 0 0 3px rgba(74,31,111,0.1)'
+                  }}
+                  onBlur={e => {
+                    e.target.style.borderColor = '#E5E7EB'
+                    e.target.style.boxShadow = 'none'
+                  }}
                 >
                   <option value="">None</option>
                   {teamLeaders.map(tl => (
@@ -354,10 +393,11 @@ export default function BoardsPage() {
                 onClick={createBoard}
                 disabled={!newBoardName.trim() || creatingBoard}
                 style={{
-                  flex: 1, padding: '10px', background: '#111827', border: 'none',
+                  flex: 1, padding: '10px', background: 'linear-gradient(135deg, #4A1F6F 0%, #3B1859 100%)', border: 'none',
                   borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 700,
                   cursor: newBoardName.trim() ? 'pointer' : 'not-allowed',
                   opacity: newBoardName.trim() ? 1 : 0.5,
+                  boxShadow: newBoardName.trim() ? '0 2px 8px rgba(74,31,111,0.25)' : 'none',
                 }}
               >
                 {creatingBoard ? 'Creating...' : 'Create Board'}

@@ -33,6 +33,7 @@ import {
   Lock,
   MoreVertical,
   Plus,
+  ShieldCheck,
 } from 'lucide-react'
 
 import CreateChannelModal from '@/components/messaging/CreateChannelModal'
@@ -180,11 +181,11 @@ const NavItemComponent = memo(({
       title={isCollapsed ? item.label : undefined}
       className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
         isActive
-          ? 'bg-gray-900 text-white'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+          ? 'bg-[#4A1F6F] text-white shadow-md shadow-[#4A1F6F]/10'
+          : 'text-gray-600 hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F]'
       }`}
     >
-      <div className="flex-shrink-0">{item.icon}</div>
+      <div className={`flex-shrink-0 transition-colors ${isActive ? 'text-[#D9A441]' : ''}`}>{item.icon}</div>
       {!isCollapsed && <span className="truncate">{item.label}</span>}
       {!isCollapsed && item.badge}
     </Link>
@@ -418,10 +419,10 @@ export const Sidebar = memo(function Sidebar() {
           {isDesktopCollapsed ? (
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all active:scale-95"
+              className="w-8 h-8 bg-[#4A1F6F] rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer shadow-sm hover:ring-2 hover:ring-[#D9A441]/50 transition-all active:scale-95"
               title={user?.name}
             >
-              <span className="text-white font-bold text-sm">C</span>
+              <ShieldCheck size={18} className="text-[#D9A441]" />
             </button>
           ) : (
             <>
@@ -430,18 +431,18 @@ export const Sidebar = memo(function Sidebar() {
                 className="hover:opacity-80 transition-opacity block min-w-0 mr-2"
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-bold text-sm">C</span>
+                  <div className="w-8 h-8 bg-[#4A1F6F] rounded-lg flex items-center justify-center flex-shrink-0">
+                    <ShieldCheck size={18} className="text-[#D9A441]" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-900 truncate font-jakarta">CRM Attendance</p>
+                    <p className="text-sm font-extrabold text-[#4A1F6F] truncate font-jakarta">CRM Attendance</p>
                     <p className="text-xs text-gray-400 capitalize truncate">{role}</p>
                   </div>
                 </div>
               </Link>
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-50 transition cursor-pointer flex-shrink-0 mr-1"
+                className="p-1.5 text-slate-400 hover:text-[#4A1F6F] rounded-lg hover:bg-slate-50 transition cursor-pointer flex-shrink-0 mr-1"
                 title="More actions"
               >
                 <MoreVertical size={16} />
@@ -452,7 +453,7 @@ export const Sidebar = memo(function Sidebar() {
           {/* Desktop collapse toggle */}
           <button 
             onClick={() => setCollapsed(!isDesktopCollapsed)}
-            className="hidden lg:flex absolute -right-3.5 top-6 bg-white border border-slate-200/80 rounded-full p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-50 shadow-md hover:shadow-lg hover:scale-110 z-50 transition-all duration-200 cursor-pointer active:scale-95"
+            className="hidden lg:flex absolute -right-3.5 top-6 bg-white border border-slate-200/80 rounded-full p-1.5 text-slate-500 hover:text-[#4A1F6F] hover:bg-slate-50 shadow-md hover:shadow-lg hover:scale-110 z-50 transition-all duration-200 cursor-pointer active:scale-95"
             title={isDesktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isDesktopCollapsed ? <ChevronRight size={13} strokeWidth={2.5} /> : <ChevronLeft size={13} strokeWidth={2.5} />}
@@ -476,7 +477,7 @@ export const Sidebar = memo(function Sidebar() {
                     setIsDropdownOpen(false)
                     setOpen(false) // Close mobile sidebar drawer
                   }}
-                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] transition-colors"
                 >
                   <span className="text-slate-400">{item.icon}</span>
                   <span>{item.label}</span>
@@ -524,8 +525,8 @@ export const Sidebar = memo(function Sidebar() {
           {/* Resize Divider */}
           <div 
             onPointerDown={startResize}
-            className={`h-2 cursor-ns-resize transition-all duration-150 flex-shrink-0 flex items-center justify-center relative z-10 hover:bg-indigo-400/50 ${
-              isResizing ? 'bg-indigo-500' : 'bg-slate-200'
+            className={`h-2 cursor-ns-resize transition-all duration-150 flex-shrink-0 flex items-center justify-center relative z-10 hover:bg-[#4A1F6F]/20 ${
+              isResizing ? 'bg-[#4A1F6F]' : 'bg-slate-200'
             }`}
             title="Drag to resize messages panel"
           >
@@ -610,7 +611,7 @@ export const Sidebar = memo(function Sidebar() {
                               onClick={() => handleChannelClick(channel.id)}
                               className={`flex items-center w-full rounded-lg text-xs font-medium transition-all px-2 py-1.5 cursor-pointer gap-2 ${
                                 isChanActive
-                                  ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                  ? 'bg-[#4A1F6F]/10 text-[#4A1F6F] font-semibold'
                                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                               }`}
                             >
@@ -667,12 +668,12 @@ export const Sidebar = memo(function Sidebar() {
                               onClick={() => handleConversationClick(conv.id)}
                               className={`flex items-center w-full rounded-lg text-xs font-medium transition-all px-2 py-1.5 cursor-pointer gap-2 ${
                                 isConvActive
-                                  ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                  ? 'bg-[#4A1F6F]/10 text-[#4A1F6F] font-semibold'
                                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                               }`}
                             >
                               <div className="relative flex-shrink-0">
-                                <div className="w-5 h-5 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[9px] font-bold text-indigo-700">
+                                <div className="w-5 h-5 rounded-full bg-[#4A1F6F]/10 border border-[#4A1F6F]/20 flex items-center justify-center text-[9px] font-bold text-[#4A1F6F]">
                                   {initials}
                                 </div>
                                 {hasUnread && (
@@ -710,7 +711,7 @@ export const Sidebar = memo(function Sidebar() {
                         title={channel.name}
                         className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all relative border cursor-pointer ${
                           isChanActive
-                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-extrabold shadow-sm'
+                            ? 'bg-[#4A1F6F]/10 border-[#4A1F6F]/30 text-[#4A1F6F] font-extrabold shadow-sm'
                             : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                         }`}
                       >
@@ -748,8 +749,8 @@ export const Sidebar = memo(function Sidebar() {
                         title={name}
                         className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold transition-all relative border cursor-pointer ${
                           isConvActive
-                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-extrabold shadow-sm'
-                            : 'bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700'
+                            ? 'bg-[#4A1F6F]/10 border-[#4A1F6F]/30 text-[#4A1F6F] font-extrabold shadow-sm'
+                            : 'bg-[#4A1F6F]/5 border-[#4A1F6F]/10 text-[#4A1F6F]/90 hover:bg-[#4A1F6F]/10 hover:text-[#4A1F6F]'
                         }`}
                       >
                         {initials}

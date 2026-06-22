@@ -271,19 +271,19 @@ export default function EmployeesPage() {
             <tbody>
               {employees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-gray-400 py-10">
-                    No employees yet. Click "Add Employee" to get started.
-                  </td>
+                   <td colSpan={7} className="text-center text-gray-400 py-10">
+                     No employees yet. Click "Add Employee" to get started.
+                   </td>
                 </tr>
               ) : (
                 employees.map((emp) => (
-                  <tr key={emp.id} onClick={() => window.location.href = `/employees/${emp.id}`} className="cursor-pointer hover:bg-gray-50">
-                    <td className="font-medium text-gray-900">{emp.name}</td>
-                    <td>{emp.email}</td>
-                    <td className="capitalize">{emp.category}</td>
-                    <td>{emp.department || '—'}</td>
-                    <td>₹{emp.monthly_salary?.toLocaleString()}</td>
-                    <td>{emp.joining_date?.split('T')[0]}</td>
+                  <tr key={emp.id} onClick={() => window.location.href = `/employees/${emp.id}`} className="cursor-pointer hover:bg-[#4A1F6F]/5 transition group">
+                    <td className="font-bold text-slate-800 group-hover:text-[#4A1F6F] transition">{emp.name}</td>
+                    <td className="text-slate-600 font-medium">{emp.email}</td>
+                    <td className="capitalize text-slate-600 font-medium">{emp.category}</td>
+                    <td className="text-slate-650 font-medium">{emp.department || '—'}</td>
+                    <td className="text-slate-700 font-bold">₹{emp.monthly_salary?.toLocaleString()}</td>
+                    <td className="text-slate-500 font-medium">{emp.joining_date?.split('T')[0]}</td>
                     <td>
                       <span className={emp.is_active ? 'badge-present' : 'badge-absent'}>
                         {emp.is_active ? 'Active' : 'Inactive'}

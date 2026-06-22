@@ -130,8 +130,8 @@ export default function EmployeeDetailPage() {
 
   return (
     <PageWrapper
-      title={employee.name}
-      subtitle={employee.email}
+      title=""
+      subtitle=""
       actions={
         <button onClick={() => router.back()} className="btn-secondary flex items-center gap-2">
           <ArrowLeft size={16} />
@@ -139,114 +139,138 @@ export default function EmployeeDetailPage() {
         </button>
       }
     >
-      <div className="space-y-6">
-        {/* Employee Info */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="card">
-            <p className="text-xs text-gray-400 mb-1">Category</p>
-            <p className="text-lg font-semibold capitalize">{employee.category}</p>
-          </div>
-          <div className="card">
-            <p className="text-xs text-gray-400 mb-1">Monthly Salary</p>
-            <p className="text-lg font-semibold">₹{employee.monthly_salary?.toLocaleString()}</p>
-          </div>
-          <div className="card">
-            <p className="text-xs text-gray-400 mb-1">Joining Date</p>
-            <p className="text-lg font-semibold">{employee.joining_date?.split('T')[0]}</p>
-          </div>
-          <div className="card">
-            <p className="text-xs text-gray-400 mb-1">Status</p>
-            <p className="text-lg font-semibold">{employee.is_active ? 'Active' : 'Inactive'}</p>
-          </div>
-        </div>
-
-        {/* Month Selector */}
-        <div className="card">
+      <div className="space-y-6 max-w-7xl mx-auto pb-12 font-sans">
+        {/* Employee Profile Header Banner */}
+        <div 
+          style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)' }}
+          className="rounded-3xl p-6 text-white relative overflow-hidden shadow-md border border-[#4A1F6F]/20 flex flex-col md:flex-row md:items-center justify-between gap-6"
+        >
           <div className="flex items-center gap-4">
-            <Calendar size={20} className="text-gray-400" />
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="input"
-            >
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  {format(new Date(2024, i, 1), 'MMMM')}
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="input"
-            >
-              {[2024, 2025, 2026].map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
+            <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-2xl font-bold border border-white/20 shadow-md select-none">
+              {employee.name?.[0]?.toUpperCase() || 'E'}
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black font-jakarta tracking-tight text-white">{employee.name}</h1>
+              <p className="text-sm text-gray-300 mt-0.5">{employee.email}</p>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="px-2.5 py-0.5 bg-white/10 border border-white/15 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                  {employee.category}
+                </span>
+                <span className={`px-2.5 py-0.5 border rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                  employee.is_active ? 'bg-emerald-500/15 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/15 border-rose-500/20 text-rose-400'
+                }`}>
+                  {employee.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-6 text-sm">
+            <div>
+              <p className="text-[10px] text-gray-300 font-bold uppercase tracking-wider mb-1">Monthly Salary</p>
+              <p className="text-lg font-black text-[#D9A441]">₹{employee.monthly_salary?.toLocaleString()}</p>
+            </div>
+            <div className="border-l border-white/15 pl-6">
+              <p className="text-[10px] text-gray-300 font-bold uppercase tracking-wider mb-1">Joining Date</p>
+              <p className="text-lg font-bold text-white">{employee.joining_date?.split('T')[0]}</p>
+            </div>
           </div>
         </div>
 
-        {/* Summary Stats */}
-        {calendar && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="card">
-              <p className="text-xs text-gray-400 mb-1">Working Days</p>
-              <p className="text-2xl font-bold">{calendar.summary?.workingDays || 0}</p>
+        {/* Monthly Summary Section */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2">
+              <Calendar size={18} className="text-slate-500" />
+              <h2 className="font-semibold text-slate-800 text-base">Monthly Overview</h2>
             </div>
-            <div className="card">
-              <p className="text-xs text-gray-400 mb-1">Present</p>
-              <p className="text-2xl font-bold text-green-600">{calendar.summary?.presentDays || 0}</p>
-            </div>
-            <div className="card">
-              <p className="text-xs text-gray-400 mb-1">Half Days</p>
-              <p className="text-2xl font-bold text-orange-600">{calendar.summary?.halfDays || 0}</p>
-            </div>
-            <div className="card">
-              <p className="text-xs text-gray-400 mb-1">Attendance Value</p>
-              <p className="text-2xl font-bold text-blue-600">{calendar.summary?.totalAttendanceValue || 0}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Salary Info */}
-        {salary && (
-          <div className="card">
-            <div className="flex items-center gap-3 mb-4">
-              <DollarSign size={20} className="text-gray-400" />
-              <h3 className="font-semibold text-gray-900">Salary Breakdown</h3>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Payable Salary</p>
-                <p className="text-lg font-bold text-green-600">₹{salary.payable_salary?.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Deductions</p>
-                <p className="text-lg font-bold text-red-600">₹{salary.deductions?.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1">No-Leave Bonus</p>
-                <p className="text-lg font-bold text-blue-600">₹{salary.no_leave_bonus?.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Total</p>
-                <p className="text-lg font-bold">₹{salary.total_with_bonus?.toLocaleString()}</p>
-              </div>
+            
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#4A1F6F] focus:ring-1 focus:ring-[#4A1F6F]/15 bg-white font-semibold text-slate-700 cursor-pointer"
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {format(new Date(2024, i, 1), 'MMMM')}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-[#4A1F6F] focus:ring-1 focus:ring-[#4A1F6F]/15 bg-white font-semibold text-slate-700 cursor-pointer"
+              >
+                {[2024, 2025, 2026].map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-        )}
 
-        {/* Calendar Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left: Attendance Stats (6/12) */}
+            {calendar && (
+              <div className="lg:col-span-6 grid grid-cols-2 gap-4 border-b lg:border-b-0 lg:border-r border-slate-100 pb-6 lg:pb-0 lg:pr-6">
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Working Days</p>
+                  <p className="text-xl font-bold text-slate-800">{calendar.summary?.workingDays || 0}</p>
+                </div>
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Present</p>
+                  <p className="text-xl font-bold text-emerald-600">{calendar.summary?.presentDays || 0}</p>
+                </div>
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Half Days</p>
+                  <p className="text-xl font-bold text-orange-600">{calendar.summary?.halfDays || 0}</p>
+                </div>
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Attendance Value</p>
+                  <p className="text-xl font-bold text-[#4A1F6F]">{calendar.summary?.totalAttendanceValue || 0}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Right: Salary Breakdown (6/12) */}
+            {salary && (
+              <div className="lg:col-span-6 flex flex-col justify-between pl-0 lg:pl-2">
+                <div className="space-y-4">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Salary Breakdown</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Payable Salary</p>
+                      <p className="text-base font-bold text-emerald-650">₹{salary.payable_salary?.toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Deductions</p>
+                      <p className="text-base font-bold text-red-650">₹{salary.deductions?.toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">No-Leave Bonus</p>
+                      <p className="text-base font-bold text-[#4A1F6F]">₹{salary.no_leave_bonus?.toLocaleString()}</p>
+                    </div>
+                    <div className="p-4 bg-slate-50/50 rounded-2xl border border-[#4A1F6F]/20 bg-[#4A1F6F]/5">
+                      <p className="text-[10px] text-[#4A1F6F] font-bold uppercase tracking-wider mb-1">Total Payout</p>
+                      <p className="text-base font-black text-[#4A1F6F]">₹{salary.total_with_bonus?.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Daily Attendance Grid */}
         {calendar && (
-          <div className="card">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <Clock size={20} className="text-gray-400" />
-              <h3 className="font-semibold text-gray-900">Daily Attendance</h3>
+              <Clock size={18} className="text-slate-500" />
+              <h2 className="font-semibold text-slate-800 text-base">Daily Attendance</h2>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-2xl border border-slate-100">
               <table className="table">
                 <thead>
                   <tr>
@@ -261,39 +285,35 @@ export default function EmployeeDetailPage() {
                 </thead>
                 <tbody>
                   {calendar.days?.map((day: any) => (
-                    <tr key={day.date} className={day.isWeekend || day.isHoliday ? 'bg-gray-50' : ''}>
-                      <td className="font-medium">{format(new Date(day.date), 'MMM dd, EEE')}</td>
+                    <tr key={day.date} className={`${day.isWeekend || day.isHoliday ? 'bg-slate-50/50' : ''} hover:bg-[#4A1F6F]/5 transition group`}>
+                      <td className="font-bold text-slate-800">{format(new Date(day.date), 'MMM dd, EEE')}</td>
                       <td>
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          className={`px-2 py-0.5 rounded border text-xs font-semibold capitalize ${
                             day.dayType === 'present' || day.dayType === 'late_within_buffer'
-                              ? 'bg-green-100 text-green-700'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : day.dayType === 'half_day'
-                              ? 'bg-orange-100 text-orange-700'
+                              ? 'bg-orange-50 text-orange-700 border-orange-200'
                               : day.dayType === 'leave'
-                              ? 'bg-blue-100 text-blue-700'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
                               : day.dayType === 'absent'
-                              ? 'bg-red-100 text-red-700'
+                              ? 'bg-red-50 text-red-700 border-red-200'
                               : day.dayType === 'holiday' || day.dayType === 'sunday'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-gray-100 text-gray-500'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-slate-50 text-slate-500 border-slate-200'
                           }`}
                         >
                           {day.label}
                         </span>
                       </td>
-                      <td>
-                        {formatTimeIST(day.checkIn)}
-                      </td>
-                      <td>
-                        {formatTimeIST(day.checkOut)}
-                      </td>
-                      <td>{calculateHours(day.checkIn, day.checkOut)}</td>
-                      <td className="font-semibold">{day.attendanceValue}</td>
+                      <td className="text-slate-650 font-medium">{formatTimeIST(day.checkIn)}</td>
+                      <td className="text-slate-650 font-medium">{formatTimeIST(day.checkOut)}</td>
+                      <td className="text-slate-550 font-medium">{calculateHours(day.checkIn, day.checkOut)}</td>
+                      <td className="font-bold text-slate-800">{day.attendanceValue}</td>
                       <td>
                         <button
                           onClick={() => handleOpenMarkModal(day.date, day)}
-                          className="px-2.5 py-1 text-xs font-semibold rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-650 transition cursor-pointer border border-slate-200"
+                          className="btn-crm-secondary py-1 px-2.5 text-xs shadow-2xs"
                         >
                           Override
                         </button>
@@ -335,7 +355,7 @@ export default function EmployeeDetailPage() {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Override Status Value *</label>
                 <select value={markAction} onChange={(e) => setMarkAction(e.target.value as any)}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 font-semibold text-slate-700 text-sm bg-slate-50/50 cursor-pointer transition">
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-[#4A1F6F] focus:ring-1 focus:ring-[#4A1F6F]/15 font-semibold text-slate-700 text-sm bg-slate-50/50 cursor-pointer transition">
                   <option value="present">Mark as Present (value = 1.0)</option>
                   <option value="late_within_buffer">Mark as Late (value = 1.0)</option>
                   <option value="half_day">Mark as Half Day (value = 0.5)</option>
@@ -352,7 +372,7 @@ export default function EmployeeDetailPage() {
                       type="time" 
                       value={customCheckIn} 
                       onChange={(e) => setCustomCheckIn(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-[#4A1F6F] focus:ring-1 focus:ring-[#4A1F6F]/15 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
                     />
                   </div>
                   <div>
@@ -361,7 +381,7 @@ export default function EmployeeDetailPage() {
                       type="time" 
                       value={customCheckOut} 
                       onChange={(e) => setCustomCheckOut(e.target.value)}
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-[#4A1F6F] focus:ring-1 focus:ring-[#4A1F6F]/15 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
                     />
                   </div>
                 </div>
@@ -371,7 +391,7 @@ export default function EmployeeDetailPage() {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Override Justification *</label>
                 <textarea value={markReason} onChange={(e) => setMarkReason(e.target.value)}
                   placeholder="Enter manual marking reason (e.g. forgot to check in, client site visit)..." rows={3}
-                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 placeholder:text-slate-400 resize-none bg-slate-50/50 transition" />
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-[#4A1F6F] focus:ring-1 focus:ring-[#4A1F6F]/15 text-sm text-slate-700 placeholder:text-slate-400 resize-none bg-slate-50/50 transition" />
               </div>
             </div>
 

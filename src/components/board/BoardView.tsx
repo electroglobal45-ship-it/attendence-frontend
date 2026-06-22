@@ -16,7 +16,7 @@ import { BoardSkeleton, BoardLoadingIndicator } from './BoardSkeleton'
 import { useAuth } from '@/lib/auth-context'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
 
-/* ─────────────────────────── Design tokens (LIGHT THEME) ── */
+/* ─────────────────────────── Design tokens (CADBURY PURPLE THEME) ── */
 const DS = {
   // Base surfaces — light theme
   bg0:        '#F8F9FA', // main background (light grey)
@@ -27,10 +27,12 @@ const DS = {
   textPrimary:'#111827', // body text (dark)
   textMuted:  '#6B7280', // secondary / labels (grey)
   textWhite:  '#FFFFFF',
-  // Accent (blue)
-  accent:     '#3B82F6',
-  accentHover:'#60A5FA',
-  accentDark: '#2563EB',
+  // Accent (Cadbury Purple)
+  accent:     '#4A1F6F',
+  accentHover:'#6B2D8E',
+  accentDark: '#2D0F47',
+  // Gold accent
+  gold:       '#D9A441',
   // Danger
   danger:     '#EF4444',
   // Header — white surface
@@ -53,7 +55,7 @@ interface BoardData { board:BoardObj; lists:List[]; tasks:Task[]; labels:any[]; 
 interface BoardViewProps { projectId?:string; autoLoadFirstProject?:boolean; initialBoardId?:string; onBack?:()=>void }
 
 /* ─────────────────── Avatar ───────────────────────────────── */
-const PALETTE = ['#579DFF','#60C6D2','#94C748','#E2B203','#FEA362','#F87168','#9F8FEF','#E774BB']
+const PALETTE = ['#4A1F6F','#6B2D8E','#2D0F47','#8B3DB5','#D9A441','#5E2780','#7C3AA7','#3A1660']
 function initials(u:any){ return ((u?.name||u?.email||'?').charAt(0)).toUpperCase() }
 function Avatar({ user, idx=0, size='md', overlap=false }:{ user:any; idx?:number; size?:'sm'|'md'; overlap?:boolean }){
   const s  = size==='sm' ? 28 : 32
@@ -932,10 +934,10 @@ useEffect(() => {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '8px 12px',
-                        background: board.id === selectedBoard?.id ? '#EFF6FF' : 'transparent',
+                        background: board.id === selectedBoard?.id ? 'rgba(74,31,111,0.08)' : 'transparent',
                         border: 'none',
                         borderRadius: 6,
-                        color: board.id === selectedBoard?.id ? '#3B82F6' : DS.textPrimary,
+                        color: board.id === selectedBoard?.id ? '#4A1F6F' : DS.textPrimary,
                         fontSize: 13,
                         fontWeight: board.id === selectedBoard?.id ? 600 : 500,
                         cursor: 'pointer',
@@ -980,7 +982,7 @@ useEffect(() => {
                 title={(m.user||m)?.name || (m.user||m)?.email}
                 style={{
                   width: 32, height: 32, borderRadius: '50%',
-                  background: ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444'][i % 5],
+                  background: ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5'][i % 5],
                   color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontWeight: 700, fontSize: 12, flexShrink: 0, cursor: 'pointer',
                   border: '2px solid #FFFFFF',
@@ -1041,7 +1043,7 @@ useEffect(() => {
                       ? <p style={{ color:DS.textMuted, textAlign:'center', padding:'16px 0', fontSize:12 }}>No members found</p>
                       : filtered.map((m:any,i:number)=>{
                           const u=m.user||m
-                          const colors = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#EC4899','#14B8A6','#6366F1']
+                          const colors = ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5','#5E2780','#7C3AA7','#3A1660']
                           return (
                             <div key={u.id||i} style={{ display:'flex', alignItems:'center', gap:10,
                               padding:'7px 4px', borderRadius:6, cursor:'default', transition:'background .12s' }}
@@ -1095,7 +1097,7 @@ useEffect(() => {
                         cursor:'pointer', transition:'background .12s', borderRadius: 4 }}
                         onMouseEnter={e=>(e.currentTarget.style.background='#F3F4F6')}
                         onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                        <input type="checkbox" style={{ accentColor:'#3B82F6' }}
+                        <input type="checkbox" style={{ accentColor:'#4A1F6F' }}
                           checked={isChecked}
                           onChange={(e)=>{
                             const newSet = new Set(filterMembers)
@@ -1105,7 +1107,7 @@ useEffect(() => {
                           }}/>
                         <div style={{
                           width: 26, height: 26, borderRadius: '50%',
-                          background: ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444'][i % 5],
+                          background: ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5'][i % 5],
                           color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontWeight: 700, fontSize: 11, flexShrink: 0,
                         }}>
@@ -1127,7 +1129,7 @@ useEffect(() => {
                         cursor:'pointer', transition:'background .12s', borderRadius: 4 }}
                         onMouseEnter={e=>(e.currentTarget.style.background='#F3F4F6')}
                         onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                        <input type="checkbox" style={{ accentColor:'#3B82F6' }}
+                        <input type="checkbox" style={{ accentColor:'#4A1F6F' }}
                           checked={filterLabels.has(label.id)}
                           onChange={(e)=>{
                             const newSet = new Set(filterLabels)
@@ -1152,7 +1154,7 @@ useEffect(() => {
                       cursor:'pointer', transition:'background .12s', borderRadius: 4 }}
                       onMouseEnter={e=>(e.currentTarget.style.background='#F3F4F6')}
                       onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                      <input type="checkbox" style={{ accentColor:'#3B82F6' }}
+                      <input type="checkbox" style={{ accentColor:'#4A1F6F' }}
                         checked={filterDueDate.has(d)}
                         onChange={(e)=>{
                           const newSet = new Set(filterDueDate)
@@ -1175,10 +1177,10 @@ useEffect(() => {
               <button {...H('sh')} style={{
                 display:'flex', alignItems:'center', gap:6,
                 padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer',
-                background: hov['sh'] ? '#000000' : '#111827',
+                background: hov['sh'] ? '#2D0F47' : '#4A1F6F',
                 color: '#FFFFFF', fontSize:13, fontWeight:600,
                 transition:'background .15s',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                boxShadow: '0 2px 8px rgba(74,31,111,0.35)',
               }}>
                 <Share2 size={14}/> Share
               </button>
@@ -1278,7 +1280,7 @@ useEffect(() => {
                         height: 26,
                         borderRadius: 6,
                         background: bg.color,
-                        border: boardBgColor === bg.color ? '2px solid #3B82F6' : '1px solid #D1D5DB',
+                        border: boardBgColor === bg.color ? '2px solid #4A1F6F' : '1px solid #D1D5DB',
                         cursor: 'pointer',
                         boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)',
                         display: 'block'
@@ -1327,10 +1329,11 @@ useEffect(() => {
                   alignItems: 'center',
                   gap: 6,
                   padding: '6px 12px',
-                  borderRadius: 6,
+                  borderRadius: 0,
                   border: 'none',
-                  background: isActive ? '#F0F9FF' : 'transparent',
-                  color: isActive ? '#3B82F6' : DS.textMuted,
+                  borderBottom: isActive ? '2px solid #4A1F6F' : '2px solid transparent',
+                  background: isActive ? 'rgba(74,31,111,0.06)' : 'transparent',
+                  color: isActive ? '#4A1F6F' : DS.textMuted,
                   fontSize: 13,
                   fontWeight: isActive ? 600 : 500,
                   cursor: 'pointer',

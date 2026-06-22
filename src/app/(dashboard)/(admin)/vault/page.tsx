@@ -87,7 +87,8 @@ function EmployeeMultiSelect({
       <button
         type="button"
         onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-gray-900 outline-none text-left"
+        className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white outline-none text-left"
+        style={{ boxShadow: 'none' }}
       >
         <span className={selected.length === 0 ? 'text-gray-400' : 'text-gray-800'}>
           {selected.length === 0
@@ -110,7 +111,8 @@ function EmployeeMultiSelect({
                 type="checkbox"
                 checked={selected.includes(emp.id)}
                 onChange={() => toggle(emp.id)}
-                className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                className="w-4 h-4 rounded border-gray-300"
+                style={{ accentColor: '#4A1F6F' }}
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800">{emp.name}</p>
@@ -435,7 +437,7 @@ export default function AdminVaultPage() {
     <PageWrapper
       title={
         <div className="flex items-center gap-2">
-          <KeyRound className="text-gray-900" size={22} />
+          <KeyRound style={{ color: '#4A1F6F' }} size={22} />
           <span>Password Manager</span>
         </div>
       }
@@ -443,12 +445,18 @@ export default function AdminVaultPage() {
       actions={
         <div className="flex items-center gap-2">
           <button onClick={() => fetchData(false, false)} disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition">
+            className="flex items-center gap-2 px-3 py-2 text-sm border rounded-lg disabled:opacity-50 transition"
+            style={{ borderColor: 'rgba(74,31,111,0.3)', color: '#4A1F6F', background: 'rgba(74,31,111,0.04)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(74,31,111,0.08)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(74,31,111,0.04)')}>
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
           <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition font-medium">
+            className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg transition font-medium"
+            style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)', boxShadow: '0 4px 12px rgba(74,31,111,0.35)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'linear-gradient(135deg, #2D0F47 0%, #1a0930 100%)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)')}>
             <Plus size={16} /> Add Credential
           </button>
         </div>
@@ -507,7 +515,8 @@ export default function AdminVaultPage() {
                   <button 
                     type="button" 
                     onClick={() => setFilterEmployees([])} 
-                    className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                    className="text-xs font-semibold cursor-pointer"
+                    style={{ color: '#4A1F6F' }}
                   >
                     Clear Filter
                   </button>
@@ -536,11 +545,12 @@ export default function AdminVaultPage() {
                     key={entry.id}
                     onClick={() => setSelectedEntryId(entry.id)}
                     className={`p-4 flex items-center gap-3 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-indigo-50/70 border-l-4 border-indigo-600' : 'hover:bg-gray-50'
+                      isSelected ? 'border-l-4' : 'hover:bg-gray-50'
                     }`}
+                    style={isSelected ? { background: 'rgba(74,31,111,0.06)', borderLeftColor: '#4A1F6F' } : {}}
                   >
                     {/* Site favicon with third-party service */}
-                    <div className="w-10 h-10 rounded-xl bg-[#f3f1fb] flex items-center justify-center flex-shrink-0 shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border overflow-hidden" style={{ background: 'rgba(74,31,111,0.08)', borderColor: 'rgba(74,31,111,0.15)' }}>
                       <img
                         src={`https://www.google.com/icons/thirdparty/images/png?size=32&domain=${domain}`}
                         alt={entry.service_name}
@@ -550,13 +560,13 @@ export default function AdminVaultPage() {
                           ;(e.target as HTMLElement).style.display = 'none'
                         }}
                       />
-                      <span className="text-indigo-600 text-sm font-bold uppercase select-none fallback-initial">
+                      <span className="text-sm font-bold uppercase select-none fallback-initial" style={{ color: '#4A1F6F' }}>
                         {entry.service_name[0]}
                       </span>
                     </div>
                     
                     <div className="min-w-0 flex-1">
-                      <p className={`text-sm font-semibold truncate ${isSelected ? 'text-indigo-900' : 'text-gray-800'}`}>
+                      <p className="text-sm font-semibold truncate" style={{ color: isSelected ? '#2D0F47' : '#1F2937' }}>
                         {entry.service_name}
                       </p>
                       <p className="text-xs text-gray-400 truncate mt-0.5">
@@ -611,7 +621,7 @@ export default function AdminVaultPage() {
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-1.5">
                   {selectedEntry.service_name}
                   {selectedEntry.id.startsWith('temp-') && (
-                    <span className="text-xs font-medium text-indigo-500 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full animate-pulse">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full animate-pulse" style={{ color: '#4A1F6F', background: 'rgba(74,31,111,0.08)', border: '1px solid rgba(74,31,111,0.2)' }}>
                       Saving…
                     </span>
                   )}
@@ -626,7 +636,7 @@ export default function AdminVaultPage() {
                   <div className="space-y-4">
                     <div>
                       <span className="text-xs font-semibold text-gray-400 block mb-1">Username / Email</span>
-                      <div className="bg-[#f0eef9] hover:bg-[#eae8f5] text-[#1e1b4b] px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border border-transparent hover:border-indigo-100 transition duration-150">
+                      <div className="px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border transition duration-150" style={{ background: 'rgba(74,31,111,0.06)', color: '#2D0F47', borderColor: 'transparent' }} onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.10)')} onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.06)')  }>
                         {showCredentials ? (
                           <span className="select-all font-medium truncate pr-2">{selectedEntry.username}</span>
                         ) : (
@@ -634,7 +644,7 @@ export default function AdminVaultPage() {
                         )}
                         <button
                           onClick={() => copyToClipboard(selectedEntry.username, 'username')}
-                          className="text-indigo-500 hover:text-indigo-700 transition-colors p-1"
+                          className="transition-colors p-1" style={{ color: '#4A1F6F' }}
                           title="Copy username"
                         >
                           {copiedField === 'username' ? (
@@ -648,7 +658,7 @@ export default function AdminVaultPage() {
 
                     <div>
                       <span className="text-xs font-semibold text-gray-400 block mb-1">Password</span>
-                      <div className="bg-[#f0eef9] hover:bg-[#eae8f5] text-[#1e1b4b] px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border border-transparent hover:border-indigo-100 transition duration-150">
+                      <div className="px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border transition duration-150" style={{ background: 'rgba(74,31,111,0.06)', color: '#2D0F47', borderColor: 'transparent' }} onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.10)')} onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.06)')}>
                         {showCredentials ? (
                           <span className="select-all font-medium truncate pr-2">{selectedEntry.password || '••••••••••••••'}</span>
                         ) : (
@@ -656,7 +666,7 @@ export default function AdminVaultPage() {
                         )}
                         <button
                           onClick={() => copyToClipboard(selectedEntry.password || '', 'password')}
-                          className="text-indigo-500 hover:text-indigo-700 transition p-1"
+                          className="transition p-1" style={{ color: '#4A1F6F' }}
                           title="Copy password"
                         >
                           {copiedField === 'password' ? (
@@ -677,7 +687,8 @@ export default function AdminVaultPage() {
                         href={getSiteUrl(selectedEntry.service_name, selectedEntry.site_url)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-indigo-600 hover:text-indigo-800 font-medium text-sm inline-flex items-center gap-1 underline mt-1.5 transition"
+                        className="font-medium text-sm inline-flex items-center gap-1 underline mt-1.5 transition"
+                        style={{ color: '#4A1F6F' }}
                       >
                         {getSiteLink(selectedEntry.service_name, selectedEntry.site_url)}
                         <ExternalLink size={12} />
@@ -686,7 +697,7 @@ export default function AdminVaultPage() {
 
                     <div>
                       <span className="text-xs font-semibold text-gray-400 block mb-1">Note</span>
-                      <div className="bg-[#f0eef9] text-[#423f6d] px-4 py-3 rounded-xl min-h-[92px] text-sm leading-relaxed border border-transparent">
+                      <div className="px-4 py-3 rounded-xl min-h-[92px] text-sm leading-relaxed border" style={{ background: 'rgba(74,31,111,0.05)', color: '#374151', borderColor: 'rgba(74,31,111,0.08)' }}>
                         {selectedEntry.notes || <span className="text-gray-400 italic">No note added</span>}
                       </div>
                     </div>
@@ -698,7 +709,10 @@ export default function AdminVaultPage() {
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-150">
                   <button
                     onClick={() => setShowCredentials(!showCredentials)}
-                    className="flex-1 rounded-full bg-indigo-600 text-white px-6 py-2.5 hover:bg-indigo-700 font-semibold text-sm transition flex items-center justify-center gap-2"
+                    className="flex-1 rounded-full text-white px-6 py-2.5 font-semibold text-sm transition flex items-center justify-center gap-2"
+                    style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)', boxShadow: '0 4px 12px rgba(74,31,111,0.35)' }}
+                    onMouseEnter={e=>(e.currentTarget.style.background='linear-gradient(135deg, #2D0F47 0%, #1a0930 100%)')}
+                    onMouseLeave={e=>(e.currentTarget.style.background='linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)')}
                   >
                     {showCredentials ? (
                       <><EyeOff size={14} /> Hide Credentials</>
@@ -708,7 +722,10 @@ export default function AdminVaultPage() {
                   </button>
                   <button
                     onClick={handleEditClick}
-                    className="rounded-full border border-indigo-600 text-indigo-600 px-6 py-2.5 hover:bg-indigo-50 font-semibold text-sm transition flex items-center justify-center gap-1.5"
+                    className="rounded-full px-6 py-2.5 font-semibold text-sm transition flex items-center justify-center gap-1.5"
+                    style={{ border: '1.5px solid #4A1F6F', color: '#4A1F6F', background: 'transparent' }}
+                    onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.06)')}
+                    onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
                   >
                     <Edit size={14} />
                     Edit
@@ -728,15 +745,18 @@ export default function AdminVaultPage() {
               <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <Users size={16} className="text-gray-400" />
-                    <h3 className="font-bold text-gray-800 text-sm">Assigned Employees</h3>
+                    <Users size={16} style={{ color: '#4A1F6F' }} />
+                    <h3 className="font-bold text-sm" style={{ color: '#2D0F47' }}>Assigned Employees</h3>
                   </div>
                   <button
                     onClick={() => {
                       setAssigningEntry(selectedEntry)
                       setAssignSelectedEmployees([])
                     }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-slate-90 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl border border-indigo-100 transition"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl transition"
+                    style={{ background: 'rgba(74,31,111,0.08)', color: '#4A1F6F', border: '1px solid rgba(74,31,111,0.2)' }}
+                    onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.15)')}
+                    onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.08)')}
                   >
                     <Plus size={12} /> Assign Employee
                   </button>
@@ -754,7 +774,7 @@ export default function AdminVaultPage() {
                       return (
                         <div key={assignment.id} className="flex items-center justify-between py-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 rounded-full bg-[#f3f1fb] border border-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'rgba(74,31,111,0.10)', border: '1px solid rgba(74,31,111,0.2)', color: '#4A1F6F' }}>
                               {assignment.assignee?.name?.[0]?.toUpperCase() || '?'}
                             </div>
                             <div className="min-w-0">
@@ -824,7 +844,7 @@ export default function AdminVaultPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)' }}>
                   <Shield size={16} className="text-white" />
                 </div>
                 <div>
@@ -850,7 +870,9 @@ export default function AdminVaultPage() {
                     onChange={e => setForm(p => ({ ...p, service_name: e.target.value }))}
                     placeholder="e.g. apollo.io, Cloudflare, AWS"
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none transition"
+                    onFocus={e=>{e.target.style.borderColor='#4A1F6F'; e.target.style.boxShadow='0 0 0 3px rgba(74,31,111,0.12)'}}
+                    onBlur={e=>{e.target.style.borderColor='#D1D5DB'; e.target.style.boxShadow='none'}} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Username / Email *</label>
@@ -858,7 +880,9 @@ export default function AdminVaultPage() {
                     onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
                     placeholder="admin@company.com"
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none transition"
+                    onFocus={e=>{e.target.style.borderColor='#4A1F6F'; e.target.style.boxShadow='0 0 0 3px rgba(74,31,111,0.12)'}}
+                    onBlur={e=>{e.target.style.borderColor='#D1D5DB'; e.target.style.boxShadow='none'}} />
                 </div>
               </div>
 
@@ -867,7 +891,9 @@ export default function AdminVaultPage() {
                 <input value={form.site_url}
                   onChange={e => setForm(p => ({ ...p, site_url: e.target.value }))}
                   placeholder="e.g. https://app.apollo.io"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none" />
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none transition"
+                  onFocus={e=>{e.target.style.borderColor='#4A1F6F'; e.target.style.boxShadow='0 0 0 3px rgba(74,31,111,0.12)'}}
+                  onBlur={e=>{e.target.style.borderColor='#D1D5DB'; e.target.style.boxShadow='none'}} />
               </div>
 
               <div>
@@ -881,7 +907,9 @@ export default function AdminVaultPage() {
                     onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                     placeholder={isEditing ? "Enter new password (optional)" : "Enter the credential password"}
                     required={!isEditing}
-                    className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-mono" />
+                    className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm outline-none font-mono transition"
+                    onFocus={e=>{e.target.style.borderColor='#4A1F6F'; e.target.style.boxShadow='0 0 0 3px rgba(74,31,111,0.12)'}}
+                    onBlur={e=>{e.target.style.borderColor='#D1D5DB'; e.target.style.boxShadow='none'}} />
                   <button type="button" onClick={() => setShowFormPw(p => !p)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                     {showFormPw ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -912,13 +940,15 @@ export default function AdminVaultPage() {
                 <input value={form.notes}
                   onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
                   placeholder="e.g. Main Cloudflare account, expires Dec 2025"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none" />
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm outline-none transition"
+                  onFocus={e=>{e.target.style.borderColor='#4A1F6F'; e.target.style.boxShadow='0 0 0 3px rgba(74,31,111,0.12)'}}
+                  onBlur={e=>{e.target.style.borderColor='#D1D5DB'; e.target.style.boxShadow='none'}} />
               </div>
 
               {/* Security notice */}
-              <div className="flex items-start gap-2 p-3 bg-[#f3f1fb] border border-indigo-100 rounded-lg">
-                <Shield size={14} className="text-indigo-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-indigo-700">
+              <div className="flex items-start gap-2 p-3 rounded-lg" style={{ background: 'rgba(74,31,111,0.06)', border: '1px solid rgba(74,31,111,0.15)' }}>
+                <Shield size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#4A1F6F' }} />
+                <p className="text-xs" style={{ color: '#4A1F6F' }}>
                   Password encrypted with <strong>AES-256-GCM</strong>. Each assigned employee gets their own
                   independent <strong>one-time reveal</strong> — one employee revealing does not affect others.
                 </p>
@@ -930,7 +960,8 @@ export default function AdminVaultPage() {
                   Cancel
                 </button>
                 <button type="submit" disabled={submitting || selectedEmployees.length === 0}
-                  className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-700 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="flex-1 px-4 py-2.5 text-white rounded-xl text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: (submitting || selectedEmployees.length === 0) ? '#9CA3AF' : 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)', boxShadow: (submitting || selectedEmployees.length === 0) ? 'none' : '0 4px 12px rgba(74,31,111,0.3)' }}>
                   {submitting
                     ? <><RefreshCw size={14} className="animate-spin" />Saving…</>
                     : <><Shield size={14} />{isEditing ? 'Save Changes' : 'Save Encrypted'}</>}
@@ -947,7 +978,7 @@ export default function AdminVaultPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)' }}>
                   <Users size={16} className="text-white" />
                 </div>
                 <div>
@@ -996,7 +1027,8 @@ export default function AdminVaultPage() {
                   Cancel
                 </button>
                 <button type="submit" disabled={submitting || assignSelectedEmployees.length === 0}
-                  className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-700 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="flex-1 px-4 py-2.5 text-white rounded-xl text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: (submitting || assignSelectedEmployees.length === 0) ? '#9CA3AF' : 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)', boxShadow: (submitting || assignSelectedEmployees.length === 0) ? 'none' : '0 4px 12px rgba(74,31,111,0.3)' }}>
                   {submitting
                     ? <><RefreshCw size={14} className="animate-spin" />Saving…</>
                     : <><Users size={14} />Assign Now</>}

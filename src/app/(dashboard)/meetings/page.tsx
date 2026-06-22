@@ -45,7 +45,7 @@ function EmployeeMultiSelect({
       <button
         type="button"
         onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-gray-900 outline-none text-left"
+        className="w-full flex items-center justify-between px-3 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#4A1F6F]/10 focus:border-[#4A1F6F] outline-none text-left transition-all"
       >
         <span className={selected.length === 0 ? 'text-gray-400' : 'text-gray-800'}>
           {selected.length === 0
@@ -71,7 +71,7 @@ function EmployeeMultiSelect({
                     onChange(employees.map(e => e.id))
                   }
                 }}
-                className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition"
+                className="text-xs text-[#4A1F6F] hover:text-[#3B1859] font-semibold transition"
               >
                 {selected.length === employees.length ? 'Clear All' : 'Select All'}
               </button>
@@ -86,7 +86,7 @@ function EmployeeMultiSelect({
                 type="checkbox"
                 checked={selected.includes(emp.id)}
                 onChange={() => toggle(emp.id)}
-                className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                className="w-4 h-4 rounded border-gray-300 text-[#4A1F6F] focus:ring-[#4A1F6F] accent-[#4A1F6F]"
               />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800">{emp.name}</p>
@@ -231,14 +231,14 @@ export default function MeetingsPage() {
           <button
             onClick={() => fetchData(false)}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] hover:border-[#4A1F6F]/20 disabled:opacity-50 transition-all cursor-pointer font-semibold text-gray-700"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition font-medium"
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] text-white rounded-lg hover:opacity-95 transition-all font-semibold shadow-sm shadow-[#4A1F6F]/10 cursor-pointer"
           >
             <Plus size={16} /> New Meeting
           </button>
@@ -247,24 +247,24 @@ export default function MeetingsPage() {
     >
       {/* Alert banner if active call is floating/minimized */}
       {activeMeeting && isMinimized && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+        <div className="mb-6 bg-[#4A1F6F]/5 border border-[#4A1F6F]/10 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Video className="text-blue-500 animate-pulse" size={20} />
+            <Video className="text-[#4A1F6F] animate-pulse" size={20} />
             <div>
-              <p className="text-sm font-semibold text-blue-900">You are in an active meeting</p>
-              <p className="text-xs text-blue-700 mt-0.5">"{activeMeeting.title}" is currently minimized. You can navigate the CRM freely.</p>
+              <p className="text-sm font-semibold text-[#4A1F6F]">You are in an active meeting</p>
+              <p className="text-xs text-[#4A1F6F]/80 mt-0.5">"{activeMeeting.title}" is currently minimized. You can navigate the CRM freely.</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMinimized(false)}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition"
+              className="px-3 py-1.5 bg-[#4A1F6F] hover:bg-[#3B1859] text-white text-xs font-semibold rounded-lg transition-all"
             >
               Open Fullscreen
             </button>
             <button
               onClick={leaveMeeting}
-              className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-lg transition"
+              className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-lg transition-all"
             >
               Hang Up
             </button>
@@ -276,34 +276,34 @@ export default function MeetingsPage() {
         <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4">
           <AlertTriangle size={14} />
           {error}
-          <button onClick={() => setError(null)} className="ml-auto"><X size={14} /></button>
+          <button onClick={() => setError(null)} className="ml-auto"><X size={14}/></button>
         </div>
       )}
 
       {/* Grid: Permanent daily standup at the top */}
       {permanentMeetings.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-xs font-semibold uppercase text-gray-400 tracking-wider mb-4">Daily Standup Meetings</h2>
+          <h2 className="text-xs font-semibold uppercase text-[#4A1F6F] tracking-wider mb-4">Daily Standup Meetings</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {permanentMeetings.map((meeting) => (
               <div
                 key={meeting.id}
                 onClick={() => joinMeeting(meeting.id, meeting.room_name, meeting.title, user?.role === 'admin')}
-                className="group relative cursor-pointer bg-gradient-to-br from-slate-850 to-slate-950 bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
+                className="group relative cursor-pointer bg-gradient-to-br from-[#2D0F47] to-[#1E0533] border border-[#3B1859]/30 hover:border-[#D9A441] rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden"
               >
                 {/* Background decorative gradient */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-indigo-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#4A1F6F]/10 to-[#D9A441]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
                 <div className="relative flex items-start justify-between gap-4">
                   <div className="space-y-2">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-xs font-medium text-blue-400">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#D9A441]/10 border border-[#D9A441]/20 rounded-full text-xs font-medium text-[#D9A441]">
                       <Users size={12} /> Daily Standup
                     </div>
-                    <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">
+                    <h3 className="text-lg font-bold text-white group-hover:text-[#D9A441] transition-colors">
                       {meeting.title}
                     </h3>
                     {meeting.assignments && meeting.assignments.length > 0 && (
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-350">
                         Assigned members: {meeting.assignments.map(a => a.assignee?.name).join(', ')}
                       </p>
                     )}
@@ -313,13 +313,13 @@ export default function MeetingsPage() {
                     {user?.role === 'admin' && (
                       <button
                         onClick={(e) => handleDelete(e, meeting.id)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-800 rounded-lg transition"
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-[#4A1F6F]/20 rounded-lg transition-all"
                         title="Delete daily meeting"
                       >
                         <Trash2 size={16} />
                       </button>
                     )}
-                    <div className="w-12 h-12 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                    <div className="w-12 h-12 rounded-xl bg-[#D9A441]/10 border border-[#D9A441]/20 flex items-center justify-center text-[#D9A441] group-hover:bg-[#4A1F6F] group-hover:text-white transition-all">
                       <Video size={20} />
                     </div>
                   </div>
@@ -336,12 +336,12 @@ export default function MeetingsPage() {
         
         {loading ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400">
-            <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-slate-300" />
+            <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-[#4A1F6F]/40" />
             Loading rooms…
           </div>
         ) : scheduledMeetings.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-400">
-            <Calendar size={28} className="mx-auto text-gray-300 mb-2" />
+            <Calendar size={28} className="mx-auto text-[#4A1F6F]/30 mb-2" />
             <p className="text-sm font-medium">No scheduled meetings</p>
           </div>
         ) : (
@@ -372,7 +372,7 @@ export default function MeetingsPage() {
                 <div
                   key={meeting.id}
                   onClick={handleJoinClick}
-                  className={`bg-white border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md rounded-2xl p-5 transition flex flex-col justify-between gap-4 ${
+                  className={`bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md rounded-2xl p-5 transition flex flex-col justify-between gap-4 ${
                     canJoin ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
                   }`}
                 >
@@ -383,7 +383,7 @@ export default function MeetingsPage() {
                         {(user?.role === 'admin' || user?.id === meeting.created_by) && (
                           <button
                             onClick={(e) => handleDelete(e, meeting.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                             title="Delete room"
                           >
                             <Trash2 size={14} />
@@ -392,7 +392,7 @@ export default function MeetingsPage() {
                       </div>
                     </div>
                     
-                    <p className="text-xs text-amber-600 font-medium flex items-center gap-1 mt-1.5">
+                    <p className="text-xs text-[#D9A441] font-semibold flex items-center gap-1 mt-1.5">
                       <Clock size={12} />
                       {new Date(meeting.scheduled_at!).toLocaleString('en-IN', {
                         dateStyle: 'medium',
@@ -404,7 +404,7 @@ export default function MeetingsPage() {
                       <div className="mt-3 flex flex-wrap gap-1.5 items-center">
                         <span className="text-[10px] text-gray-400 uppercase font-semibold">Assigned:</span>
                         {meeting.assignments.map(a => (
-                          <span key={a.id} className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full font-medium">
+                          <span key={a.id} className="text-[10px] bg-[#4A1F6F]/5 text-[#4A1F6F] border border-[#4A1F6F]/10 px-1.5 py-0.5 rounded-full font-medium">
                             {a.assignee?.name}
                           </span>
                         ))}
@@ -419,11 +419,11 @@ export default function MeetingsPage() {
                         Join Call <Video size={12} />
                       </span>
                     ) : isHost ? (
-                      <span className="flex items-center gap-1 text-blue-600 font-bold hover:text-blue-700">
+                      <span className="flex items-center gap-1 text-[#4A1F6F] font-bold hover:text-[#3B1859]">
                         Start Meeting <Video size={12} />
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-amber-600 font-medium animate-pulse">
+                      <span className="flex items-center gap-1 text-[#D9A441] font-semibold animate-pulse">
                         Waiting for Host… <Clock size={12} />
                       </span>
                     )}
@@ -441,12 +441,12 @@ export default function MeetingsPage() {
         
         {loading ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400">
-            <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-slate-300" />
+            <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-[#4A1F6F]/40" />
             Loading rooms…
           </div>
         ) : quickMeetings.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center text-gray-400">
-            <Video size={28} className="mx-auto text-gray-300 mb-2" />
+            <Video size={28} className="mx-auto text-[#4A1F6F]/30 mb-2" />
             <p className="text-sm font-medium">No active quick meetings</p>
           </div>
         ) : (
@@ -477,7 +477,7 @@ export default function MeetingsPage() {
                 <div
                   key={meeting.id}
                   onClick={handleJoinClick}
-                  className={`bg-white border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md rounded-2xl p-5 transition flex flex-col justify-between gap-4 ${
+                  className={`bg-white border border-gray-200 hover:border-gray-300 hover:shadow-md rounded-2xl p-5 transition flex flex-col justify-between gap-4 ${
                     canJoin ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
                   }`}
                 >
@@ -488,7 +488,7 @@ export default function MeetingsPage() {
                         {(user?.role === 'admin' || user?.id === meeting.created_by) && (
                           <button
                             onClick={(e) => handleDelete(e, meeting.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                             title="Delete room"
                           >
                             <Trash2 size={14} />
@@ -506,7 +506,7 @@ export default function MeetingsPage() {
                       <div className="mt-3 flex flex-wrap gap-1.5 items-center">
                         <span className="text-[10px] text-gray-400 uppercase font-semibold">Assigned:</span>
                         {meeting.assignments.map(a => (
-                          <span key={a.id} className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded-full font-medium">
+                          <span key={a.id} className="text-[10px] bg-[#4A1F6F]/5 text-[#4A1F6F] border border-[#4A1F6F]/10 px-1.5 py-0.5 rounded-full font-medium">
                             {a.assignee?.name}
                           </span>
                         ))}
@@ -521,11 +521,11 @@ export default function MeetingsPage() {
                         Join Call <Video size={12} />
                       </span>
                     ) : isHost ? (
-                      <span className="flex items-center gap-1 text-blue-600 font-bold hover:text-blue-700">
+                      <span className="flex items-center gap-1 text-[#4A1F6F] font-bold hover:text-[#3B1859]">
                         Start Meeting <Video size={12} />
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-amber-600 font-medium animate-pulse">
+                      <span className="flex items-center gap-1 text-[#D9A441] font-semibold animate-pulse">
                         Waiting for Host… <Clock size={12} />
                       </span>
                     )}
@@ -549,7 +549,7 @@ export default function MeetingsPage() {
                   setForm({ title: '', scheduled_at: '', is_permanent: false })
                   setSelectedEmployees([])
                 }}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-all"
               >
                 <X size={18} />
               </button>
@@ -557,19 +557,19 @@ export default function MeetingsPage() {
 
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Meeting Title *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Meeting Title *</label>
                 <input
                   type="text"
                   value={form.title}
                   onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
                   placeholder="e.g. Weekly Design Sync"
                   required
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4A1F6F]/10 focus:border-[#4A1F6F] outline-none transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Meeting Type *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Meeting Type *</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -577,9 +577,9 @@ export default function MeetingsPage() {
                       setMeetingType('quick')
                       setForm(p => ({ ...p, scheduled_at: '' }))
                     }}
-                    className={`py-2 px-3 rounded-lg border text-sm font-medium text-center transition ${
+                    className={`py-2 px-3 rounded-lg border text-sm font-semibold text-center transition-all ${
                       meetingType === 'quick'
-                        ? 'bg-gray-900 border-gray-900 text-white font-semibold'
+                        ? 'bg-[#4A1F6F] border-[#4A1F6F] text-white font-bold'
                         : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -590,9 +590,9 @@ export default function MeetingsPage() {
                     onClick={() => {
                       setMeetingType('scheduled')
                     }}
-                    className={`py-2 px-3 rounded-lg border text-sm font-medium text-center transition ${
+                    className={`py-2 px-3 rounded-lg border text-sm font-semibold text-center transition-all ${
                       meetingType === 'scheduled'
-                        ? 'bg-gray-900 border-gray-900 text-white font-semibold'
+                        ? 'bg-[#4A1F6F] border-[#4A1F6F] text-white font-bold'
                         : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -603,20 +603,20 @@ export default function MeetingsPage() {
 
               {meetingType === 'scheduled' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Scheduled Time *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Scheduled Time *</label>
                   <input
                     type="datetime-local"
                     value={form.scheduled_at}
                     onChange={(e) => setForm((p) => ({ ...p, scheduled_at: e.target.value }))}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#4A1F6F]/10 focus:border-[#4A1F6F] outline-none transition-all"
                   />
                 </div>
               )}
 
               {/* Multi-employee selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Assign Members <span className="text-gray-400 font-normal">(They will receive a join alert pop-up)</span>
                 </label>
                 <EmployeeMultiSelect
@@ -633,7 +633,7 @@ export default function MeetingsPage() {
                     type="checkbox"
                     checked={form.is_permanent}
                     onChange={(e) => setForm((p) => ({ ...p, is_permanent: e.target.checked }))}
-                    className="w-4 h-4 rounded border-gray-300 text-gray-950 focus:ring-gray-950"
+                    className="w-4 h-4 rounded border-gray-300 text-[#4A1F6F] focus:ring-[#4A1F6F] accent-[#4A1F6F]"
                   />
                   <div className="text-xs">
                     <p className="font-semibold text-gray-900">Make Daily Recurring Standup</p>
@@ -657,7 +657,7 @@ export default function MeetingsPage() {
                 <button
                   type="submit"
                   disabled={submitting || !form.title.trim()}
-                  className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-700 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] text-white rounded-xl hover:opacity-95 text-sm font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm shadow-[#4A1F6F]/10 cursor-pointer"
                 >
                   {submitting ? (
                     <><RefreshCw size={14} className="animate-spin" />Creating…</>

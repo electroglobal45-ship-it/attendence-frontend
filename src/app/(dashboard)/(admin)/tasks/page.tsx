@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, RefreshCw, LayoutGrid, CheckCircle2, GripVertical } from 'lucide-react'
+import { Clock, RefreshCw, LayoutGrid, CheckCircle2, GripVertical, Filter } from 'lucide-react'
 import { TaskDetailModal } from '@/components/board/TaskDetailModal'
 import { BoardView } from '@/components/board/BoardView'
 import Link from 'next/link'
@@ -24,6 +24,14 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+// ── Theme Palette ──────────────────────────────────────────────────────────────
+const PURPLE = '#4A1F6F'
+const PURPLE_DARK = '#2D0F47'
+const GOLD = '#D9A441'
+const PURPLE_10 = 'rgba(74,31,111,0.10)'
+const PURPLE_5  = 'rgba(74,31,111,0.05)'
+const PURPLE_20 = 'rgba(74,31,111,0.20)'
+
 interface Task {
   id: string
   title: string
@@ -43,207 +51,64 @@ interface Task {
   board_id?: string
 }
 
-const PRIORITY_CONFIG: Record<string, { bg: string; glow: string; label: string; accent: string }> = {
-  low:    { bg: '#94C748', glow: '148,199,72',  label: 'LOW',    accent: '#94C748' },
-  medium: { bg: '#E2B203', glow: '226,178,3',   label: 'MEDIUM', accent: '#E2B203' },
-  high:   { bg: '#FEA362', glow: '254,163,98',  label: 'HIGH',   accent: '#FEA362' },
-  urgent: { bg: '#F87168', glow: '248,113,104', label: 'URGENT', accent: '#F87168' },
+const PRIORITY_CONFIG: Record<string, { bg: string; label: string }> = {
+  low:    { bg: '#22C55E', label: 'LOW'    },
+  medium: { bg: '#F59E0B', label: 'MEDIUM' },
+  high:   { bg: '#F97316', label: 'HIGH'   },
+  urgent: { bg: '#EF4444', label: 'URGENT' },
 }
 
-const STATUS_LABEL: Record<string, { text: string; color: string }> = {
-  todo:        { text: 'To Do',       color: '#579DFF' },
-  in_progress: { text: 'In Progress', color: '#E2B203' },
-  done:        { text: 'Done',        color: '#94C748' },
-  blocked:     { text: 'Blocked',     color: '#F87168' },
+const STATUS_CFG: Record<string, { text: string; dot: string; rowBg: string; rowBorder: string; rowText: string }> = {
+  todo:        { text: 'To Do',       dot: PURPLE,    rowBg: PURPLE_5,             rowBorder: `${PURPLE}30`, rowText: PURPLE      },
+  in_progress: { text: 'In Progress', dot: GOLD,      rowBg: 'rgba(217,164,65,.05)', rowBorder: `${GOLD}40`,  rowText: '#92650a'   },
+  done:        { text: 'Done',        dot: '#22C55E', rowBg: '#F0FDF4',             rowBorder: '#BBF7D0',     rowText: '#15803D'   },
+  blocked:     { text: 'Blocked',     dot: '#EF4444', rowBg: '#FEF2F2',             rowBorder: '#FECACA',     rowText: '#B91C1C'   },
 }
-
-/* ─── Task Card ─── */
-function TaskCard({ task, onClick, onComplete }: { task: Task; onClick: () => void; onComplete?: () => void }) {
-  const p = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.medium
-  const s = STATUS_LABEL[task.status] ?? STATUS_LABEL.todo
-  const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done'
-  const assigneeName = task.assigned_user?.name || task.assigned_to_name
-
-  return (
-    <div
-      onClick={onClick}
-      className="task-card"
-      style={{ '--glow': p.glow, '--accent': p.accent } as React.CSSProperties}
-    >
-      {/* top accent stripe */}
-      <div style={{ height: 4, background: `linear-gradient(90deg,${p.bg},transparent)`, borderRadius: '12px 12px 0 0', position: 'absolute', top: 0, left: 0, right: 0 }} />
-
-      {/* board name badge */}
-      {task.board?.name && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-          <span style={{
-            padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 700,
-            background: '#EFF6FF', color: '#3B82F6',
-            border: '1px solid #BFDBFE',
-            letterSpacing: '.4px', textTransform: 'uppercase',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140,
-          }}>
-            📋 {task.board.name}
-          </span>
-        </div>
-      )}
-
-      {/* priority + status badges */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 800, letterSpacing: '.8px', background: p.bg, color: '#FFFFFF', textTransform: 'uppercase' }}>
-          {p.label}
-        </span>
-        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 600, background: '#F3F4F6', color: s.color }}>
-          {s.text}
-        </span>
-      </div>
-
-      {/* title */}
-      <h4 style={{ color: '#111827', fontSize: 14, fontWeight: 700, margin: 0, lineHeight: 1.4, flexShrink: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-        {task.title}
-      </h4>
-
-      {/* labels */}
-      {task.labels && task.labels.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, flexShrink: 0 }}>
-          {task.labels.map((lbl: any, idx: number) => (
-            <span
-              key={idx}
-              style={{ 
-                backgroundColor: lbl.color || '#E2B203', 
-                color: '#FFFFFF', 
-                padding: '2px 8px', 
-                borderRadius: 4, 
-                fontSize: 8, 
-                fontWeight: 800, 
-                textTransform: 'uppercase', 
-                letterSpacing: '.3px' 
-              }}
-            >
-              {lbl.name || 'NO LABEL'}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* description */}
-      {task.description ? (
-        <p style={{ color: '#6B7280', fontSize: 11.5, margin: 0, lineHeight: 1.45, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', flexGrow: 1 }}
-          dangerouslySetInnerHTML={{ __html: task.description.replace(/<[^>]+>/g, '').slice(0, 90) }}
-        />
-      ) : (
-        <div style={{ flexGrow: 1 }} />
-      )}
-
-      {/* footer */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', flexShrink: 0, paddingTop: 8, borderTop: '1px solid #E5E7EB' }}>
-        {task.due_date ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: isOverdue ? '#EF4444' : '#6B7280', fontSize: 11 }}>
-            <Clock size={11} />
-            <span style={{ fontWeight: 600 }}>
-              {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </span>
-            {isOverdue && (
-              <span style={{ padding: '1px 5px', background: '#EF4444', color: '#fff', borderRadius: 3, fontSize: 9, fontWeight: 700 }}>OVERDUE</span>
-            )}
-          </div>
-        ) : <div />}
-
-        {assigneeName && (
-          <div
-            title={assigneeName}
-            style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg,#3B82F6,#8B5CF6)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, boxShadow: '0 2px 8px rgba(59,130,246,0.3)' }}
-          >
-            {assigneeName.charAt(0).toUpperCase()}
-          </div>
-        )}
-
-        {task.status !== 'done' && onComplete && (
-          <button
-            onClick={e => { e.stopPropagation(); onComplete() }}
-            title="Mark as Done"
-            style={{
-              width: 26, height: 26, borderRadius: '50%',
-              background: '#F0FDF4', border: '1.5px solid #22C55E',
-              color: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: 13, fontWeight: 700, flexShrink: 0,
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#DCFCE7')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#F0FDF4')}
-          >
-            ✓
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-type FilterKey = 'all' | 'todo' | 'in_progress' | 'done' | 'blocked'
 
 /* ─── Sortable Task Row ─── */
-function SortableTaskRow({ 
-  task, 
-  idx, 
+function SortableTaskRow({
+  task,
+  idx,
   totalTasks,
-  onTaskClick, 
-  onComplete 
-}: { 
+  onTaskClick,
+  onComplete,
+}: {
   task: Task
   idx: number
   totalTasks: number
   onTaskClick: () => void
   onComplete: () => void
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
   const p = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.medium
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done'
   const assigneeName = task.assigned_user?.name || task.assigned_to_name
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      onClick={onTaskClick}
-      className="task-row"
-    >
+    <div ref={setNodeRef} style={style} onClick={onTaskClick} className="task-row">
       <div style={{
         display: 'grid',
         gridTemplateColumns: '40px 1fr 200px 180px',
         gap: 16,
-        padding: '16px 20px',
+        padding: '14px 20px',
         borderBottom: idx < totalTasks - 1 ? '1px solid #F3F4F6' : 'none',
         cursor: 'pointer',
         transition: 'background 0.15s',
         alignItems: 'center',
-        background: isDragging ? '#F3F4F6' : 'transparent',
+        background: isDragging ? PURPLE_5 : 'transparent',
       }}>
         {/* Drag Handle */}
-        <div 
-          {...attributes}
-          {...listeners}
+        <div
+          {...attributes} {...listeners}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab' }}
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical size={16} color="#9CA3AF" />
         </div>
 
-        {/* Name with Board Badge */}
+        {/* Name + Board Badge */}
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {task.title}
@@ -254,36 +119,17 @@ function SortableTaskRow({
                 href={`/board/${task.board_id}`}
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                  padding: '2px 6px',
-                  borderRadius: 4,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  background: '#F3F4F6',
-                  color: '#6B7280',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: 140,
-                  textDecoration: 'none',
-                  cursor: 'pointer'
+                  padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                  background: PURPLE_5, color: PURPLE,
+                  border: `1px solid ${PURPLE}20`,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140,
+                  textDecoration: 'none', cursor: 'pointer',
                 }}
               >
                 📋 {task.board.name}
               </Link>
-              {/* Labels */}
-              {task.labels && task.labels.length > 0 && task.labels.slice(0, 2).map((lbl: any, labelIdx: number) => (
-                <span
-                  key={labelIdx}
-                  style={{
-                    backgroundColor: lbl.color || '#E2B203',
-                    color: '#FFFFFF',
-                    padding: '2px 6px',
-                    borderRadius: 3,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    textTransform: 'uppercase'
-                  }}
-                >
+              {task.labels && task.labels.slice(0, 2).map((lbl: any, i: number) => (
+                <span key={i} style={{ backgroundColor: lbl.color || GOLD, color: '#fff', padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>
                   {lbl.name || 'LABEL'}
                 </span>
               ))}
@@ -295,26 +141,10 @@ function SortableTaskRow({
         <div>
           {assigneeName ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg,#3B82F6,#8B5CF6)',
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  flexShrink: 0
-                }}
-              >
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                 {assigneeName.charAt(0).toUpperCase()}
               </div>
-              <span style={{ fontSize: 13, color: '#111827', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {assigneeName}
-              </span>
+              <span style={{ fontSize: 13, color: '#111827', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assigneeName}</span>
             </div>
           ) : (
             <span style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Unassigned</span>
@@ -330,16 +160,7 @@ function SortableTaskRow({
                 {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
               {isOverdue && (
-                <span style={{
-                  padding: '1px 5px',
-                  background: '#FEE2E2',
-                  color: '#EF4444',
-                  borderRadius: 3,
-                  fontSize: 9,
-                  fontWeight: 700
-                }}>
-                  OVERDUE
-                </span>
+                <span style={{ padding: '1px 5px', background: '#FEE2E2', color: '#EF4444', borderRadius: 3, fontSize: 9, fontWeight: 700 }}>OVERDUE</span>
               )}
             </div>
           ) : (
@@ -351,6 +172,8 @@ function SortableTaskRow({
   )
 }
 
+type FilterKey = 'all' | 'todo' | 'in_progress' | 'done' | 'blocked'
+
 /* ─── Page ─── */
 export default function TasksPage() {
   const storeTasks = usePrefetchStore((state) => state.myTasks)
@@ -361,8 +184,7 @@ export default function TasksPage() {
   const [projectId] = useState('c691dc11-b522-4e80-8ae6-337244d2a28d')
   const [showKanban, setShowKanban] = useState(false)
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all')
-  
-  // New filter states
+
   const [filterBoards, setFilterBoards] = useState<Set<string>>(new Set())
   const [filterMembers, setFilterMembers] = useState<Set<string>>(new Set())
   const [filterDueDate, setFilterDueDate] = useState<Set<string>>(new Set())
@@ -370,12 +192,9 @@ export default function TasksPage() {
   const [boards, setBoards] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
 
-  // Drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
   const fetchTasks = async (silent = false) => {
@@ -390,81 +209,45 @@ export default function TasksPage() {
         const data = await res.json()
         const all = data.data?.tasks || []
         setTasks(all)
-        // Sync back to prefetch store
         usePrefetchStore.setState({ myTasks: all, status: { ...usePrefetchStore.getState().status, tasks: 'done' } })
       }
     } catch {}
     finally { setLoading(false); setRefreshing(false) }
   }
-  
+
   const fetchBoards = async () => {
     const cachedBoards = usePrefetchStore.getState().projects
-    if (cachedBoards && cachedBoards.length > 0) {
-      setBoards(cachedBoards)
-    }
-
+    if (cachedBoards && cachedBoards.length > 0) setBoards(cachedBoards)
     try {
-      console.log('Fetching boards for project:', projectId)
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const res = await fetch(`${BACKEND_URL}/api/v1/boards/project/${projectId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
       })
-      console.log('Boards response status:', res.status)
       if (res.ok) {
         const data = await res.json()
-        console.log('Boards data:', data)
         const fetchedBoards = data.data?.boards || []
         setBoards(fetchedBoards)
         usePrefetchStore.setState({ projects: fetchedBoards })
-      } else {
-        console.error('Failed to fetch boards, status:', res.status, await res.text())
-        if (tasks.length > 0 && (!cachedBoards || cachedBoards.length === 0)) {
-          extractBoardsFromTasks()
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching boards:', err)
-      if (tasks.length > 0 && (!cachedBoards || cachedBoards.length === 0)) {
-        extractBoardsFromTasks()
-      }
-    }
+      } else if (tasks.length > 0) extractBoardsFromTasks()
+    } catch { if (tasks.length > 0) extractBoardsFromTasks() }
   }
-  
-  // Alternative: Extract boards from tasks if API call fails
+
   const extractBoardsFromTasks = () => {
     const uniqueBoards = new Map()
     tasks.forEach(task => {
-      if (task.board && task.board.id) {
-        if (!uniqueBoards.has(task.board.id)) {
-          uniqueBoards.set(task.board.id, task.board)
-        }
-      } else if (task.board_id) {
-        if (!uniqueBoards.has(task.board_id)) {
-          uniqueBoards.set(task.board_id, {
-            id: task.board_id,
-            name: 'Board ' + task.board_id.substring(0, 8)
-          })
-        }
-      }
+      if (task.board?.id && !uniqueBoards.has(task.board.id)) uniqueBoards.set(task.board.id, task.board)
+      else if (task.board_id && !uniqueBoards.has(task.board_id)) uniqueBoards.set(task.board_id, { id: task.board_id, name: 'Board ' + task.board_id.substring(0, 8) })
     })
-    const boardsArray = Array.from(uniqueBoards.values())
-    console.log('Extracted boards from tasks:', boardsArray)
-    if (boardsArray.length > 0 && boards.length === 0) {
-      setBoards(boardsArray)
-    }
+    const arr = Array.from(uniqueBoards.values())
+    if (arr.length > 0 && boards.length === 0) setBoards(arr)
   }
-  
+
   const fetchUsers = async () => {
     const cachedUsers = usePrefetchStore.getState().allUsers
-    if (cachedUsers && cachedUsers.length > 0) {
-      setUsers(cachedUsers)
-    }
-
+    if (cachedUsers && cachedUsers.length > 0) setUsers(cachedUsers)
     try {
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
-      const res = await fetch(`${BACKEND_URL}/api/v1/users`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
-      })
+      const res = await fetch(`${BACKEND_URL}/api/v1/users`, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } })
       if (res.ok) {
         const data = await res.json()
         const fetchedUsers = data.data?.users || []
@@ -473,69 +256,39 @@ export default function TasksPage() {
       }
     } catch {}
   }
-  
-  // Keep state in sync if prefetch store updates in the background
+
   useEffect(() => {
-    if (storeTasks && storeTasks.length > 0) {
-      setTasks(storeTasks)
-      setLoading(false)
-    }
+    if (storeTasks && storeTasks.length > 0) { setTasks(storeTasks); setLoading(false) }
   }, [storeTasks])
 
-  useEffect(() => { 
-    const hasData = storeTasks && storeTasks.length > 0
-    fetchTasks(hasData)
-    fetchBoards()
-    fetchUsers()
-  }, [])
-  
-  // Extract boards from tasks as fallback
   useEffect(() => {
-    if (tasks.length > 0) {
-      extractBoardsFromTasks()
-    }
-  }, [tasks])
+    const hasData = storeTasks && storeTasks.length > 0
+    fetchTasks(hasData); fetchBoards(); fetchUsers()
+  }, [])
+
+  useEffect(() => { if (tasks.length > 0) extractBoardsFromTasks() }, [tasks])
 
   const completeTask = async (taskId: string) => {
-    // Optimistic Update: instantly update status to done in local state and prefetch store
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'done' } : t))
     usePrefetchStore.getState().updateTaskStatus(taskId, 'done')
-    
     try {
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const res = await fetch(`${BACKEND_URL}/api/v1/tasks/${taskId}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'done' }),
       })
-      if (!res.ok) {
-        // Revert on failure
-        fetchTasks(true)
-      }
-    } catch {
-      fetchTasks(true)
-    }
+      if (!res.ok) fetchTasks(true)
+    } catch { fetchTasks(true) }
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
-
     if (over && active.id !== over.id) {
       setTasks((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id)
-        const newIndex = items.findIndex((item) => item.id === over.id)
-
-        const newItems = arrayMove(items, oldIndex, newIndex)
-        
-        // Update prefetch store as well
+        const newItems = arrayMove(items, items.findIndex(i => i.id === active.id), items.findIndex(i => i.id === over.id))
         usePrefetchStore.setState({ myTasks: newItems })
-        
-        // Update positions in database
         updateTaskPositions(newItems)
-        
         return newItems
       })
     }
@@ -544,106 +297,67 @@ export default function TasksPage() {
   const updateTaskPositions = async (reorderedTasks: Task[]) => {
     try {
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
-      
-      // Update position for each task
-      const updates = reorderedTasks.map((task, index) => ({
-        id: task.id,
-        position: (index + 1) * 1000 // Use increments of 1000 for easier reordering
-      }))
-
-      // Send batch update to backend
       await fetch(`${BACKEND_URL}/api/v1/tasks/reorder`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ tasks: updates }),
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks: reorderedTasks.map((t, i) => ({ id: t.id, position: (i + 1) * 1000 })) }),
       })
-    } catch (err) {
-      console.error('Failed to update task positions:', err)
-    }
+    } catch {}
   }
 
-  // Apply all filters
   const filteredTasks = tasks.filter(task => {
-    // Status filter
     if (activeFilter !== 'all' && task.status !== activeFilter) return false
-    
-    // Board filter
     if (filterBoards.size > 0 && !filterBoards.has(task.board_id || '')) return false
-    
-    // Member filter
     if (filterMembers.size > 0) {
       const assignedId = task.assigned_user?.id || task.assigned_to
       if (!assignedId || !filterMembers.has(assignedId)) return false
     }
-    
-    // Due date filter
     if (filterDueDate.size > 0) {
       let matchesDue = false
       if (!task.due_date && filterDueDate.has('No due date')) matchesDue = true
       else if (task.due_date) {
-        const due = new Date(task.due_date)
-        const now = new Date()
+        const due = new Date(task.due_date), now = new Date()
         if (filterDueDate.has('Overdue') && due < now && task.status !== 'done') matchesDue = true
-        
-        const tomorrow = new Date(now)
-        tomorrow.setDate(tomorrow.getDate() + 1)
+        const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1)
         if (filterDueDate.has('Due next day') && due.toDateString() === tomorrow.toDateString()) matchesDue = true
-        
-        const nextWeek = new Date(now)
-        nextWeek.setDate(nextWeek.getDate() + 7)
+        const nextWeek = new Date(now); nextWeek.setDate(nextWeek.getDate() + 7)
         if (filterDueDate.has('Due next week') && due <= nextWeek && due >= now) matchesDue = true
       }
       if (!matchesDue) return false
     }
-    
     return true
   })
 
-  const filtered = filteredTasks
-
-  const tasksInProgress = filtered.filter(t => t.status === 'in_progress')
-  const tasksToDo = filtered.filter(t => t.status === 'todo')
-  const tasksBlocked = filtered.filter(t => t.status === 'blocked')
-  const tasksDone = filtered.filter(t => t.status === 'done')
+  const taskGroups = {
+    todo:        filteredTasks.filter(t => t.status === 'todo'),
+    in_progress: filteredTasks.filter(t => t.status === 'in_progress'),
+    blocked:     filteredTasks.filter(t => t.status === 'blocked'),
+    done:        filteredTasks.filter(t => t.status === 'done'),
+  }
 
   const counts: Record<FilterKey, number> = {
     all:         filteredTasks.length,
-    todo:        filteredTasks.filter(t => t.status === 'todo').length,
-    in_progress: filteredTasks.filter(t => t.status === 'in_progress').length,
-    done:        filteredTasks.filter(t => t.status === 'done').length,
-    blocked:     filteredTasks.filter(t => t.status === 'blocked').length,
-  }
-  
-  const activeFiltersCount = filterBoards.size + filterMembers.size + filterDueDate.size
-  
-  const clearAllFilters = () => {
-    setFilterBoards(new Set())
-    setFilterMembers(new Set())
-    setFilterDueDate(new Set())
+    todo:        taskGroups.todo.length,
+    in_progress: taskGroups.in_progress.length,
+    done:        taskGroups.done.length,
+    blocked:     taskGroups.blocked.length,
   }
 
-  const TABS: { key: FilterKey; label: string; color: string }[] = [
-    { key: 'all',         label: 'All Tasks',   color: '#6B7280' },
-    { key: 'todo',        label: 'To Do',        color: '#3B82F6' },
-    { key: 'in_progress', label: 'In Progress',  color: '#F59E0B' },
-    { key: 'done',        label: 'Done',         color: '#10B981' },
-    { key: 'blocked',     label: 'Blocked',      color: '#EF4444' },
+  const activeFiltersCount = filterBoards.size + filterMembers.size + filterDueDate.size
+  const clearAllFilters = () => { setFilterBoards(new Set()); setFilterMembers(new Set()); setFilterDueDate(new Set()) }
+
+  const TABS: { key: FilterKey; label: string }[] = [
+    { key: 'all',         label: 'All Tasks'   },
+    { key: 'todo',        label: 'To Do'        },
+    { key: 'in_progress', label: 'In Progress'  },
+    { key: 'done',        label: 'Done'         },
+    { key: 'blocked',     label: 'Blocked'      },
   ]
 
   if (showKanban) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-        {/* Removed extra header - BoardView has its own header with back button */}
-        <BoardView 
-          projectId={projectId} 
-          onBack={() => {
-            setShowKanban(false)
-            fetchTasks(true)
-          }}
-        />
+        <BoardView projectId={projectId} onBack={() => { setShowKanban(false); fetchTasks(true) }} />
       </div>
     )
   }
@@ -652,467 +366,222 @@ export default function TasksPage() {
     <>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        .task-card {
-          position: relative;
-          background: #FFFFFF;
-          border: 1px solid #E5E7EB;
-          border-radius: 12px;
-          padding: 16px;
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          overflow: hidden;
-          transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        .task-row:hover > div { background: ${PURPLE_5} !important; }
+        .crm-tab-btn {
+          padding: 7px 16px; border-radius: 10px; border: none; cursor: pointer;
+          font-size: 12px; font-weight: 600; transition: all 0.15s;
+          display: flex; align-items: center; gap: 7px; font-family: inherit;
         }
-        .task-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-          border-color: #3B82F6;
-        }
-        .task-row:hover > div {
-          background: #F9FAFB !important;
-        }
-        .tab-btn {
-          padding: 6px 14px;
-          border-radius: 8px;
-          border: none;
-          cursor: pointer;
-          font-size: 13px;
-          transition: all 0.15s;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-family: inherit;
-        }
+        .crm-tab-btn:hover { background: ${PURPLE_5}; color: ${PURPLE}; }
       `}</style>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh', background: '#F8F9FA', fontFamily: 'system-ui,sans-serif' }}>
-          {/* Header */}
-          <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '16px 28px', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <h1 style={{ color: '#111827', fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-.3px' }}>All Tasks</h1>
-                <p style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  Tasks across all boards · {tasks.length} total
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
+
+        {/* ── Header ───────────────────────────────────────────────────────────── */}
+        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '18px 28px', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            {/* Title */}
+            <div>
+              <h1 style={{ color: PURPLE, fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-.3px' }}>All Tasks</h1>
+              <p style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0' }}>Tasks across all boards · {tasks.length} total</p>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              {/* Refresh */}
+              <button
+                onClick={() => fetchTasks(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 10, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = `${PURPLE}50`; e.currentTarget.style.color = PURPLE }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
+              >
+                <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
+                Refresh
+              </button>
+
+              {/* Filter */}
+              <div style={{ position: 'relative' }}>
                 <button
-                  onClick={() => fetchTasks(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                  onClick={() => setShowFilters(!showFilters)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px',
+                    background: activeFiltersCount > 0 ? PURPLE_10 : '#FFFFFF',
+                    border: `1px solid ${activeFiltersCount > 0 ? PURPLE : '#E5E7EB'}`,
+                    borderRadius: 10, color: activeFiltersCount > 0 ? PURPLE : '#374151',
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', transition: 'all 0.15s'
+                  }}
                 >
-                  <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
-                  Refresh
+                  <Filter size={13} />
+                  Filter
+                  {activeFiltersCount > 0 && (
+                    <span style={{ position: 'absolute', top: -6, right: -6, background: PURPLE, color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
+                      {activeFiltersCount}
+                    </span>
+                  )}
                 </button>
-                <div style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    style={{ 
-                      display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', 
-                      background: activeFiltersCount > 0 ? '#EFF6FF' : '#FFFFFF', 
-                      border: `1px solid ${activeFiltersCount > 0 ? '#3B82F6' : '#E5E7EB'}`, 
-                      borderRadius: 8, 
-                      color: activeFiltersCount > 0 ? '#3B82F6' : '#374151', 
-                      fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Filter icon placeholder */}
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                    </svg>
-                    Filter
-                    {activeFiltersCount > 0 && (
-                      <span style={{ 
-                        position: 'absolute', top: -6, right: -6, 
-                        background: '#3B82F6', color: '#fff', 
-                        borderRadius: '50%', width: 18, height: 18, 
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                        fontSize: 10, fontWeight: 700 
-                      }}>
-                        {activeFiltersCount}
-                      </span>
-                    )}
-                  </button>
-                  {showFilters && (
-                    <>
-                      <div 
-                        style={{ position: 'fixed', inset: 0, zIndex: 999 }}
-                        onClick={() => setShowFilters(false)}
-                      />
-                      <div style={{
-                        position: 'absolute', right: 0, top: '100%', marginTop: 8,
-                        width: 300, background: '#FFFFFF', border: '1px solid #E5E7EB',
-                        borderRadius: 12, boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 1000,
-                        maxHeight: 'calc(100vh - 200px)', overflowY: 'auto'
-                      }}>
-                        <div style={{ 
-                          padding: '12px 16px', borderBottom: '1px solid #E5E7EB',
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          position: 'sticky', top: 0, background: '#FFFFFF', zIndex: 1
-                        }}>
-                          <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Filter Tasks</h3>
-                          {activeFiltersCount > 0 && (
-                            <button
-                              onClick={clearAllFilters}
-                              style={{ 
-                                fontSize: 11, color: '#3B82F6', background: 'transparent', 
-                                border: 'none', cursor: 'pointer', fontWeight: 600 
-                              }}
-                            >
-                              Clear all
-                            </button>
-                          )}
+
+                {showFilters && (
+                  <>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setShowFilters(false)} />
+                    <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 8, width: 300, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 14, boxShadow: '0 10px 30px rgba(74,31,111,0.12)', zIndex: 1000, maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#FFFFFF', zIndex: 1 }}>
+                        <h3 style={{ fontSize: 14, fontWeight: 700, color: PURPLE, margin: 0 }}>Filter Tasks</h3>
+                        {activeFiltersCount > 0 && (
+                          <button onClick={clearAllFilters} style={{ fontSize: 11, color: PURPLE, background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Clear all</button>
+                        )}
+                      </div>
+                      <div style={{ padding: '8px 0' }}>
+                        {/* Board Filter */}
+                        <div style={{ padding: '8px 16px' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>By Board</div>
+                          {boards.length === 0 ? (
+                            <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', padding: '8px 0' }}>Loading boards...</div>
+                          ) : boards.map(board => (
+                            <label key={board.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={filterBoards.has(board.id)} onChange={e => { const s = new Set(filterBoards); e.target.checked ? s.add(board.id) : s.delete(board.id); setFilterBoards(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
+                              <span style={{ fontSize: 13, color: '#111827' }}>{board.name}</span>
+                            </label>
+                          ))}
                         </div>
-                        
-                        <div style={{ padding: '8px 0' }}>
-                          {/* Board Filter */}
-                          <div style={{ padding: '8px 16px' }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
-                              By Board
-                            </div>
-                            {boards.length === 0 ? (
-                              <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', padding: '8px 0' }}>
-                                Loading boards...
+                        <div style={{ height: 1, background: '#F3F4F6', margin: '8px 0' }} />
+                        {/* Assigned Filter */}
+                        <div style={{ padding: '8px 16px' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Assigned To</div>
+                          {users.slice(0, 10).map(user => (
+                            <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={filterMembers.has(user.id)} onChange={e => { const s = new Set(filterMembers); e.target.checked ? s.add(user.id) : s.delete(user.id); setFilterMembers(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
+                              <div style={{ width: 24, height: 24, borderRadius: '50%', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                                {user.name.charAt(0).toUpperCase()}
                               </div>
-                            ) : (
-                              boards.map(board => (
-                                <label 
-                                  key={board.id}
-                                  style={{ 
-                                    display: 'flex', alignItems: 'center', gap: 10, 
-                                    padding: '6px 0', cursor: 'pointer' 
-                                  }}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={filterBoards.has(board.id)}
-                                    onChange={(e) => {
-                                      const newSet = new Set(filterBoards)
-                                      if (e.target.checked) newSet.add(board.id)
-                                      else newSet.delete(board.id)
-                                      setFilterBoards(newSet)
-                                    }}
-                                    style={{ accentColor: '#3B82F6', cursor: 'pointer' }}
-                                  />
-                                  <span style={{ fontSize: 13, color: '#111827' }}>{board.name}</span>
-                                </label>
-                              ))
-                            )}
-                          </div>
-                          
-                          <div style={{ height: 1, background: '#E5E7EB', margin: '8px 0' }} />
-                          
-                          {/* Assigned Filter */}
-                          <div style={{ padding: '8px 16px' }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
-                              Assigned To
-                            </div>
-                            {users.slice(0, 10).map((user, idx) => (
-                              <label 
-                                key={user.id}
-                                style={{ 
-                                  display: 'flex', alignItems: 'center', gap: 10, 
-                                  padding: '6px 0', cursor: 'pointer' 
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={filterMembers.has(user.id)}
-                                  onChange={(e) => {
-                                    const newSet = new Set(filterMembers)
-                                    if (e.target.checked) newSet.add(user.id)
-                                    else newSet.delete(user.id)
-                                    setFilterMembers(newSet)
-                                  }}
-                                  style={{ accentColor: '#3B82F6', cursor: 'pointer' }}
-                                />
-                                <div
-                                  style={{ 
-                                    width: 24, height: 24, borderRadius: '50%', 
-                                    background: 'linear-gradient(135deg,#3B82F6,#8B5CF6)', 
-                                    color: '#fff', display: 'flex', alignItems: 'center', 
-                                    justifyContent: 'center', fontSize: 11, fontWeight: 700 
-                                  }}
-                                >
-                                  {user.name.charAt(0).toUpperCase()}
-                                </div>
-                                <span style={{ fontSize: 13, color: '#111827' }}>{user.name}</span>
-                              </label>
-                            ))}
-                          </div>
-                          
-                          <div style={{ height: 1, background: '#E5E7EB', margin: '8px 0' }} />
-                          
-                          {/* Due Date Filter */}
-                          <div style={{ padding: '8px 16px' }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>
-                              Due Date
-                            </div>
-                            {['Overdue', 'Due next day', 'Due next week', 'No due date'].map(option => (
-                              <label 
-                                key={option}
-                                style={{ 
-                                  display: 'flex', alignItems: 'center', gap: 10, 
-                                  padding: '6px 0', cursor: 'pointer' 
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={filterDueDate.has(option)}
-                                  onChange={(e) => {
-                                    const newSet = new Set(filterDueDate)
-                                    if (e.target.checked) newSet.add(option)
-                                    else newSet.delete(option)
-                                    setFilterDueDate(newSet)
-                                  }}
-                                  style={{ accentColor: '#3B82F6', cursor: 'pointer' }}
-                                />
-                                <span style={{ fontSize: 13, color: '#111827' }}>{option}</span>
-                              </label>
-                            ))}
-                          </div>
+                              <span style={{ fontSize: 13, color: '#111827' }}>{user.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <div style={{ height: 1, background: '#F3F4F6', margin: '8px 0' }} />
+                        {/* Due Date Filter */}
+                        <div style={{ padding: '8px 16px' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Due Date</div>
+                          {['Overdue', 'Due next day', 'Due next week', 'No due date'].map(option => (
+                            <label key={option} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
+                              <input type="checkbox" checked={filterDueDate.has(option)} onChange={e => { const s = new Set(filterDueDate); e.target.checked ? s.add(option) : s.delete(option); setFilterDueDate(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
+                              <span style={{ fontSize: 13, color: '#111827' }}>{option}</span>
+                            </label>
+                          ))}
                         </div>
                       </div>
-                    </>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowKanban(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', background: '#111827', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
-                >
-                  <LayoutGrid size={13} />
-                  Open Board
-                </button>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
 
-            {/* Filter tabs */}
-            <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
-              {TABS.map(tab => {
-                const active = activeFilter === tab.key
-                return (
-                  <button
-                    key={tab.key}
-                    className="tab-btn"
-                    onClick={() => setActiveFilter(tab.key)}
-                    style={{
-                      background: active ? `${tab.key === 'all' ? '#F3F4F6' : tab.key === 'todo' ? '#EFF6FF' : tab.key === 'in_progress' ? '#FEF3C7' : tab.key === 'done' ? '#D1FAE5' : '#FEE2E2'}` : 'transparent',
-                      color: active ? tab.color : '#6B7280',
-                      fontWeight: active ? 700 : 500,
-                    }}
-                  >
-                    {tab.label}
-                    <span style={{
-                      padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700,
-                      background: active ? `${tab.key === 'all' ? '#E5E7EB' : tab.key === 'todo' ? '#DBEAFE' : tab.key === 'in_progress' ? '#FDE68A' : tab.key === 'done' ? '#A7F3D0' : '#FECACA'}` : '#F3F4F6',
-                      color: active ? tab.color : '#9CA3AF',
-                    }}>
-                      {counts[tab.key]}
-                    </span>
-                  </button>
-                )
-              })}
+              {/* Open Board */}
+              <button
+                onClick={() => setShowKanban(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 12px ${PURPLE}40` }}
+              >
+                <LayoutGrid size={13} />
+                Open Board
+              </button>
             </div>
           </div>
 
-          {/* Content */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px' }}>
-            {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, gap: 16 }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid #E5E7EB', borderTopColor: '#3B82F6', animation: 'spin 0.8s linear infinite' }} />
-                <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>Loading all tasks…</p>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, gap: 14, textAlign: 'center' }}>
-                <div style={{ width: 68, height: 68, borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <CheckCircle2 size={34} color="#3B82F6" />
-                </div>
-                <h3 style={{ color: '#111827', fontSize: 20, fontWeight: 700, margin: 0 }}>No tasks found</h3>
-                <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>Try adjusting your filters or create a new task</p>
-              </div>
-            ) : (
-              <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden' }}>
-                {/* Table Header */}
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '40px 1fr 200px 180px', 
-                  gap: 16, 
-                  padding: '14px 20px', 
-                  background: '#F9FAFB', 
-                  borderBottom: '1px solid #E5E7EB',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: '#6B7280',
-                  textTransform: 'uppercase',
-                  letterSpacing: '.5px'
-                }}>
-                  <div></div>
-                  <div>Name</div>
-                  <div>Assignee</div>
-                  <div>Due Date</div>
-                </div>
-
-                {/* Table Body with Drag and Drop */}
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
+          {/* Tab Filters */}
+          <div style={{ display: 'flex', gap: 4, marginTop: 14, flexWrap: 'wrap', background: '#F8F9FA', padding: '4px', borderRadius: 12, border: '1px solid #E5E7EB', width: 'fit-content' }}>
+            {TABS.map(tab => {
+              const active = activeFilter === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  className="crm-tab-btn"
+                  onClick={() => setActiveFilter(tab.key)}
+                  style={{
+                    background: active ? PURPLE : 'transparent',
+                    color: active ? '#FFFFFF' : '#6B7280',
+                    fontWeight: active ? 700 : 500,
+                    boxShadow: active ? `0 2px 8px ${PURPLE}30` : 'none',
+                  }}
                 >
-                  <SortableContext
-                    items={filtered.map(t => t.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div>
-                      {/* To Do Section */}
-                      {tasksToDo.length > 0 && (
-                        <>
-                          <div style={{
-                            gridColumn: 'span 4',
-                            background: '#EFF6FF',
-                            color: '#1D4ED8',
-                            fontWeight: 700,
-                            fontSize: 12,
-                            padding: '10px 20px',
-                            borderBottom: '1px solid #BFDBFE',
-                            textTransform: 'uppercase',
-                            letterSpacing: '.5px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                          }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3B82F6', display: 'inline-block' }} />
-                            To Do ({tasksToDo.length})
-                          </div>
-                          {tasksToDo.map((task, idx) => (
-                            <SortableTaskRow
-                              key={task.id}
-                              task={task}
-                              idx={idx}
-                              totalTasks={tasksToDo.length}
-                              onTaskClick={() => setSelectedTask(task)}
-                              onComplete={() => completeTask(task.id)}
-                            />
-                          ))}
-                        </>
-                      )}
-
-                      {/* In Progress Section */}
-                      {tasksInProgress.length > 0 && (
-                        <>
-                          <div style={{
-                            gridColumn: 'span 4',
-                            background: '#FFFBEB',
-                            color: '#B45309',
-                            fontWeight: 700,
-                            fontSize: 12,
-                            padding: '10px 20px',
-                            borderBottom: '1px solid #FCD34D',
-                            textTransform: 'uppercase',
-                            letterSpacing: '.5px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                          }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F59E0B', display: 'inline-block' }} />
-                            In Progress ({tasksInProgress.length})
-                          </div>
-                          {tasksInProgress.map((task, idx) => (
-                            <SortableTaskRow
-                              key={task.id}
-                              task={task}
-                              idx={idx}
-                              totalTasks={tasksInProgress.length}
-                              onTaskClick={() => setSelectedTask(task)}
-                              onComplete={() => completeTask(task.id)}
-                            />
-                          ))}
-                        </>
-                      )}
-
-                      {/* Blocked Section */}
-                      {tasksBlocked.length > 0 && (
-                        <>
-                          <div style={{
-                            gridColumn: 'span 4',
-                            background: '#FEF2F2',
-                            color: '#B91C1C',
-                            fontWeight: 700,
-                            fontSize: 12,
-                            padding: '10px 20px',
-                            borderBottom: '1px solid #FCA5A5',
-                            textTransform: 'uppercase',
-                            letterSpacing: '.5px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                          }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', display: 'inline-block' }} />
-                            Blocked ({tasksBlocked.length})
-                          </div>
-                          {tasksBlocked.map((task, idx) => (
-                            <SortableTaskRow
-                              key={task.id}
-                              task={task}
-                              idx={idx}
-                              totalTasks={tasksBlocked.length}
-                              onTaskClick={() => setSelectedTask(task)}
-                              onComplete={() => completeTask(task.id)}
-                            />
-                          ))}
-                        </>
-                      )}
-
-                      {/* Done Section */}
-                      {tasksDone.length > 0 && (
-                        <>
-                          <div style={{
-                            gridColumn: 'span 4',
-                            background: '#ECFDF5',
-                            color: '#047857',
-                            fontWeight: 700,
-                            fontSize: 12,
-                            padding: '10px 20px',
-                            borderBottom: '1px solid #A7F3D0',
-                            textTransform: 'uppercase',
-                            letterSpacing: '.5px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8
-                          }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
-                            Done ({tasksDone.length})
-                          </div>
-                          {tasksDone.map((task, idx) => (
-                            <SortableTaskRow
-                              key={task.id}
-                              task={task}
-                              idx={idx}
-                              totalTasks={tasksDone.length}
-                              onTaskClick={() => setSelectedTask(task)}
-                              onComplete={() => completeTask(task.id)}
-                            />
-                          ))}
-                        </>
-                      )}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              </div>
-            )}
+                  {tab.label}
+                  <span style={{
+                    padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                    background: active ? 'rgba(255,255,255,0.2)' : '#E5E7EB',
+                    color: active ? '#fff' : '#9CA3AF',
+                  }}>
+                    {counts[tab.key]}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
+
+        {/* ── Content ──────────────────────────────────────────────────────────── */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px' }}>
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, gap: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', border: `3px solid ${PURPLE_10}`, borderTopColor: PURPLE, animation: 'spin 0.8s linear infinite' }} />
+              <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>Loading all tasks…</p>
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, gap: 14, textAlign: 'center' }}>
+              <div style={{ width: 72, height: 72, borderRadius: '50%', background: PURPLE_10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CheckCircle2 size={36} color={PURPLE} />
+              </div>
+              <h3 style={{ color: '#111827', fontSize: 20, fontWeight: 700, margin: 0 }}>No tasks found</h3>
+              <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>Try adjusting your filters or create a new task</p>
+            </div>
+          ) : (
+            <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+              {/* Table Header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 200px 180px', gap: 16, padding: '12px 20px', background: PURPLE_5, borderBottom: `1px solid ${PURPLE}15`, fontSize: 11, fontWeight: 700, color: PURPLE, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+                <div />
+                <div>Name</div>
+                <div>Assignee</div>
+                <div>Due Date</div>
+              </div>
+
+              {/* Grouped Rows */}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                  <div>
+                    {(['todo', 'in_progress', 'blocked', 'done'] as const).map(statusKey => {
+                      const group = taskGroups[statusKey]
+                      if (group.length === 0) return null
+                      const cfg = STATUS_CFG[statusKey]
+                      return (
+                        <div key={statusKey}>
+                          {/* Section Header */}
+                          <div style={{ background: cfg.rowBg, color: cfg.rowText, fontWeight: 700, fontSize: 12, padding: '10px 20px', borderBottom: `1px solid ${cfg.rowBorder}`, textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.dot, display: 'inline-block' }} />
+                            {cfg.text} ({group.length})
+                          </div>
+                          {group.map((task, idx) => (
+                            <SortableTaskRow
+                              key={task.id}
+                              task={task}
+                              idx={idx}
+                              totalTasks={group.length}
+                              onTaskClick={() => setSelectedTask(task)}
+                              onComplete={() => completeTask(task.id)}
+                            />
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Task Detail Modal */}
       {selectedTask && (
         <TaskDetailModal
           task={{ ...selectedTask, list_id: selectedTask.list_id || '', position: selectedTask.position ?? 0 }}
           onClose={() => setSelectedTask(null)}
-          onUpdate={() => {
-            fetchTasks(true)
-            setSelectedTask(null)
-          }}
+          onUpdate={() => { fetchTasks(true); setSelectedTask(null) }}
           boardId={selectedTask.board?.id || ''}
           projectId={projectId}
         />

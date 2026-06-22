@@ -158,9 +158,9 @@ export default function SettingsPage() {
       <div className="max-w-2xl space-y-6">
 
         {/* Office GPS Settings */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
-            <MapPin size={20} className="text-gray-600" />
+            <MapPin size={20} className="text-[#4A1F6F]" />
             <h2 className="text-lg font-semibold text-gray-900">Office Location</h2>
           </div>
           <p className="text-sm text-gray-500 mb-5">
@@ -181,48 +181,48 @@ export default function SettingsPage() {
 
           <div className="space-y-4 mb-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Office Name</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Office Name</label>
               <input value={office.name} onChange={(e) => setOffice({ ...office, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4A1F6F] focus:ring-2 focus:ring-[#4A1F6F]/10 transition-all text-gray-950"
                 placeholder="e.g., Head Office" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Latitude</label>
                 <input value={office.latitude} onChange={(e) => setOffice({ ...office, latitude: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4A1F6F] focus:ring-2 focus:ring-[#4A1F6F]/10 transition-all text-gray-950"
                   placeholder="28.6139" type="number" step="0.0001" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Longitude</label>
                 <input value={office.longitude} onChange={(e) => setOffice({ ...office, longitude: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4A1F6F] focus:ring-2 focus:ring-[#4A1F6F]/10 transition-all text-gray-950"
                   placeholder="77.2090" type="number" step="0.0001" />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Allowed Radius (meters)</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Allowed Radius (meters)</label>
               <input value={office.radiusMeters} onChange={(e) => setOffice({ ...office, radiusMeters: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4A1F6F] focus:ring-2 focus:ring-[#4A1F6F]/10 transition-all text-gray-950"
                 type="number" placeholder="100" min="1" />
               <p className="text-xs text-gray-400 mt-1">Employees outside this range cannot mark attendance.</p>
             </div>
           </div>
 
           <button onClick={saveOffice} disabled={saving}
-            className="w-full py-2.5 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-400 transition">
+            className="w-full py-2.5 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] text-white rounded-lg font-semibold hover:opacity-95 disabled:opacity-50 active:scale-98 transition-all shadow-sm shadow-[#4A1F6F]/10">
             {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save Office Location'}
           </button>
         </div>
 
         {/* How to find coordinates */}
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+        <div className="bg-[#4A1F6F]/5 border border-[#4A1F6F]/10 rounded-xl p-6">
           <div className="flex items-start gap-3">
-            <Info size={18} className="text-gray-500 flex-shrink-0 mt-0.5" />
+            <Info size={18} className="text-[#4A1F6F] flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-gray-900 mb-2">How to Find Your Office Coordinates</h3>
-              <ol className="text-sm text-gray-600 space-y-1">
-                <li>1. Open <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Maps</a></li>
+              <h3 className="font-semibold text-[#4A1F6F] mb-2">How to Find Your Office Coordinates</h3>
+              <ol className="text-sm text-[#4A1F6F]/90 space-y-1">
+                <li>1. Open <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="text-[#D9A441] hover:text-[#c49235] hover:underline font-semibold">Google Maps</a></li>
                 <li>2. Search for your office address</li>
                 <li>3. Right-click on the pin → click the coordinates at the top</li>
                 <li>4. Paste latitude and longitude above</li>
@@ -232,7 +232,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Change Password */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h2>
 
           {passwordError && (
@@ -254,18 +254,18 @@ export default function SettingsPage() {
               { label: 'Confirm New Password', key: 'confirmPassword', placeholder: 'Confirm new password' },
             ].map(({ label, key, placeholder }) => (
               <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>
                 <input type="password"
                   value={passwordForm[key as keyof typeof passwordForm]}
                   onChange={(e) => setPasswordForm({ ...passwordForm, [key]: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#4A1F6F] focus:ring-2 focus:ring-[#4A1F6F]/10 transition-all text-gray-950"
                   placeholder={placeholder} />
               </div>
             ))}
           </div>
 
           <button onClick={changePassword} disabled={passwordSaving}
-            className="w-full py-2.5 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-400 transition">
+            className="w-full py-2.5 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] text-white rounded-lg font-semibold hover:opacity-95 disabled:opacity-50 active:scale-98 transition-all shadow-sm shadow-[#4A1F6F]/10">
             {passwordSaving ? 'Updating...' : passwordSaved ? '✓ Updated' : 'Change Password'}
           </button>
         </div>

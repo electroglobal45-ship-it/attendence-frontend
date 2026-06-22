@@ -82,54 +82,54 @@
   }
 
   .btn-primary {
-    @apply bg-grey-900 text-white px-4 py-2 rounded-md text-sm font-medium
-           hover:bg-grey-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-[#4A1F6F] text-white px-4 py-2 rounded-xl text-sm font-semibold
+           hover:bg-[#3b1859] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-[0.98];
   }
 
   .btn-secondary {
-    @apply bg-white text-grey-900 border border-grey-300 px-4 py-2 rounded-md text-sm font-medium
-           hover:bg-grey-50 transition-colors;
+    @apply bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-xl text-sm font-semibold
+           hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] hover:border-[#4A1F6F]/20 transition-all active:scale-[0.98];
   }
 
   .btn-ghost {
-    @apply text-grey-600 px-4 py-2 rounded-md text-sm font-medium
-           hover:bg-grey-100 transition-colors;
+    @apply text-slate-650 px-4 py-2 rounded-xl text-sm font-semibold
+           hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] transition-all;
   }
 
   .input {
-    @apply w-full border border-grey-300 rounded-md px-3 py-2 text-sm text-grey-900
-           placeholder:text-grey-400 focus:outline-none focus:ring-2 focus:ring-grey-900
-           focus:border-transparent transition-all;
+    @apply w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800
+           placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4A1F6F]/15
+           focus:border-[#4A1F6F] transition-all;
   }
 
   .badge-present {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-           bg-grey-900 text-white;
+    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
+           bg-emerald-50 text-emerald-700 border-emerald-200;
   }
 
   .badge-absent {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-           bg-grey-200 text-grey-700;
+    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
+           bg-red-50 text-red-700 border-red-200;
   }
 
   .badge-half-day {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-           bg-grey-400 text-white;
+    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
+           bg-orange-50 text-orange-700 border-orange-200;
   }
 
   .badge-pending {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-           bg-grey-100 text-grey-600 border border-grey-300;
+    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
+           bg-amber-50 text-amber-700 border-amber-200;
   }
 
   .badge-approved {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-           bg-grey-800 text-white;
+    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
+           bg-emerald-50 text-emerald-700 border-emerald-200;
   }
 
   .badge-rejected {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-           bg-grey-300 text-grey-700;
+    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
+           bg-red-50 text-red-700 border-red-200;
   }
 
   .table-wrapper {
@@ -245,11 +245,11 @@
 }
 
 .btn-crm-primary {
-  @apply btn-crm bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm hover:shadow active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply btn-crm bg-[#4A1F6F] text-white hover:bg-[#3b1859] shadow-sm hover:shadow active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .btn-crm-secondary {
-  @apply btn-crm bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 active:scale-95 disabled:opacity-50;
+  @apply btn-crm bg-white text-slate-700 border border-slate-200 hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] hover:border-[#4A1F6F]/20 active:scale-95 disabled:opacity-50;
 }
 
 .btn-crm-success {
@@ -265,7 +265,7 @@
 }
 
 .btn-crm-ai {
-  @apply btn-crm bg-violet-600 text-white hover:bg-violet-700 shadow-sm hover:shadow active:scale-95 disabled:opacity-50;
+  @apply btn-crm bg-[#6B2D8C] text-white hover:bg-[#562470] shadow-sm hover:shadow active:scale-95 disabled:opacity-50;
 }
 
 .hover-lift {
