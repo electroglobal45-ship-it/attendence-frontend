@@ -116,15 +116,17 @@ async function apiRequest<T>(
   })
 
   // On 401: try to refresh the token once, then retry
-  if (response.status === 401 && !_isRetry) {
-    const newToken = await refreshAccessToken()
-    if (newToken) {
-      if (typeof document !== 'undefined') {
-        document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
+  if (response.status === 401) {
+    if (!_isRetry) {
+      const newToken = await refreshAccessToken()
+      if (newToken) {
+        if (typeof document !== 'undefined') {
+          document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
+        }
+        return apiRequest<T>(endpoint, options, true)
       }
-      return apiRequest<T>(endpoint, options, true)
     }
-    // Refresh also failed → clear session and redirect to login
+    // Refresh also failed or already retried → clear session and redirect to login
     clearAuthToken()
     if (typeof window !== 'undefined') {
       localStorage.removeItem('user')
@@ -291,6 +293,47 @@ export const attendanceAPI = {
       }
     }>(`/api/v1/attendance/history?limit=${limit}`)
   },
+}
+
+// =====================================================
+// AGENTS API
+// =====================================================
+
+export const agentsAPI = {
+  async getAgents() {
+    return apiRequest<{
+      success: boolean
+      data: {
+        agents: any[]
+      }
+    }>('/api/v1/agents')
+  },
+
+  async toggleAgent(agentId: string, enabled: boolean) {
+    return apiRequest<{
+      success: boolean
+      data: {
+        agents: any[]
+      }
+      message: string
+    }>('/api/v1/agents/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ agentId, enabled }),
+    })
+  },
+
+  async updatePriority(agentId: string, priority: number) {
+    return apiRequest<{
+      success: boolean
+      data: {
+        agents: any[]
+      }
+      message: string
+    }>('/api/v1/agents/priority', {
+      method: 'POST',
+      body: JSON.stringify({ agentId, priority }),
+    })
+  }
 }
 
 // =====================================================

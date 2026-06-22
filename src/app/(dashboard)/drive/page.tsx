@@ -83,8 +83,15 @@ export default function DrivePage() {
       const status = await driveAPI.getConnectionStatus()
       setConnected(status.connected)
       setConnectionEmail(status.email)
-    } catch (err) {
-      setConnected(false)
+    } catch (err: any) {
+      // Check if it's a token refresh error
+      if (err.message?.includes('refresh access token') || err.message?.includes('invalid_grant')) {
+        setConnected(false)
+        setConnectionEmail(null)
+        alert('Your Google Drive connection has expired. Please reconnect.')
+      } else {
+        setConnected(false)
+      }
     } finally {
       setLoading(false)
     }

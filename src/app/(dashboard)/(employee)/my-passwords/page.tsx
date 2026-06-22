@@ -4,19 +4,39 @@ import { useEffect, useState, useCallback } from 'react'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { vaultAPI, EmployeeVaultEntry } from '@/lib/tasks-api'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
+import { useAuth } from '@/lib/auth-context'
 import {
   Shield, Eye, EyeOff, RefreshCw, Copy, Check,
   AlertTriangle, KeyRound, X, ArrowLeft, ExternalLink,
+  Plus, Trash2,
 } from 'lucide-react'
 
 // ── Helper to format domains and URLs ─────────────────────────────────────────
-const getDomain = (serviceName: string) => {
-  const clean = serviceName.trim().toLowerCase()
+const getDomain = (urlOrName: string) => {
+  const clean = urlOrName.trim().toLowerCase()
+  try {
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      const parsed = new URL(clean)
+      return parsed.hostname
+    }
+  } catch (e) {}
   if (clean.includes('.')) return clean
   return `${clean}.com`
 }
 
-const getSiteLink = (serviceName: string) => {
+const getSiteLink = (serviceName: string, siteUrl?: string | null) => {
+  if (siteUrl) {
+    try {
+      const clean = siteUrl.trim().toLowerCase()
+      if (clean.startsWith('http://') || clean.startsWith('https://')) {
+        const parsed = new URL(clean)
+        return parsed.hostname
+      }
+      return clean
+    } catch {
+      return siteUrl
+    }
+  }
   const domain = getDomain(serviceName)
   if (serviceName.toLowerCase().includes('apollo')) {
     return 'app.apollo.io'
@@ -24,12 +44,16 @@ const getSiteLink = (serviceName: string) => {
   return domain
 }
 
-const getSiteUrl = (serviceName: string) => {
+const getSiteUrl = (serviceName: string, siteUrl?: string | null) => {
+  if (siteUrl) {
+    return siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`
+  }
   const link = getSiteLink(serviceName)
   return link.startsWith('http') ? link : `https://${link}`
 }
 
 export default function EmployeeVaultPage() {
+  const { user: currentUser } = useAuth()
   const storeEntries = usePrefetchStore((state) => state.vaultEntries)
   const [entries, setEntries] = useState<EmployeeVaultEntry[]>(() => storeEntries ?? [])
   const [loading, setLoading] = useState(() => !storeEntries || storeEntries.length === 0)
@@ -39,12 +63,24 @@ export default function EmployeeVaultPage() {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
-
-  // One-time reveal states
-  const [confirmId, setConfirmId] = useState<string | null>(null)
+  
+  // Unified credentials reveal state
+  const [showCredentials, setShowCredentials] = useState(false)
   const [revealing, setRevealing] = useState<string | null>(null)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
+
+  // Form states for creating/editing credential
+  const [showForm, setShowForm] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [form, setForm] = useState({
+    service_name: '',
+    username: '',
+    password: '',
+    site_url: '',
+    notes: '',
+  })
+  const [showFormPw, setShowFormPw] = useState(false)
 
   const fetchEntries = useCallback(async (selectFirst = false, silent = false) => {
     if (!silent) setLoading(true)
@@ -83,21 +119,27 @@ export default function EmployeeVaultPage() {
   }, [fetchEntries])
 
   useEffect(() => {
-    setShowPassword(false)
+    setShowCredentials(false)
   }, [selectedEntryId])
 
-  const handleRevealConfirm = async (id: string) => {
-    setConfirmId(null)
-    setRevealing(id)
+  const handleToggleReveal = async () => {
+    if (!selectedEntryId) return
+    if (showCredentials) {
+      setShowCredentials(false)
+      return
+    }
+
+    const cached = revealedPasswords[selectedEntryId]
+    if (cached) {
+      setShowCredentials(true)
+      return
+    }
+
+    setRevealing(selectedEntryId)
     try {
-      const res = await vaultAPI.revealPassword(id)
-      setRevealedPasswords(prev => ({ ...prev, [id]: res.data.password }))
-      setShowPassword(true)
-      // Mark locally as revealed
-      setEntries(prev => prev.map(e => e.id === id ? { ...e, is_revealed: true } : e))
-      usePrefetchStore.setState({
-        vaultEntries: usePrefetchStore.getState().vaultEntries.map(e => e.id === id ? { ...e, is_revealed: true } : e)
-      })
+      const res = await vaultAPI.revealPassword(selectedEntryId)
+      setRevealedPasswords(prev => ({ ...prev, [selectedEntryId]: res.data.password }))
+      setShowCredentials(true)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -105,10 +147,152 @@ export default function EmployeeVaultPage() {
     }
   }
 
+  const handleCopyPassword = async () => {
+    if (!selectedEntryId) return
+    let pass = revealedPasswords[selectedEntryId]
+    if (!pass) {
+      setRevealing(selectedEntryId)
+      try {
+        const res = await vaultAPI.revealPassword(selectedEntryId)
+        pass = res.data.password
+        setRevealedPasswords(prev => ({ ...prev, [selectedEntryId]: pass }))
+        setShowCredentials(true)
+      } catch (e: any) {
+        setError(e.message)
+        return
+      } finally {
+        setRevealing(null)
+      }
+    }
+    copyToClipboard(pass, 'password')
+  }
+
   const copyToClipboard = (text: string, field: 'username' | 'password') => {
     navigator.clipboard.writeText(text)
     setCopiedField(field)
     setTimeout(() => setCopiedField(null), 2000)
+  }
+
+  const resetForm = () => {
+    setForm({ service_name: '', username: '', password: '', site_url: '', notes: '' })
+    setShowFormPw(false)
+    setIsEditing(false)
+    setError(null)
+  }
+
+  const handleEditClick = () => {
+    if (!selectedEntry) return
+    setForm({
+      service_name: selectedEntry.service_name,
+      username: selectedEntry.username,
+      site_url: selectedEntry.site_url || '',
+      notes: selectedEntry.notes || '',
+      password: revealedPasswords[selectedEntry.id] || '',
+    })
+    setIsEditing(true)
+    setShowForm(true)
+  }
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    try {
+      if (isEditing && selectedEntryId) {
+        const payload: any = {
+          service_name: form.service_name,
+          username: form.username,
+          site_url: form.site_url,
+          notes: form.notes,
+        }
+        if (form.password) {
+          payload.password = form.password
+        }
+
+        const res = await vaultAPI.updateEntry(selectedEntryId, payload)
+        const updatedRaw = res.data.entry
+        
+        const updatedEntry: EmployeeVaultEntry = {
+          id: updatedRaw.id,
+          assignment_id: selectedEntry?.assignment_id || `new-a-${updatedRaw.id}`,
+          service_name: updatedRaw.service_name,
+          username: updatedRaw.username,
+          notes: updatedRaw.notes,
+          site_url: updatedRaw.site_url,
+          created_at: updatedRaw.created_at,
+          creator: selectedEntry?.creator || { id: currentUser?.id || '', name: currentUser?.name || '', email: currentUser?.email || '' },
+          is_revealed: selectedEntry?.is_revealed ?? true
+        }
+
+        if (form.password) {
+          setRevealedPasswords(prev => ({ ...prev, [selectedEntryId]: form.password }))
+        }
+
+        const updatedList = entries.map(e => e.id === selectedEntryId ? updatedEntry : e)
+        setEntries(updatedList)
+        usePrefetchStore.setState({ vaultEntries: updatedList })
+        setShowForm(false)
+        resetForm()
+      } else {
+        const res = await vaultAPI.createEntry({
+          service_name: form.service_name,
+          username: form.username,
+          password: form.password,
+          site_url: form.site_url,
+          notes: form.notes,
+          assigned_to: [], // Handled on backend to assign to creator
+        })
+        
+        // Since backend create returns AdminVaultEntry, we adapt it to EmployeeVaultEntry
+        const newRawEntry = res.data.entry
+        const newEntry: EmployeeVaultEntry = {
+          id: newRawEntry.id,
+          assignment_id: newRawEntry.assignments?.[0]?.id || `new-a-${newRawEntry.id}`,
+          service_name: newRawEntry.service_name,
+          username: newRawEntry.username,
+          notes: newRawEntry.notes,
+          site_url: newRawEntry.site_url,
+          created_at: newRawEntry.created_at,
+          creator: { id: currentUser?.id || '', name: currentUser?.name || '', email: currentUser?.email || '' },
+          is_revealed: true // since we just created it
+        }
+
+        // Cache password in session decrypted list
+        if (form.password) {
+          setRevealedPasswords(prev => ({ ...prev, [newEntry.id]: form.password }))
+        }
+
+        const updatedList = [newEntry, ...entries]
+        setEntries(updatedList)
+        usePrefetchStore.setState({ vaultEntries: updatedList })
+        setSelectedEntryId(newEntry.id)
+        setShowCredentials(true)
+        setShowForm(false)
+        resetForm()
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to save credential')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Permanently delete "${name}"?`)) return
+    setLoading(true)
+    try {
+      await vaultAPI.deleteEntry(id)
+      const updatedList = entries.filter(e => e.id !== id)
+      setEntries(updatedList)
+      usePrefetchStore.setState({ vaultEntries: updatedList })
+      if (selectedEntryId === id) {
+        setSelectedEntryId(null)
+      }
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Filtered list based on search
@@ -119,7 +303,7 @@ export default function EmployeeVaultPage() {
 
   const selectedEntry = entries.find(e => e.id === selectedEntryId) || null
   const plaintextPassword = selectedEntry ? revealedPasswords[selectedEntry.id] : null
-  const isRevealed = selectedEntry ? selectedEntry.is_revealed : false
+  const isCreatedBySelf = selectedEntry && currentUser && selectedEntry.created_by === currentUser.id
 
   return (
     <PageWrapper
@@ -131,22 +315,28 @@ export default function EmployeeVaultPage() {
       }
       subtitle="Credentials assigned to you — handle with care"
       actions={
-        <button onClick={() => fetchEntries(false, false)} disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition">
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => fetchEntries(false, false)} disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition font-medium">
+            <Plus size={16} /> Add Credential
+          </button>
+        </div>
       }
     >
       {/* Security notice */}
-      <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-250 rounded-xl mb-6">
-        <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
-        <div className="text-sm text-amber-800">
-          <p className="font-semibold">One-Time Reveal Policy</p>
-          <p className="text-amber-750 mt-0.5">
-            Each password can only be revealed <strong>once</strong>. After you click Reveal and confirm,
-            the password will be shown this session only. If you navigate away or refresh, it will be
-            permanently hidden. Contact your admin if you need to view it again.
+      <div className="flex items-start gap-3 p-4 bg-[#f8fafc] border border-slate-200 rounded-xl mb-6 shadow-2xs">
+        <Shield size={18} className="text-indigo-600 mt-0.5 flex-shrink-0" />
+        <div className="text-sm text-slate-600">
+          <p className="font-semibold text-slate-800">Secure Vault Storage</p>
+          <p className="text-slate-500 mt-0.5">
+            Both employees and administrators can securely store login details here. All credentials
+            are masked by default. Clicking the Reveal Credentials button will temporarily display
+            both the login email/username and password.
           </p>
         </div>
       </div>
@@ -193,12 +383,12 @@ export default function EmployeeVaultPage() {
               <div className="p-12 text-center">
                 <KeyRound size={28} className="mx-auto text-gray-300 mb-2" />
                 <p className="text-sm text-gray-500 font-medium">No credentials found</p>
-                <p className="text-xs text-gray-400 mt-0.5">Try a different search term</p>
+                <p className="text-xs text-gray-400 mt-0.5">Try creating a credential</p>
               </div>
             ) : (
               filteredEntries.map(entry => {
                 const isSelected = selectedEntryId === entry.id
-                const domain = getDomain(entry.service_name)
+                const domain = entry.site_url ? getDomain(entry.site_url) : getDomain(entry.service_name)
                 
                 return (
                   <div
@@ -247,7 +437,7 @@ export default function EmployeeVaultPage() {
               </div>
               <h3 className="text-lg font-bold text-gray-700">No Credential Selected</h3>
               <p className="text-sm text-gray-400 mt-2 leading-relaxed">
-                Choose a credential from the sidebar list to view its details and reveal the password.
+                Choose a credential from the sidebar list to view its details and reveal credentials.
               </p>
             </div>
           ) : (
@@ -263,7 +453,7 @@ export default function EmployeeVaultPage() {
 
                 <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 border border-indigo-500/20">
                   <img
-                    src={`https://www.google.com/icons/thirdparty/images/png?size=64&domain=${getDomain(selectedEntry.service_name)}`}
+                    src={`https://www.google.com/icons/thirdparty/images/png?size=64&domain=${selectedEntry.site_url ? getDomain(selectedEntry.site_url) : getDomain(selectedEntry.service_name)}`}
                     alt=""
                     className="w-6 h-6 object-contain"
                     onError={(e) => {
@@ -281,15 +471,19 @@ export default function EmployeeVaultPage() {
               </div>
 
               {/* CARD DETAILS */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
                   {/* Left Column: Username, Password */}
                   <div className="space-y-4">
                     <div>
-                      <span className="text-xs font-semibold text-gray-400 block mb-1">Username</span>
+                      <span className="text-xs font-semibold text-gray-400 block mb-1">Username / Email</span>
                       <div className="bg-[#f0eef9] hover:bg-[#eae8f5] text-[#1e1b4b] px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border border-transparent hover:border-indigo-100 transition duration-150">
-                        <span className="select-all font-medium truncate pr-2">{selectedEntry.username}</span>
+                        {showCredentials ? (
+                          <span className="select-all font-medium truncate pr-2">{selectedEntry.username}</span>
+                        ) : (
+                          <span className="tracking-widest font-semibold text-gray-500">••••••••••••••</span>
+                        )}
                         <button
                           onClick={() => copyToClipboard(selectedEntry.username, 'username')}
                           className="text-indigo-500 hover:text-indigo-700 transition-colors p-1"
@@ -307,56 +501,22 @@ export default function EmployeeVaultPage() {
                     <div>
                       <span className="text-xs font-semibold text-gray-400 block mb-1">Password</span>
                       <div className="bg-[#f0eef9] hover:bg-[#eae8f5] text-[#1e1b4b] px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border border-transparent hover:border-indigo-100 transition duration-150 min-h-[48px]">
-                        
-                        {/* 1. Already revealed and plaintext cached in this session */}
-                        {plaintextPassword ? (
-                          <>
-                            {showPassword ? (
-                              <span className="select-all font-medium truncate pr-2">{plaintextPassword}</span>
-                            ) : (
-                              <span className="tracking-widest font-semibold text-gray-500">••••••••••••••</span>
-                            )}
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="text-indigo-500 hover:text-indigo-700 transition p-1"
-                                title={showPassword ? "Hide password" : "Show password"}
-                              >
-                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                              </button>
-                              <button
-                                onClick={() => copyToClipboard(plaintextPassword, 'password')}
-                                className="text-indigo-500 hover:text-indigo-700 transition p-1"
-                                title="Copy password"
-                              >
-                                {copiedField === 'password' ? (
-                                  <Check size={16} className="text-emerald-600" />
-                                ) : (
-                                  <Copy size={16} />
-                                )}
-                              </button>
-                            </div>
-                          </>
-                        ) : isRevealed ? (
-                          /* 2. Already revealed in a previous session */
-                          <div className="flex items-center gap-1.5 py-0.5">
-                            <EyeOff size={16} className="text-gray-400" />
-                            <span className="text-xs text-gray-500 font-medium">Already Revealed (Hidden for Security)</span>
-                          </div>
+                        {showCredentials && plaintextPassword ? (
+                          <span className="select-all font-medium truncate pr-2">{plaintextPassword}</span>
                         ) : (
-                          /* 3. Not yet revealed */
-                          <button
-                            onClick={() => setConfirmId(selectedEntry.id)}
-                            disabled={revealing === selectedEntry.id}
-                            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition font-semibold text-xs py-0.5 disabled:opacity-50"
-                          >
-                            {revealing === selectedEntry.id ? (
-                              <><RefreshCw size={13} className="animate-spin" /> Revealing…</>
-                            ) : (
-                              <><Eye size={13} /> Reveal Password</>
-                            )}
-                          </button>
+                          <span className="tracking-widest font-semibold text-gray-500">••••••••••••••</span>
                         )}
+                        <button
+                          onClick={handleCopyPassword}
+                          className="text-indigo-500 hover:text-indigo-700 transition p-1"
+                          title="Copy password"
+                        >
+                          {copiedField === 'password' ? (
+                            <Check size={16} className="text-emerald-600" />
+                          ) : (
+                            <Copy size={16} />
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -366,12 +526,12 @@ export default function EmployeeVaultPage() {
                     <div>
                       <span className="text-xs font-semibold text-gray-400 block mb-1">Sites</span>
                       <a
-                        href={getSiteUrl(selectedEntry.service_name)}
+                        href={getSiteUrl(selectedEntry.service_name, selectedEntry.site_url)}
                         target="_blank"
                         rel="noreferrer"
                         className="text-indigo-600 hover:text-indigo-800 font-medium text-sm inline-flex items-center gap-1 underline mt-1.5 transition"
                       >
-                        {getSiteLink(selectedEntry.service_name)}
+                        {getSiteLink(selectedEntry.service_name, selectedEntry.site_url)}
                         <ExternalLink size={12} />
                       </a>
                     </div>
@@ -385,6 +545,41 @@ export default function EmployeeVaultPage() {
                   </div>
 
                 </div>
+
+                {/* Unified Reveal Toggle & Actions */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-150">
+                  <button
+                    onClick={handleToggleReveal}
+                    disabled={revealing === selectedEntry.id}
+                    className="flex-1 rounded-full bg-indigo-600 text-white px-6 py-2.5 hover:bg-indigo-700 font-semibold text-sm transition flex items-center justify-center gap-2"
+                  >
+                    {revealing === selectedEntry.id ? (
+                      <><RefreshCw size={14} className="animate-spin" /> Fetching…</>
+                    ) : showCredentials ? (
+                      <><EyeOff size={14} /> Hide Credentials</>
+                    ) : (
+                      <><Eye size={14} /> Reveal Credentials</>
+                    )}
+                  </button>
+
+                  {isCreatedBySelf && (
+                    <>
+                      <button
+                        onClick={handleEditClick}
+                        className="rounded-full border border-gray-300 text-gray-700 px-6 py-2.5 hover:bg-gray-50 font-semibold text-sm transition flex items-center justify-center gap-1.5"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(selectedEntry.id, selectedEntry.service_name)}
+                        className="rounded-full border border-red-500 text-red-500 px-6 py-2.5 hover:bg-red-50 font-semibold text-sm transition flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 size={14} />
+                        Delete
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -392,34 +587,94 @@ export default function EmployeeVaultPage() {
 
       </div>
 
-      {/* Confirm Reveal Modal */}
-      {confirmId && (
+      {/* ── Add Credential Modal ── */}
+      {showForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4">
-            <div className="flex flex-col items-center text-center">
-              <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mb-3">
-                <AlertTriangle size={26} className="text-amber-600" />
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center">
+                  <Shield size={16} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">{isEditing ? 'Edit Credential' : 'Add Credential'}</h3>
+                  <p className="text-xs text-gray-400">Password encrypted with AES-256-GCM</p>
+                </div>
               </div>
-              <h3 className="font-bold text-gray-900 text-lg">Reveal Password?</h3>
-              <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-                This password can only be revealed <strong className="text-gray-900">once</strong>.
-                Make sure no one is watching your screen.
-                After you navigate away or refresh, the password will be permanently hidden.
-              </p>
+              <button onClick={() => { setShowForm(false); resetForm() }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                <X size={20} />
+              </button>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setConfirmId(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 text-sm font-medium transition">
-                Cancel
-              </button>
-              <button
-                onClick={() => handleRevealConfirm(confirmId)}
-                className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-700 text-sm font-medium transition flex items-center justify-center gap-2">
-                <Eye size={14} />
-                Yes, Reveal It
-              </button>
-            </div>
+            <form onSubmit={handleCreate} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Service Name *</label>
+                <input value={form.service_name}
+                  onChange={e => setForm(p => ({ ...p, service_name: e.target.value }))}
+                  placeholder="e.g. apollo.io, Cloudflare, AWS"
+                  required
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Site URL <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input value={form.site_url}
+                  onChange={e => setForm(p => ({ ...p, site_url: e.target.value }))}
+                  placeholder="e.g. https://app.apollo.io"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Username / Email *</label>
+                <input value={form.username}
+                  onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+                  placeholder="admin@company.com"
+                  required
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Password {isEditing ? <span className="text-gray-400 font-normal">(leave blank to keep current)</span> : '*'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showFormPw ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                    placeholder={isEditing ? "Enter new password (optional)" : "Enter the credential password"}
+                    required={!isEditing}
+                    className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-mono" />
+                  <button type="button" onClick={() => setShowFormPw(p => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showFormPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Notes <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <textarea value={form.notes}
+                  onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="e.g. recovery codes, account pins"
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none resize-none" />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-gray-100">
+                <button type="button" onClick={() => { setShowForm(false); resetForm() }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 text-sm font-medium transition">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting}
+                  className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-700 text-sm font-medium transition flex items-center justify-center gap-2">
+                  {submitting ? 'Saving…' : 'Save Credential'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

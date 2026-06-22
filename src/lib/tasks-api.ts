@@ -93,16 +93,18 @@ async function apiRequest<T>(
   })
 
   // On 401: try to refresh the token once, then retry the request
-  if (response.status === 401 && !_isRetry) {
-    const newToken = await refreshAccessToken()
-    if (newToken) {
-      if (typeof document !== 'undefined') {
-        document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
+  if (response.status === 401) {
+    if (!_isRetry) {
+      const newToken = await refreshAccessToken()
+      if (newToken) {
+        if (typeof document !== 'undefined') {
+          document.cookie = `authToken=${newToken}; path=/; max-age=604800; SameSite=Lax`
+        }
+        // Retry with the fresh token
+        return apiRequest<T>(endpoint, options, true)
       }
-      // Retry with the fresh token
-      return apiRequest<T>(endpoint, options, true)
     }
-    // Refresh also failed → redirect to login
+    // Refresh also failed or already retried → redirect to login
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_token')
       localStorage.removeItem('authToken')
@@ -295,7 +297,7 @@ export const usersAPI = {
     email: string
     name: string
     password: string
-    role: 'admin' | 'employee'
+    role: 'admin' | 'employee' | 'hr' | 'team leader'
     category?: string
     department?: string
     designation?: string
@@ -702,6 +704,7 @@ export interface AdminVaultEntry {
   username: string
   created_by: string
   notes?: string | null
+  site_url?: string | null
   created_at: string
   creator?: { id: string; name: string; email: string }
   assignments: VaultAssignment[]
@@ -715,7 +718,9 @@ export interface EmployeeVaultEntry {
   service_name: string
   username: string
   notes?: string | null
+  site_url?: string | null
   created_at: string
+  created_by?: string
   creator?: { id: string; name: string; email: string }
   is_revealed: boolean
 }
@@ -736,12 +741,31 @@ export const vaultAPI = {
     password: string
     assigned_to: string[]   // array of employee UUIDs
     notes?: string
+    site_url?: string
   }) {
     return apiRequest<{
       success: boolean
       data: { entry: AdminVaultEntry }
     }>('/api/v1/vault', {
       method: 'POST',
+      body: JSON.stringify(data),
+    })
+  },
+
+  // Update vault entry (admin or owner employee)
+  async updateEntry(id: string, data: {
+    service_name?: string
+    username?: string
+    password?: string
+    notes?: string
+    site_url?: string
+    assigned_to?: string[]
+  }) {
+    return apiRequest<{
+      success: boolean
+      data: { entry: AdminVaultEntry }
+    }>(`/api/v1/vault/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(data),
     })
   },

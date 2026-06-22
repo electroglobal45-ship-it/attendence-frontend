@@ -70,6 +70,7 @@ interface BoardProps {
   lists: ListObj[]
   tasks: Task[]
   boardBackground?: string
+  canManageBoard?: boolean
   onTaskClick?: (task: Task) => void
   onAddTask?: (listId: string) => void
   onTaskCreated?: (task: Task) => void
@@ -83,6 +84,7 @@ export function Board({
   lists,
   tasks,
   boardBackground,
+  canManageBoard = true,
   onTaskClick,
   onAddTask,
   onTaskCreated,
@@ -317,6 +319,7 @@ export function Board({
                           <List
                             list={list}
                             tasks={tasksByList[list.id] || []}
+                            canManageBoard={canManageBoard}
                             onTaskClick={onTaskClick}
                             onAddTask={onAddTask}
                             onAddOptimisticTask={addOptimisticTask}
@@ -333,7 +336,8 @@ export function Board({
                 {provided.placeholder}
 
                 {/* ── Add another list ── */}
-                <div style={{ flexShrink:0, width:272 }}>
+                {canManageBoard && (
+                  <div style={{ flexShrink:0, width:272 }}>
                   {isAddingList ? (
                     <div style={{
                       background:DS.listBg, border:`1px solid ${DS.listBorder}`,
@@ -410,6 +414,7 @@ export function Board({
                     </button>
                   )}
                 </div>
+                )}
               </div>
             )}
           </Droppable>

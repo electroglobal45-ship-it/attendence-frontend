@@ -30,7 +30,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(false)  // Start as false for instant UI
+  const [isLoading, setIsLoading] = useState(true)  // Start as true to block premature routing redirects
   const hasLoadedRef = useRef(false)
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -127,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!token) {
         console.log('No auth token found')
         setUser(null)
+        setIsLoading(false)
         return
       }
 
@@ -137,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             const parsedUser = JSON.parse(cachedUser)
             setUser(parsedUser)
+            setIsLoading(false)
             // NO API CALL - trust cached data completely
             return
           } catch (e) {
@@ -161,10 +163,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Setup token refresh
         setupTokenRefresh()
+      } else {
+        // Clear if not verified
+        setUser(null)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user')
+          localStorage.removeItem('userRole')
+        }
+        if (typeof document !== 'undefined') {
+          document.cookie = 'authToken=; path=/; max-age=0'
+          document.cookie = 'userRole=; path=/; max-age=0'
+        }
       }
     } catch (err) {
       console.error('Failed to verify user:', err)
       // Keep cached user, token will naturally expire
+    } finally {
+      setIsLoading(false)
     }
   }
 

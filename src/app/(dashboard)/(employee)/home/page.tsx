@@ -16,23 +16,6 @@ import { format } from 'date-fns'
 import { formatTimeIST } from '@/lib/time-utils'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
 
-// ── Real-time Digital Clock ───────────────────────────────────────────────────
-function DigitalClock() {
-  const [time, setTime] = useState<Date | null>(null)
-  useEffect(() => {
-    setTime(new Date())
-    const timer = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  if (!time) return null
-
-  return (
-    <span className="font-mono font-bold text-2xl sm:text-3xl tracking-wider text-gray-900 drop-shadow-sm">
-      {time.toLocaleTimeString('en-IN', { hour12: true })}
-    </span>
-  )
-}
 
 // ── Live Checked-In Duration Timer ─────────────────────────────────────────────
 function CheckedInDuration({ checkInTime }: { checkInTime: string }) {
@@ -62,31 +45,56 @@ function CheckedInDuration({ checkInTime }: { checkInTime: string }) {
 
 // ── Working Hours Widget ───────────────────────────────────────────────────────
 function WorkingHoursWidget({ todayAttendance }: { todayAttendance: any }) {
-  const [duration, setDuration] = useState('0h 0m')
   const checkedIn = !!todayAttendance?.check_in
   const checkedOut = !!todayAttendance?.check_out
 
-  useEffect(() => {
+  const [duration, setDuration] = useState(() => {
     if (!checkedIn) {
-      setDuration('0h 0m')
-      return
+      const now = new Date()
+      const cutoffHour = 18
+      const cutoffMinute = 30
+      const currentHour = now.getHours()
+      const currentMinute = now.getMinutes()
+      
+      if (currentHour > cutoffHour || (currentHour === cutoffHour && currentMinute >= cutoffMinute)) {
+        return 'Not marked for today'
+      }
     }
+    return '0h 0m'
+  })
 
-    if (checkedIn && checkedOut) {
-      const start = new Date(todayAttendance.check_in.endsWith('Z') ? todayAttendance.check_in : todayAttendance.check_in + 'Z')
-      const end = new Date(todayAttendance.check_out.endsWith('Z') ? todayAttendance.check_out : todayAttendance.check_out + 'Z')
-      const diffMs = end.getTime() - start.getTime()
-      if (diffMs < 0) {
-        setDuration('0h 0m')
+  useEffect(() => {
+    const updateDuration = () => {
+      if (!checkedIn) {
+        const now = new Date()
+        const cutoffHour = 18
+        const cutoffMinute = 30
+        const currentHour = now.getHours()
+        const currentMinute = now.getMinutes()
+        
+        if (currentHour > cutoffHour || (currentHour === cutoffHour && currentMinute >= cutoffMinute)) {
+          setDuration('Not marked for today')
+        } else {
+          setDuration('0h 0m')
+        }
         return
       }
-      const diffHrs = Math.floor(diffMs / (1000 * 60 * 60))
-      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-      setDuration(`${diffHrs}h ${diffMins}m`)
-      return
-    }
 
-    const updateDuration = () => {
+      if (checkedIn && checkedOut) {
+        const start = new Date(todayAttendance.check_in.endsWith('Z') ? todayAttendance.check_in : todayAttendance.check_in + 'Z')
+        const end = new Date(todayAttendance.check_out.endsWith('Z') ? todayAttendance.check_out : todayAttendance.check_out + 'Z')
+        const diffMs = end.getTime() - start.getTime()
+        if (diffMs < 0) {
+          setDuration('0h 0m')
+          return
+        }
+        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60))
+        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+        setDuration(`${diffHrs}h ${diffMins}m`)
+        return
+      }
+
+      // Live update if checked in but not checked out
       const start = new Date(todayAttendance.check_in.endsWith('Z') ? todayAttendance.check_in : todayAttendance.check_in + 'Z')
       const now = new Date()
       const diffMs = now.getTime() - start.getTime()
@@ -112,7 +120,7 @@ function WorkingHoursWidget({ todayAttendance }: { todayAttendance: any }) {
         </div>
         <div>
           <p className="text-xs text-indigo-500 font-bold uppercase tracking-wider">Working Hours Today</p>
-          <p className="text-2xl font-black text-slate-800 mt-1">{duration}</p>
+          <p className="text-xl sm:text-2xl font-black text-slate-800 mt-1">{duration}</p>
         </div>
       </div>
       {checkedIn && !checkedOut && (
@@ -124,6 +132,7 @@ function WorkingHoursWidget({ todayAttendance }: { todayAttendance: any }) {
     </div>
   )
 }
+
 
 const PRIORITY_STYLE: Record<string, { bg: string; text: string; label: string; border: string }> = {
   low:    { bg: 'bg-green-50',  text: 'text-green-700',  label: 'Low',    border: 'border-green-200' },
@@ -292,16 +301,9 @@ export default function EmployeeDashboard() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                {/* Column 1: Time, Status, and Controls */}
-                <div className="flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-100 pb-6 md:pb-0 md:pr-6">
+                {/* Column 1: Status and Controls */}
+                <div className="border-b md:border-b-0 md:border-r border-slate-100 pb-6 md:pb-0 md:pr-6 flex flex-col justify-center">
                   <div>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Current Time</p>
-                    <div className="flex items-baseline gap-2">
-                      <DigitalClock />
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
                     {todayAttendance ? (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -329,7 +331,7 @@ export default function EmployeeDashboard() {
                         <p className="text-sm text-slate-500 mb-4">Begin your work day by marking your attendance.</p>
                         <Link
                           href="/attendance"
-                          className="inline-flex items-center justify-center gap-1.5 px-4.5 py-2.5 bg-black hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all shadow-sm group"
+                          className="inline-flex items-center justify-center gap-1.5 px-6 py-3 bg-black hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all shadow-sm group"
                         >
                           Mark Attendance
                           <ArrowUpRight size={15} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />

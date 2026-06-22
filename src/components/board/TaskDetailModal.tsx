@@ -43,6 +43,7 @@ interface TaskDetailModalProps {
   onUpdate: () => void
   boardId: string
   projectId: string
+  canManageBoard?: boolean
 }
 
 // ── Labels ────────────────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ function Avatar({ name, px = 32 }: { name: string; px?: number }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }: TaskDetailModalProps) {
+export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, canManageBoard = true }: TaskDetailModalProps) {
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
   const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
   const authHeader  = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token])
@@ -436,8 +437,8 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
 
   // ── members ───────────────────────────────────────────────────────────────────
   const toggleMember = async (userId: string) => {
-    if (!isAdmin) {
-      alert('Only admins can modify task members')
+    if (!canManageBoard) {
+      alert('Only board managers can modify task members')
       return
     }
     const isMember = assignedMembers.some(m => m.id === userId)
@@ -493,8 +494,8 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
 
   // ── due date & calendar ───────────────────────────────────────────────────────
   const saveDueDate = async () => {
-    if (!isAdmin) {
-      alert('Only admins can set or modify due dates')
+    if (!canManageBoard) {
+      alert('Only board managers can set or modify due dates')
       return
     }
     if (!selectedDate) return
@@ -889,7 +890,7 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
 
             {/* Action buttons */}
             <div className="flex items-center gap-2 flex-wrap">
-              {isAdmin && (
+              {canManageBoard && (
                 <div className="relative">
                   <button
                     onClick={() => setShowMembersMenu(v => !v)}
@@ -914,13 +915,15 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
                   )}
                 </div>
               )}
-              <button
-                onClick={() => setShowLabelsMenu(v => !v)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-600 font-medium transition-colors"
-              >
-                <Tag size={13} /> Labels
-              </button>
-              {isAdmin && (
+              {canManageBoard && (
+                <button
+                  onClick={() => setShowLabelsMenu(v => !v)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-600 font-medium transition-colors"
+                >
+                  <Tag size={13} /> Labels
+                </button>
+              )}
+              {canManageBoard && (
                 <button
                   onClick={() => setShowDueDatePicker(v => !v)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm text-gray-600 font-medium transition-colors"
@@ -1020,7 +1023,7 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
               <div className="flex items-center gap-2 mb-2">
                 <AlignLeft size={14} className="text-gray-500" />
                 <p className="text-sm font-semibold text-gray-800">Description</p>
-                {!editingDesc && (
+                {!editingDesc && canManageBoard && (
                   <button onClick={() => setEditingDesc(true)} className="ml-auto text-xs text-blue-600 hover:underline">
                     {description ? 'Edit' : 'Add'}
                   </button>
@@ -1045,7 +1048,8 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
                         setDescription(val)
                         setIsDirty(val !== originalDescription.current)
                       }}
-                      modules={quillModules}
+                      readOnly={!canManageBoard}
+                      modules={canManageBoard ? quillModules : { toolbar: false }}
                       theme="snow"
                       placeholder="Add a more detailed description..."
                     />
@@ -1426,7 +1430,7 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
         {/* ════ FOOTER ══════════════════════════════════════════════════════════ */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 shrink-0 bg-gray-50 rounded-b-2xl">
           <div className="flex gap-2">
-            {task.status !== 'done' && (
+            {canManageBoard && task.status !== 'done' && (
               <button
                 onClick={markAsDone}
                 className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
@@ -1434,19 +1438,23 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId }:
                 <Check size={14} /> Done
               </button>
             )}
-            <button
-              onClick={deleteCard}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-200 text-sm font-semibold rounded-lg transition-colors"
-            >
-              <Trash2 size={14} /> Delete
-            </button>
+            {canManageBoard && (
+              <button
+                onClick={deleteCard}
+                className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-200 text-sm font-semibold rounded-lg transition-colors"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            )}
           </div>
-          <button
-            onClick={handleSave}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
-          >
-            Save
-          </button>
+          {canManageBoard && (
+            <button
+              onClick={handleSave}
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+            >
+              Save
+            </button>
+          )}
         </div>
       </div>
 

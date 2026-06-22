@@ -13,6 +13,7 @@ import {
 import Link from 'next/link'
 import { adminAPI, leavesAPI, tasksAPI } from '@/lib/tasks-api'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
+import { useAuth } from '@/lib/auth-context'
 
 interface Stats {
   totalEmployees: number
@@ -77,6 +78,9 @@ function EmployeeAvatar({ name, size = 32 }: { name: string; size?: number }) {
 }
 
 export default function AdminDashboard() {
+  const { user } = useAuth()
+  const isHR = user?.role === 'hr'
+
   const stats = usePrefetchStore((state) => state.adminStats)
   const attendance = usePrefetchStore((state) => state.adminAttendance)
   const leaves = usePrefetchStore((state) => state.adminLeaves)
@@ -100,10 +104,14 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'present' | 'absent' | 'half_day' | 'late_within_buffer'>('all')
 
   // Manual marking state
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [isManualMark, setIsManualMark] = useState(false)
   const [showMarkModal, setShowMarkModal] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<{ id: string; name: string; date: string } | null>(null)
-  const [markAction, setMarkAction] = useState<'absent' | 'half_day' | 'mark_checkout'>('absent')
+  const [markAction, setMarkAction] = useState<'present' | 'absent' | 'half_day' | 'late_within_buffer' | 'mark_checkout'>('absent')
   const [markReason, setMarkReason] = useState('')
+  const [customCheckIn, setCustomCheckIn] = useState('')
+  const [customCheckOut, setCustomCheckOut] = useState('')
   const [marking, setMarking] = useState(false)
 
   // Selfie Preview state
@@ -116,7 +124,7 @@ export default function AdminDashboard() {
     setSyncing(true)
     try {
       await Promise.allSettled([
-        usePrefetchStore.getState().refreshChunk('attendance'),
+        usePrefetchStore.getState().refreshChunk('attendance', selectedDate),
         usePrefetchStore.getState().refreshChunk('leaves'),
         usePrefetchStore.getState().refreshChunk('tasks'),
         usePrefetchStore.getState().refreshChunk('employees'),
@@ -125,6 +133,15 @@ export default function AdminDashboard() {
       console.error('Sync error:', err)
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handleDateChange = async (dateStr: string) => {
+    setSelectedDate(dateStr)
+    try {
+      await usePrefetchStore.getState().refreshChunk('attendance', dateStr)
+    } catch (err) {
+      console.error('Date change error:', err)
     }
   }
 
@@ -165,15 +182,40 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleOpenMarkModal = (employeeId: string, employeeName: string, date: string) => {
+  const handleOpenMarkModal = (employeeId: string, employeeName: string, date: string, existingRecord?: any) => {
+    setIsManualMark(false)
     setSelectedEmployee({ id: employeeId, name: employeeName, date })
-    setMarkAction('absent')
+    setMarkAction((existingRecord?.status as any) || 'absent')
+    setMarkReason(existingRecord?.admin_reason || '')
+
+    const parseTime = (iso: string | null) => {
+      if (!iso) return ''
+      const timestamp = iso.endsWith('Z') ? iso : iso + 'Z'
+      const d = new Date(timestamp)
+      const hrs = String(d.toLocaleTimeString('en-IN', { hour: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })).split(':')
+      return `${hrs[0]}:${hrs[1]}`
+    }
+
+    setCustomCheckIn(parseTime(existingRecord?.check_in))
+    setCustomCheckOut(parseTime(existingRecord?.check_out))
+    setShowMarkModal(true)
+  }
+
+  const handleOpenManualMarkModal = () => {
+    setIsManualMark(true)
+    setSelectedEmployee({ id: '', name: '', date: selectedDate })
+    setMarkAction('present')
     setMarkReason('')
+    setCustomCheckIn('09:00')
+    setCustomCheckOut('18:00')
     setShowMarkModal(true)
   }
 
   const handleMarkAttendance = async () => {
-    if (!selectedEmployee) return
+    if (!selectedEmployee || (isManualMark && !selectedEmployee.id)) {
+      alert('Please select an employee')
+      return
+    }
 
     setMarking(true)
     try {
@@ -182,12 +224,16 @@ export default function AdminDashboard() {
         date: selectedEmployee.date,
         action: markAction,
         reason: markReason || undefined,
+        checkIn: customCheckIn || undefined,
+        checkOut: customCheckOut || undefined,
       })
 
       setShowMarkModal(false)
       setSelectedEmployee(null)
       setMarkReason('')
-      await usePrefetchStore.getState().refreshChunk('attendance')
+      setCustomCheckIn('')
+      setCustomCheckOut('')
+      await usePrefetchStore.getState().refreshChunk('attendance', selectedDate)
     } catch (error: any) {
       alert(error.message || 'Failed to mark attendance')
     } finally {
@@ -243,381 +289,476 @@ export default function AdminDashboard() {
 
   return (
     <PageWrapper
-      title={<span className="font-jakarta font-bold text-gray-900">Admin Dashboard</span>}
-      subtitle={format(new Date(), 'EEEE, MMMM d, yyyy')}
+      title={<span className="font-jakarta font-bold text-gray-900">{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>}
       actions={
         <button onClick={handleSync} disabled={syncing || loading}
-          className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-xs disabled:opacity-50 font-sans">
+          className="btn-crm-secondary flex items-center gap-2 hover-lift shadow-sm">
           <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
-          Sync Data
+          {syncing ? 'Syncing...' : 'Sync Dashboard'}
         </button>
       }
     >
       <div className="space-y-6 max-w-7xl mx-auto pb-12 font-sans">
-        {/* ── Quick Utility Toolbar ────────────────────────────────────────────────── */}
+        {/* ── Executive Hero Greeting Banner ────────────────────────────────────────── */}
+        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-3xl p-6 text-white relative overflow-hidden shadow-md border border-slate-800">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] opacity-15" />
+          <div className="absolute right-0 bottom-0 w-80 h-80 bg-indigo-500/10 rounded-full translate-x-20 translate-y-20 blur-3xl" />
+          
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="space-y-1.5">
+              <h2 className="text-2xl sm:text-3xl font-black font-jakarta tracking-tight text-white">Good morning, {isHR ? 'HR' : 'Admin'}!</h2>
+              <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-xl">
+                Welcome back. Here is the latest activity in your workforce control room.
+              </p>
+            </div>
+
+            {/* Right Corner stats: Ongoing and Imp */}
+            <div className="flex flex-wrap items-center gap-4 shrink-0">
+              {/* Ongoing Tasks */}
+              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
+                  <ClipboardList size={16} className="text-indigo-300" />
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Ongoing Tasks</p>
+                  <p className="text-sm font-extrabold text-white">{allTasks.filter((t: any) => t.status !== 'done').length} Active</p>
+                </div>
+              </div>
+
+              {/* Imp Alerts */}
+              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center relative">
+                  <AlertCircle size={16} className="text-amber-400" />
+                  {((stats?.pendingLeaves ?? 0) + (stats?.pendingShortLeaves ?? 0)) > 0 && (
+                    <span className="w-2 h-2 bg-rose-500 rounded-full absolute -right-0.5 -top-0.5 animate-pulse" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Imp Alerts</p>
+                  <p className="text-sm font-extrabold text-white">
+                    {((stats?.pendingLeaves ?? 0) + (stats?.pendingShortLeaves ?? 0)) || 0} Pending
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Quick Utility Grid Toolbar ────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Link href="/employees" className="flex items-center gap-3 bg-white border border-slate-200/80 rounded-2xl p-4 hover:shadow-md hover:border-slate-300 transition">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-              <Users size={20} className="text-blue-600" />
+          <Link href="/employees" className="crm-card flex items-center gap-3.5 p-4 bg-white hover:scale-[1.02] border-slate-100 hover:border-indigo-200">
+            <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 border border-indigo-100/30">
+              <Users size={20} className="text-indigo-650" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-800 font-jakarta">Employees</p>
-              <p className="text-[11px] text-slate-400 truncate">Directory & Profile</p>
+              <p className="text-sm font-black text-slate-800 font-jakarta tracking-tight">Employees</p>
+              <p className="text-[10px] text-slate-400 font-medium">Workforce Directory</p>
             </div>
           </Link>
 
-          <Link href="/users/create" className="flex items-center gap-3 bg-white border border-slate-200/80 rounded-2xl p-4 hover:shadow-md hover:border-slate-300 transition">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-              <UserPlus size={20} className="text-emerald-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-800 font-jakarta">Create User</p>
-              <p className="text-[11px] text-slate-400 truncate">Onboard Employee</p>
-            </div>
-          </Link>
+          {!isHR && (
+            <Link href="/users/create" className="crm-card flex items-center gap-3.5 p-4 bg-white hover:scale-[1.02] border-slate-100 hover:border-emerald-200">
+              <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100/30">
+                <UserPlus size={20} className="text-emerald-650" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-black text-slate-800 font-jakarta tracking-tight">Create User</p>
+                <p className="text-[10px] text-slate-400 font-medium">Onboard Employee</p>
+              </div>
+            </Link>
+          )}
 
-          <Link href="/settings" className="flex items-center gap-3 bg-white border border-slate-200/80 rounded-2xl p-4 hover:shadow-md hover:border-slate-300 transition">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
-              <Settings size={20} className="text-purple-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-800 font-jakarta">Settings</p>
-              <p className="text-[11px] text-slate-400 truncate">Office Boundaries</p>
-            </div>
-          </Link>
+          {!isHR && (
+            <Link href="/settings" className="crm-card flex items-center gap-3.5 p-4 bg-white hover:scale-[1.02] border-slate-100 hover:border-purple-200">
+              <div className="w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center shrink-0 border border-purple-100/30">
+                <Settings size={20} className="text-purple-650" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-black text-slate-800 font-jakarta tracking-tight">Settings</p>
+                <p className="text-[10px] text-slate-400 font-medium">Office Boundaries</p>
+              </div>
+            </Link>
+          )}
 
-          <button onClick={() => setShowPasswordModal(true)} className="flex items-center text-left gap-3 bg-white border border-slate-200/80 rounded-2xl p-4 hover:shadow-md hover:border-slate-300 transition">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-              <Lock size={20} className="text-amber-600" />
+          <button onClick={() => setShowPasswordModal(true)} className="crm-card flex items-center text-left gap-3.5 p-4 bg-white hover:scale-[1.02] border-slate-100 hover:border-slate-300 w-full">
+            <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200/30">
+              <Lock size={20} className="text-slate-600" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-800 font-jakarta">Security</p>
-              <p className="text-[11px] text-slate-400 truncate">Update Password</p>
+              <p className="text-sm font-black text-slate-800 font-jakarta tracking-tight">Security</p>
+              <p className="text-[10px] text-slate-400 font-medium">Update Password</p>
             </div>
           </button>
         </div>
 
-        {/* ── KPI Metric Control Room ────────────────────────────────────────────── */}
+        {/* ── KPI Metric Control Cards (Simple / Slate Theme) ────────────────────────── */}
         {loading && !stats ? (
           <StatsLoadingSkeleton count={5} />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Total Employees */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 flex items-center gap-4.5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 relative overflow-hidden group">
-              <div className="absolute right-0 top-0 w-24 h-24 bg-blue-500/5 rounded-full translate-x-8 -translate-y-8 group-hover:scale-110 transition-transform duration-300" />
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-blue-600 bg-blue-50/70 border border-blue-100/50 shadow-2xs">
-                <Users size={24} />
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${isHR ? 'lg:grid-cols-3' : 'lg:grid-cols-5'} gap-4`}>
+            {/* Total Workforce */}
+            <div className="crm-card bg-white p-5 border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center border border-indigo-100 shrink-0">
+                <Users size={20} className="text-indigo-600" />
               </div>
-              <div>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-jakarta">Total Employees</p>
-                <p className="text-3xl font-black text-slate-800 mt-1 font-jakarta">{stats?.totalEmployees ?? 0}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Workforce</p>
+                <p className="text-2xl font-black text-slate-900 font-jakarta mt-0.5">{stats?.totalEmployees ?? 0}</p>
               </div>
             </div>
 
             {/* Present Today */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 space-y-3.5 relative overflow-hidden group">
-              <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-500/5 rounded-full translate-x-8 -translate-y-8 group-hover:scale-110 transition-transform duration-300" />
-              <div className="flex items-center gap-4.5">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-emerald-600 bg-emerald-50/70 border border-emerald-100/50 shadow-2xs">
-                  <CheckCircle size={24} />
+            <div className="crm-card bg-white p-5 border border-slate-200 shadow-xs flex flex-col justify-between min-h-[106px]">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-100 shrink-0">
+                  <CheckCircle size={20} className="text-emerald-600" />
                 </div>
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-jakarta">Present Today</p>
-                  <p className="text-3xl font-black text-slate-800 mt-1 font-jakarta">{stats?.presentToday ?? 0}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Present Today</p>
+                  <p className="text-2xl font-black text-slate-900 font-jakarta mt-0.5">{stats?.presentToday ?? 0}</p>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" style={{ width: `${presentPercentage}%` }} />
+              <div className="mt-3 space-y-1">
+                <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                  <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${presentPercentage}%` }} />
                 </div>
-                <p className="text-[10px] text-slate-400 text-right font-semibold">{presentPercentage}% active workforce</p>
+                <div className="flex justify-between text-[9px] text-slate-400 font-semibold">
+                  <span>Attendance</span>
+                  <span>{presentPercentage}%</span>
+                </div>
               </div>
             </div>
 
             {/* Absent Today */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 space-y-3.5 relative overflow-hidden group">
-              <div className="absolute right-0 top-0 w-24 h-24 bg-red-500/5 rounded-full translate-x-8 -translate-y-8 group-hover:scale-110 transition-transform duration-300" />
-              <div className="flex items-center gap-4.5">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-red-600 bg-red-50/70 border border-red-100/50 shadow-2xs">
-                  <XCircle size={24} />
+            <div className="crm-card bg-white p-5 border border-slate-200 shadow-xs flex flex-col justify-between min-h-[106px]">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-rose-50 flex items-center justify-center border border-rose-100 shrink-0">
+                  <XCircle size={20} className="text-rose-600" />
                 </div>
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-jakarta">Absent Today</p>
-                  <p className="text-3xl font-black text-slate-800 mt-1 font-jakarta">{stats?.absentToday ?? 0}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Absent Today</p>
+                  <p className="text-2xl font-black text-slate-900 font-jakarta mt-0.5">{stats?.absentToday ?? 0}</p>
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-gradient-to-r from-red-500 to-rose-400 h-full rounded-full transition-all duration-500" style={{ width: `${absentPercentage}%` }} />
+              <div className="mt-3 space-y-1">
+                <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+                  <div className="bg-rose-500 h-full rounded-full transition-all duration-500" style={{ width: `${absentPercentage}%` }} />
                 </div>
-                <p className="text-[10px] text-slate-400 text-right font-semibold">{absentPercentage}% absence rate</p>
+                <div className="flex justify-between text-[9px] text-slate-400 font-semibold">
+                  <span>Absence Rate</span>
+                  <span>{absentPercentage}%</span>
+                </div>
               </div>
             </div>
 
             {/* Pending Leaves */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 flex items-center justify-between shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 relative overflow-hidden group">
-              <div className="absolute right-0 top-0 w-24 h-24 bg-amber-500/5 rounded-full translate-x-8 -translate-y-8 group-hover:scale-110 transition-transform duration-300" />
-              <div className="flex items-center gap-4.5">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-amber-600 bg-amber-50/70 border border-amber-100/50 shadow-2xs relative">
-                  <Calendar size={24} />
-                  {(stats?.pendingLeaves ?? 0) > 0 && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 absolute -right-0.5 -top-0.5 border border-white" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-jakarta">Pending Leaves</p>
-                  <p className="text-3xl font-black text-slate-800 mt-1 font-jakarta">{stats?.pendingLeaves ?? 0}</p>
-                </div>
+            {!isHR && (
+            <div className="crm-card bg-white p-5 border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-100 shrink-0 relative">
+                <Calendar size={20} className="text-amber-600" />
+                {(stats?.pendingLeaves ?? 0) > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 absolute -right-0.5 -top-0.5 border border-white" />
+                )}
               </div>
-              {(stats?.pendingLeaves ?? 0) > 0 && (
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping absolute right-4 top-4" />
-              )}
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pending Leaves</p>
+                <p className="text-2xl font-black text-slate-900 font-jakarta mt-0.5">{stats?.pendingLeaves ?? 0}</p>
+              </div>
             </div>
+            )}
 
             {/* Pending Short Leaves */}
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-5 flex items-center justify-between shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 relative overflow-hidden group">
-              <div className="absolute right-0 top-0 w-24 h-24 bg-orange-500/5 rounded-full translate-x-8 -translate-y-8 group-hover:scale-110 transition-transform duration-300" />
-              <div className="flex items-center gap-4.5">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-orange-600 bg-orange-50/70 border border-orange-100/50 shadow-2xs relative">
-                  <Clock size={24} />
-                  {(stats?.pendingShortLeaves ?? 0) > 0 && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-orange-500 absolute -right-0.5 -top-0.5 border border-white" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-jakarta">Pending Short</p>
-                  <p className="text-3xl font-black text-slate-800 mt-1 font-jakarta">{stats?.pendingShortLeaves ?? 0}</p>
-                </div>
+            {!isHR && (
+            <div className="crm-card bg-white p-5 border border-slate-200 shadow-xs flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center border border-orange-100 shrink-0 relative">
+                <Clock size={20} className="text-orange-600" />
+                {(stats?.pendingShortLeaves ?? 0) > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 absolute -right-0.5 -top-0.5 border border-white" />
+                )}
               </div>
-              {(stats?.pendingShortLeaves ?? 0) > 0 && (
-                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-ping absolute right-4 top-4" />
-              )}
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pending Short</p>
+                <p className="text-2xl font-black text-slate-900 font-jakarta mt-0.5">{stats?.pendingShortLeaves ?? 0}</p>
+              </div>
             </div>
+            )}
           </div>
         )}
 
-        {/* ── Interactive Workspace Tabs ─────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
-          <div className="flex flex-wrap border-b border-slate-200 bg-slate-50/50">
-            {/* Today's Attendance Tab */}
-            <button onClick={() => setActiveTab('attendance')}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition ${
-                activeTab === 'attendance' ? 'border-black text-black bg-white' : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}>
-              <Clock size={16} />
-              Today&apos;s Attendance
-              <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded-full font-bold">
-                {attendance.length}
-              </span>
-            </button>
+        {/* ── Segmented Pill Tab Workspace ────────────────────────────────────────── */}
+        <div className="bg-slate-50 border border-slate-200/70 p-1.5 rounded-2xl flex flex-wrap gap-1 shadow-sm">
+          {/* Today's Attendance Tab */}
+          <button onClick={() => setActiveTab('attendance')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+              activeTab === 'attendance'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+            }`}>
+            <Clock size={14} />
+            Today&apos;s Attendance
+            <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold ${
+              activeTab === 'attendance' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+            }`}>
+              {attendance.length}
+            </span>
+          </button>
 
-            {/* Leave Requests Tab */}
+          {/* Leave Requests Tab — hidden for HR */}
+          {!isHR && (
             <button onClick={() => setActiveTab('leaves')}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition ${
-                activeTab === 'leaves' ? 'border-black text-black bg-white' : 'border-transparent text-slate-500 hover:text-slate-800'
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                activeTab === 'leaves'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}>
-              <Calendar size={16} />
+              <Calendar size={14} />
               Leave Requests
               {leaves.length > 0 && (
-                <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-amber-500 text-white rounded-full font-bold">
+                <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold ${
+                  activeTab === 'leaves' ? 'bg-white/20 text-white' : 'bg-amber-500 text-white'
+                }`}>
                   {leaves.length}
                 </span>
               )}
             </button>
+          )}
 
-            {/* Short Leaves Tab */}
+          {/* Short Leaves Tab — hidden for HR */}
+          {!isHR && (
             <button onClick={() => setActiveTab('shortLeaves')}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition ${
-                activeTab === 'shortLeaves' ? 'border-black text-black bg-white' : 'border-transparent text-slate-500 hover:text-slate-800'
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                activeTab === 'shortLeaves'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}>
-              <Clock size={16} />
+              <Clock size={14} />
               Short Leaves
               {shortLeaves.length > 0 && (
-                <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full font-bold">
+                <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold ${
+                  activeTab === 'shortLeaves' ? 'bg-white/20 text-white' : 'bg-orange-500 text-white'
+                }`}>
                   {shortLeaves.length}
                 </span>
               )}
             </button>
+          )}
 
-            {/* Workforce Tasks Tab */}
+          {/* Workforce Tasks Tab — hidden for HR */}
+          {!isHR && (
             <button onClick={() => setActiveTab('tasks')}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-semibold border-b-2 transition ${
-                activeTab === 'tasks' ? 'border-black text-black bg-white' : 'border-transparent text-slate-500 hover:text-slate-800'
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+                activeTab === 'tasks'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
               }`}>
-              <ClipboardList size={16} />
+              <ClipboardList size={14} />
               Workforce Tasks
-              <span className="ml-1 text-[10px] px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded-full font-bold">
+              <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-md font-extrabold ${
+                activeTab === 'tasks' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+              }`}>
                 {allTasks.length}
               </span>
             </button>
-          </div>
+          )}
+        </div>
 
-          {/* ── Tab Content ── */}
+        {/* ── Tab Content Workspace ────────────────────────────────────────────────── */}
+        <div className="bg-white border border-slate-200/80 rounded-3xl shadow-sm overflow-hidden min-h-[350px]">
           
           {/* Today's Attendance Tab */}
           {activeTab === 'attendance' && (
-            <div className="space-y-4 p-5">
+            <div className="p-6 space-y-4">
               {/* Search and Filters */}
-              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-200/50">
                 <div className="relative flex-1 max-w-md">
-                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Search employees by name or email..."
-                    className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-black transition"
+                    className="w-full pl-10 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 bg-white transition font-medium"
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Status:</span>
-                  <select
-                    value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value as any)}
-                    className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-black font-semibold"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="present">Present</option>
-                    <option value="late_within_buffer">Late</option>
-                    <option value="half_day">Half Day</option>
-                    <option value="absent">Absent</option>
-                  </select>
+                <div className="flex flex-wrap items-center gap-3.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Date:</span>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={e => handleDateChange(e.target.value)}
+                      className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 bg-white font-semibold text-slate-700 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">Status:</span>
+                    <select
+                      value={statusFilter}
+                      onChange={e => setStatusFilter(e.target.value as any)}
+                      className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 bg-white font-semibold text-slate-700 cursor-pointer"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="present">Present</option>
+                      <option value="late_within_buffer">Late</option>
+                      <option value="half_day">Half Day</option>
+                      <option value="absent">Absent</option>
+                    </select>
+                  </div>
+
+                  {!isHR && (
+                    <button
+                      onClick={handleOpenManualMarkModal}
+                      className="btn-crm-primary py-2 px-3.5 text-xs font-bold rounded-xl active:scale-98 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <UserCheck size={14} />
+                      Manual Mark
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Attendance Table */}
-              <div className="overflow-x-auto">
-                {loading ? (
-                  <TableLoadingSkeleton rows={5} cols={5} />
-                ) : (
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-200/60">
-                      <tr>
-                        {['Employee', 'Check In', 'Check Out', 'Selfie', 'Status', 'Manual Override'].map(h => (
-                          <th key={h} className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredAttendance.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
-                            No attendance records match your search criteria.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredAttendance.map((rec) => (
-                          <tr key={rec.id} className="hover:bg-slate-50/60 transition group">
-                            <td className="px-6 py-4 flex items-center gap-3">
-                              <EmployeeAvatar name={rec.users?.name || ''} size={36} />
-                              <div className="min-w-0">
-                                <p className="font-semibold text-slate-800 group-hover:text-black truncate">{rec.users?.name ?? rec.employee_id}</p>
-                                <p className="text-[11px] text-slate-400 truncate">{rec.users?.email}</p>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-slate-700 font-medium">{fmtTime(rec.check_in)}</td>
-                            <td className="px-6 py-4 text-slate-700 font-medium">{fmtTime(rec.check_out)}</td>
-                            
-                            {/* Selfie preview column */}
-                            <td className="px-6 py-4 relative">
-                              {rec.selfie_url ? (
-                                <div className="relative">
-                                  <button
-                                    onMouseEnter={() => setHoveredSelfie(rec.id)}
-                                    onMouseLeave={() => setHoveredSelfie(null)}
-                                    onClick={() => window.open(rec.selfie_url, '_blank')}
-                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition"
-                                    title="View Selfie"
-                                  >
-                                    <Eye size={15} />
-                                  </button>
-                                  
-                                  {/* Floating selfie card popup on hover */}
-                                  {hoveredSelfie === rec.id && (
-                                    <div className="absolute z-50 bottom-12 left-0 w-36 h-36 bg-white border border-slate-200 rounded-xl shadow-xl p-1 animate-in fade-in zoom-in-95 duration-100">
-                                      <img src={rec.selfie_url} alt="Selfie" className="w-full h-full object-cover rounded-lg" />
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-slate-400">—</span>
-                              )}
-                            </td>
+              {/* Attendance SaaS List Cards */}
+              {loading ? (
+                <TableLoadingSkeleton rows={5} cols={5} />
+              ) : filteredAttendance.length === 0 ? (
+                <div className="py-16 text-center text-slate-400 bg-slate-50/20 rounded-2xl border border-dashed border-slate-200">
+                  <Clock className="mx-auto text-slate-300 mb-2" size={32} />
+                  <p className="text-sm font-semibold">No attendance records found</p>
+                  <p className="text-xs text-slate-400 mt-1">Try resetting filters or queries</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
+                  {filteredAttendance.map((rec) => (
+                    <div key={rec.id} className="p-4 bg-white hover:bg-slate-50/40 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 group">
+                      
+                      {/* Left: Employee details */}
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <EmployeeAvatar name={rec.users?.name || ''} size={40} />
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 text-sm group-hover:text-indigo-600 transition truncate">{rec.users?.name ?? rec.employee_id}</p>
+                          <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">{rec.users?.email}</p>
+                        </div>
+                      </div>
 
-                            <td className="px-6 py-4">{badge(rec.status)}</td>
-                            <td className="px-6 py-4">
-                              <button onClick={() => handleOpenMarkModal(rec.employee_id, rec.users?.name || 'Employee', rec.date)}
-                                className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition">
-                                Override
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+                      {/* Middle: Checkin Details */}
+                      <div className="grid grid-cols-2 gap-6 text-xs shrink-0 sm:max-w-xs w-full sm:w-auto">
+                        <div>
+                          <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">Check In</span>
+                          <span className="font-semibold text-slate-700 mt-0.5 block">{fmtTime(rec.check_in)}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">Check Out</span>
+                          <span className="font-semibold text-slate-700 mt-0.5 block">{fmtTime(rec.check_out)}</span>
+                        </div>
+                      </div>
+
+                      {/* Right: Selfie, Status & Action */}
+                      <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0">
+                        {/* Selfie zoom icon */}
+                        {rec.selfie_url ? (
+                          <div className="relative">
+                            <button
+                              onMouseEnter={() => setHoveredSelfie(rec.id)}
+                              onMouseLeave={() => setHoveredSelfie(null)}
+                              onClick={() => window.open(rec.selfie_url!, '_blank')}
+                              className="w-9 h-9 bg-slate-50 hover:bg-slate-150 text-slate-500 hover:text-slate-800 rounded-xl border border-slate-200/60 flex items-center justify-center transition shadow-2xs cursor-pointer"
+                              title="View selfie verification"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            {hoveredSelfie === rec.id && (
+                              <div className="absolute z-50 bottom-11 right-0 w-36 h-36 bg-white border border-slate-200 rounded-2xl shadow-xl p-1 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                                <img src={rec.selfie_url} alt="Selfie" className="w-full h-full object-cover rounded-xl" />
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-300 w-9 text-center">—</span>
+                        )}
+
+                        <div className="w-24 text-right">
+                          {badge(rec.status)}
+                        </div>
+
+                        {!isHR && (
+                          <button onClick={() => handleOpenMarkModal(rec.employee_id, rec.users?.name || 'Employee', rec.date, rec)}
+                            className="btn-crm-secondary py-1.5 px-3 border border-slate-200 text-xs font-bold hover:bg-indigo-50 hover:text-indigo-650 hover:border-indigo-200 shadow-2xs">
+                            Override
+                          </button>
+                        )}
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Leave Requests Tab */}
           {activeTab === 'leaves' && (
-            <div className="p-5">
+            <div className="p-6">
               {loading ? (
-                <TableLoadingSkeleton rows={5} cols={6} />
+                <TableLoadingSkeleton rows={3} cols={4} />
               ) : leaves.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 font-medium">
-                  <Calendar className="mx-auto text-slate-300 mb-2" size={36} />
-                  No pending leave requests found.
+                <div className="py-16 text-center text-slate-400 bg-slate-50/20 rounded-2xl border border-dashed border-slate-200">
+                  <Calendar className="mx-auto text-slate-300 mb-2" size={32} />
+                  <p className="text-sm font-semibold">No pending leave requests</p>
+                  <p className="text-xs text-slate-400 mt-1">Excellent! All requests are processed</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {leaves.map((leave) => (
-                    <div key={leave.id} className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 flex flex-col justify-between gap-4 hover:shadow-sm transition">
-                      <div className="flex justify-between items-start gap-4">
+                    <div key={leave.id} className="crm-card bg-white p-5 border-l-4 border-l-amber-500 hover:border-slate-350 hover:scale-[1.01] transition-all flex flex-col justify-between gap-4">
+                      
+                      {/* Ticket header info */}
+                      <div className="flex justify-between items-start gap-4 border-b border-slate-100 pb-3.5">
                         <div className="flex items-center gap-3">
-                          <EmployeeAvatar name={leave.users?.name || ''} size={36} />
+                          <EmployeeAvatar name={leave.users?.name || ''} size={38} />
                           <div>
-                            <p className="font-semibold text-slate-800">{leave.users?.name}</p>
-                            <p className="text-[10px] text-slate-400">{leave.users?.email}</p>
+                            <p className="font-bold text-slate-800 text-sm">{leave.users?.name}</p>
+                            <p className="text-[11px] text-slate-400 font-medium">{leave.users?.email}</p>
                           </div>
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-100">
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg border border-amber-200/50">
                           {leave.type} Leave
                         </span>
                       </div>
 
-                      <div className="bg-white rounded-xl p-3 border border-slate-100 text-xs space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400 font-medium">Dates:</span>
+                      {/* Request data box */}
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 space-y-2.5 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Leave Duration</span>
                           <span className="font-bold text-slate-700">
-                            {leave.start_date} {leave.end_date !== leave.start_date ? `to ${leave.end_date}` : ''}
+                            {leave.start_date} {leave.end_date !== leave.start_date ? ` to ${leave.end_date}` : ''}
                           </span>
                         </div>
-                        <div className="border-t border-slate-50 pt-2">
-                          <p className="text-slate-400 font-medium mb-1">Reason:</p>
-                          <p className="text-slate-700 italic">{leave.reason || 'No reason provided'}</p>
+                        <div className="border-t border-slate-200/60 pt-2.5">
+                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1">Reason Description</p>
+                          <p className="text-slate-650 italic bg-white border border-slate-100 rounded-lg p-2.5 shadow-2xs leading-relaxed">{leave.reason || 'No description provided'}</p>
                         </div>
                       </div>
 
-                      <div className="flex gap-2.5">
+                      {/* Action buttons */}
+                      <div className="flex gap-3 pt-1">
                         <button
                           onClick={() => handleLeaveAction(leave.id, 'approved')}
                           disabled={approvingId === leave.id}
-                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow-md transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          className="flex-1 btn-crm-success py-2.5 text-xs font-bold rounded-xl shadow-2xs"
                         >
-                          <Check size={14} /> Approve
+                          <Check size={14} /> Approve Request
                         </button>
                         <button
                           onClick={() => handleLeaveAction(leave.id, 'rejected')}
                           disabled={approvingId === leave.id}
-                          className="flex-1 py-2 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          className="flex-1 btn-crm-danger py-2.5 text-xs font-bold rounded-xl shadow-2xs"
                         >
-                          <X size={14} /> Reject
+                          <X size={14} /> Reject Request
                         </button>
                       </div>
+
                     </div>
                   ))}
                 </div>
@@ -627,58 +768,64 @@ export default function AdminDashboard() {
 
           {/* Short Leaves Tab */}
           {activeTab === 'shortLeaves' && (
-            <div className="p-5">
+            <div className="p-6">
               {loading ? (
-                <TableLoadingSkeleton rows={5} cols={6} />
+                <TableLoadingSkeleton rows={3} cols={4} />
               ) : shortLeaves.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 font-medium">
-                  <Clock className="mx-auto text-slate-300 mb-2" size={36} />
-                  No pending short leave requests found.
+                <div className="py-16 text-center text-slate-400 bg-slate-50/20 rounded-2xl border border-dashed border-slate-200">
+                  <Clock className="mx-auto text-slate-300 mb-2" size={32} />
+                  <p className="text-sm font-semibold">No pending short leaves</p>
+                  <p className="text-xs text-slate-400 mt-1">Excellent! All short requests processed</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {shortLeaves.map((sl) => (
-                    <div key={sl.id} className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 flex flex-col justify-between gap-4 hover:shadow-sm transition">
-                      <div className="flex justify-between items-start gap-4">
+                    <div key={sl.id} className="crm-card bg-white p-5 border-l-4 border-l-orange-500 hover:border-slate-350 hover:scale-[1.01] transition-all flex flex-col justify-between gap-4">
+                      
+                      {/* Ticket header info */}
+                      <div className="flex justify-between items-start gap-4 border-b border-slate-100 pb-3.5">
                         <div className="flex items-center gap-3">
-                          <EmployeeAvatar name={sl.users?.name || ''} size={36} />
+                          <EmployeeAvatar name={sl.users?.name || ''} size={38} />
                           <div>
-                            <p className="font-semibold text-slate-800">{sl.users?.name}</p>
-                            <p className="text-[10px] text-slate-400">{sl.users?.email}</p>
+                            <p className="font-bold text-slate-800 text-sm">{sl.users?.name}</p>
+                            <p className="text-[11px] text-slate-400 font-medium">{sl.users?.email}</p>
                           </div>
                         </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-orange-50 text-orange-600 rounded border border-orange-100">
+                        <span className="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 bg-orange-50 text-orange-700 rounded-lg border border-orange-200/50">
                           {sl.short_leave_type?.replace(/_/g, ' ')}
                         </span>
                       </div>
 
-                      <div className="bg-white rounded-xl p-3 border border-slate-100 text-xs space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400 font-medium">Date:</span>
+                      {/* Request data box */}
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 space-y-2.5 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Requested Date</span>
                           <span className="font-bold text-slate-700">{sl.date}</span>
                         </div>
-                        <div className="border-t border-slate-50 pt-2">
-                          <p className="text-slate-400 font-medium mb-1">Reason:</p>
-                          <p className="text-slate-700 italic">{sl.reason || 'No reason provided'}</p>
+                        <div className="border-t border-slate-200/60 pt-2.5">
+                          <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1">Reason Description</p>
+                          <p className="text-slate-650 italic bg-white border border-slate-100 rounded-lg p-2.5 shadow-2xs leading-relaxed">{sl.reason || 'No description provided'}</p>
                         </div>
                       </div>
 
-                      <div className="flex gap-2.5">
+                      {/* Action buttons */}
+                      <div className="flex gap-3 pt-1">
                         <button
                           onClick={() => handleShortLeaveAction(sl.id, 'approved')}
                           disabled={approvingId === sl.id}
-                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow-md transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          className="flex-1 btn-crm-success py-2.5 text-xs font-bold rounded-xl shadow-2xs"
                         >
-                          <Check size={14} /> Approve
+                          <Check size={14} /> Approve Request
                         </button>
                         <button
                           onClick={() => handleShortLeaveAction(sl.id, 'rejected')}
                           disabled={approvingId === sl.id}
-                          className="flex-1 py-2 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          className="flex-1 btn-crm-danger py-2.5 text-xs font-bold rounded-xl shadow-2xs"
                         >
-                          <X size={14} /> Reject
+                          <X size={14} /> Reject Request
                         </button>
                       </div>
+
                     </div>
                   ))}
                 </div>
@@ -688,82 +835,91 @@ export default function AdminDashboard() {
 
           {/* Workforce Tasks Tab */}
           {activeTab === 'tasks' && (
-            <div className="p-5">
+            <div className="p-6">
               {loading ? (
                 <TableLoadingSkeleton rows={5} cols={5} />
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {employeesWithTasks.map((emp) => {
                     const checkedIn = !!emp.attendance?.check_in
                     const checkedOut = !!emp.attendance?.check_out
                     
+                    // Task metrics
+                    const totalTasks = emp.tasks.length
+                    const completedTasks = emp.tasks.filter((t: any) => t.status === 'done').length
+                    const completionRate = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0
+
                     return (
-                      <div key={emp.id} className="border border-slate-200/80 rounded-2xl overflow-hidden hover:shadow-md transition">
-                        {/* Employee summary row */}
-                        <div className="bg-slate-50 p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div key={emp.id} className="crm-card bg-white border border-slate-200 hover:border-indigo-200 hover:shadow-md transition flex flex-col justify-between overflow-hidden">
+                        
+                        {/* Employee info header */}
+                        <div className="bg-slate-50 p-4 border-b border-slate-200 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <EmployeeAvatar name={emp.name || ''} size={38} />
+                            <EmployeeAvatar name={emp.name || ''} size={36} />
                             <div>
                               <p className="font-bold text-slate-800 text-sm">{emp.name}</p>
-                              <p className="text-[11px] text-slate-400">{emp.email}</p>
+                              <p className="text-[11px] text-slate-400 font-medium">{emp.email}</p>
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-3">
-                            {/* Attendance status */}
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full ${
-                                checkedIn && !checkedOut 
-                                  ? 'bg-emerald-500 animate-pulse' 
-                                  : checkedIn && checkedOut 
-                                  ? 'bg-blue-500' 
-                                  : 'bg-slate-300'
-                              }`} />
-                              <span className="text-xs text-slate-500 font-semibold capitalize">
-                                {checkedIn && !checkedOut 
-                                  ? 'Working' 
-                                  : checkedIn && checkedOut 
-                                  ? 'Checked Out' 
-                                  : 'Inactive'
-                                }
-                              </span>
-                            </div>
-
-                            {/* Active Tasks count */}
-                            <span className="text-xs px-2.5 py-0.5 bg-slate-200/70 text-slate-700 font-bold rounded-full">
-                              {emp.tasks.length} active tasks
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-2xs">
+                            <span className={`w-2 h-2 rounded-full ${
+                              checkedIn && !checkedOut 
+                                ? 'bg-emerald-500 animate-pulse' 
+                                : checkedIn && checkedOut 
+                                ? 'bg-blue-500' 
+                                : 'bg-slate-300'
+                            }`} />
+                            <span className="text-[10px] text-slate-500 font-bold capitalize">
+                              {checkedIn && !checkedOut 
+                                ? 'Working' 
+                                : checkedIn && checkedOut 
+                                ? 'Checked Out' 
+                                : 'Inactive'
+                              }
                             </span>
                           </div>
                         </div>
 
+                        {/* Progress ratio indicator */}
+                        <div className="p-4 border-b border-slate-100 space-y-1.5">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
+                            <span className="uppercase tracking-wider">Completion Ratio</span>
+                            <span className="text-indigo-650">{completedTasks} / {totalTasks} Tasks</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner">
+                            <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${completionRate}%` }} />
+                          </div>
+                          <p className="text-[9px] text-slate-400 font-semibold text-right">{completionRate}% Completed</p>
+                        </div>
+
                         {/* Tasks list */}
-                        <div className="bg-white divide-y divide-slate-100">
+                        <div className="bg-white divide-y divide-slate-100 flex-1 max-h-[220px] overflow-y-auto pr-1">
                           {emp.tasks.length === 0 ? (
-                            <div className="p-4 text-center text-xs text-slate-400">
+                            <div className="p-6 text-center text-xs text-slate-450 italic">
                               No active tasks assigned
                             </div>
                           ) : (
                             emp.tasks.map((task: any) => (
-                              <div key={task.id} className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50/40 transition">
+                              <div key={task.id} className="p-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/40 transition">
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <ClipboardList size={15} className="text-slate-400 shrink-0" />
+                                  <ClipboardList size={14} className="text-slate-400 shrink-0" />
                                   <div className="min-w-0">
                                     <p className="font-semibold text-slate-800 text-xs truncate">{task.title}</p>
                                     <div className="flex items-center gap-2 mt-1">
                                       {task.board?.name && (
-                                        <span className="inline-block text-[9px] px-1 bg-blue-50 text-blue-600 rounded font-semibold uppercase tracking-wider">
+                                        <span className="inline-block text-[9px] px-1.5 bg-blue-50 text-blue-600 rounded font-semibold uppercase tracking-wider border border-blue-100/30">
                                           {task.board.name}
                                         </span>
                                       )}
-                                      <span className="inline-block text-[9px] px-1 bg-slate-100 text-slate-500 rounded font-bold capitalize">
+                                      <span className="inline-block text-[9px] px-1.5 bg-slate-100 text-slate-500 rounded font-bold capitalize">
                                         {task.status?.replace(/_/g, ' ')}
                                       </span>
                                     </div>
                                   </div>
                                 </div>
-
                                 {task.due_date && (
-                                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 shrink-0">
+                                  <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 shrink-0">
                                     Due {format(new Date(task.due_date), 'MMM d')}
                                   </span>
                                 )}
@@ -771,6 +927,7 @@ export default function AdminDashboard() {
                             ))
                           )}
                         </div>
+
                       </div>
                     )
                   })}
@@ -783,40 +940,122 @@ export default function AdminDashboard() {
 
       {/* Admin Override Attendance Modal */}
       {showMarkModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 shadow-xl animate-in fade-in zoom-in-95 duration-150">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Mark Attendance Override</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                Employee: <span className="font-semibold text-slate-700">{selectedEmployee.name}</span>
-              </p>
-              <p className="text-xs text-slate-400 mt-0.5">Date: {selectedEmployee.date}</p>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 shadow-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-800 font-jakarta">
+                  {isManualMark ? 'Manual Attendance Entry' : 'Attendance Override Action'}
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Fill in the details below to manually mark or override attendance records.
+                </p>
+              </div>
+              <button 
+                onClick={() => { setShowMarkModal(false); setSelectedEmployee(null); setMarkReason(''); setCustomCheckIn(''); setCustomCheckOut(''); }}
+                className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-lg transition animate-none cursor-pointer"
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Select Override Action</label>
-              <select value={markAction} onChange={(e) => setMarkAction(e.target.value as any)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-black font-medium text-sm">
-                <option value="absent">Mark as Absent (value = 0)</option>
-                <option value="half_day">Mark as Half Day (value = 0.5)</option>
-                <option value="mark_checkout">Mark Checkout Time</option>
-              </select>
-            </div>
+            <div className="space-y-4">
+              {isManualMark ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Employee *</label>
+                    <select 
+                      value={selectedEmployee.id}
+                      onChange={(e) => {
+                        const empId = e.target.value;
+                        const empName = (storeEmployees || []).find(emp => emp.id === empId)?.name || 'Employee';
+                        setSelectedEmployee({ ...selectedEmployee, id: empId, name: empName });
+                      }}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 font-semibold text-slate-700 text-sm bg-slate-50/50 cursor-pointer transition"
+                    >
+                      <option value="">-- Choose Employee --</option>
+                      {(storeEmployees || []).map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Date *</label>
+                    <input 
+                      type="date"
+                      value={selectedEmployee.date}
+                      onChange={(e) => setSelectedEmployee({ ...selectedEmployee, date: e.target.value })}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Employee</span>
+                    <span className="font-bold text-slate-800 text-sm mt-1 block">{selectedEmployee.name}</span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Date</span>
+                    <span className="font-semibold text-slate-600 text-xs mt-1 block">{selectedEmployee.date}</span>
+                  </div>
+                </>
+              )}
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Reason for Manual Marking</label>
-              <textarea value={markReason} onChange={(e) => setMarkReason(e.target.value)}
-                placeholder="Enter justification or reason for override..." rows={3}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-black text-sm resize-none" />
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Override Status Value *</label>
+                <select value={markAction} onChange={(e) => setMarkAction(e.target.value as any)}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 font-semibold text-slate-700 text-sm bg-slate-50/50 cursor-pointer transition">
+                  <option value="present">Mark as Present (value = 1.0)</option>
+                  <option value="late_within_buffer">Mark as Late (value = 1.0)</option>
+                  <option value="half_day">Mark as Half Day (value = 0.5)</option>
+                  <option value="absent">Mark as Absent (value = 0.0)</option>
+                  <option value="mark_checkout">Mark Checkout Time</option>
+                </select>
+              </div>
+
+              {markAction !== 'absent' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Check In Time</label>
+                    <input 
+                      type="time" 
+                      value={customCheckIn} 
+                      onChange={(e) => setCustomCheckIn(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Check Out Time</label>
+                    <input 
+                      type="time" 
+                      value={customCheckOut} 
+                      onChange={(e) => setCustomCheckOut(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Override Justification *</label>
+                <textarea value={markReason} onChange={(e) => setMarkReason(e.target.value)}
+                  placeholder="Enter manual marking reason (e.g. forgot to check in, client site visit)..." rows={3}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 placeholder:text-slate-400 resize-none bg-slate-50/50 transition" />
+              </div>
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button onClick={() => { setShowMarkModal(false); setSelectedEmployee(null); setMarkReason('') }} disabled={marking}
-                className="flex-1 py-2.5 border border-slate-200 text-slate-700 text-sm font-semibold rounded-xl hover:bg-slate-50 transition disabled:opacity-50">
+              <button 
+                onClick={() => { setShowMarkModal(false); setSelectedEmployee(null); setMarkReason(''); setCustomCheckIn(''); setCustomCheckOut(''); }} 
+                disabled={marking}
+                className="flex-1 btn-crm-secondary py-2.5 text-sm font-semibold rounded-xl active:scale-98 transition disabled:opacity-50">
                 Cancel
               </button>
-              <button onClick={handleMarkAttendance} disabled={marking}
-                className="flex-1 py-2.5 bg-black hover:bg-slate-800 text-white text-sm font-semibold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2">
+              <button 
+                onClick={handleMarkAttendance} 
+                disabled={marking}
+                className="flex-1 btn-crm-primary py-2.5 text-sm font-semibold rounded-xl active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2">
                 {marking ? (
                   <>
                     <RefreshCw size={14} className="animate-spin" />

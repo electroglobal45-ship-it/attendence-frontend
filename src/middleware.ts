@@ -17,23 +17,20 @@ export function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/']
   const isPublicRoute = publicRoutes.includes(pathname)
   
-  // Admin routes
-  const adminRoutes = [
-    '/dashboard',
-    '/projects',
+  // Define route classifications
+  const isBoardRoute = pathname.startsWith('/projects') || pathname.startsWith('/board')
+  
+  const adminOnlyRoutes = [
     '/tasks',
-    '/employees',
     '/users',
     '/calendar',
     '/holidays',
     '/reports',
     '/settings',
-    '/board',
     '/vault',
   ]
-  const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route))
+  const isAdminOnlyRoute = adminOnlyRoutes.some(route => pathname.startsWith(route))
   
-  // Employee routes
   const employeeRoutes = [
     '/home',
     '/attendance',
@@ -41,28 +38,58 @@ export function middleware(request: NextRequest) {
     '/my-calendar',
     '/leaves',
     '/salary',
-    '/drive',
     '/my-passwords',
-    '/meetings',
   ]
   const isEmployeeRoute = employeeRoutes.some(route => pathname.startsWith(route))
   
+  const sharedRoutes = [
+    '/drive',
+    '/meetings',
+    '/messages',
+  ]
+  const isSharedRoute = sharedRoutes.some(route => pathname.startsWith(route))
+  
+  const isHrAllowedAdminRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/employees')
+  
   // No token + trying to access protected route → redirect to login
-  if (!token && !isPublicRoute && (isAdminRoute || isEmployeeRoute)) {
+  const isProtectedRoute = isBoardRoute || isAdminOnlyRoute || isEmployeeRoute || isSharedRoute || isHrAllowedAdminRoute
+  if (!token && !isPublicRoute && isProtectedRoute) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
   
-  // Has token + on login page → redirect to dashboard
+  // Has token + on login page → redirect to dashboard/home
   if (token && pathname === '/login') {
-    const redirectUrl = userRole === 'admin' ? '/dashboard' : '/home'
+    const redirectUrl = (userRole === 'admin' || userRole === 'hr') ? '/dashboard' : '/home'
     return NextResponse.redirect(new URL(redirectUrl, request.url))
   }
   
-  // Admin route but user is not admin → redirect to employee home
-  if (token && isAdminRoute && userRole !== 'admin') {
-    return NextResponse.redirect(new URL('/home', request.url))
+  if (token) {
+    if (userRole === 'admin') {
+      // Admins can go anywhere
+      return NextResponse.next()
+    }
+    
+    if (userRole === 'hr') {
+      // HR only gets dashboard, employees, and shared routes
+      const isAllowed = isHrAllowedAdminRoute || isSharedRoute
+      if (!isAllowed) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+    } else if (userRole === 'team leader') {
+      // Team Leaders get employee routes, board routes, and shared routes
+      const isAllowed = isEmployeeRoute || isBoardRoute || isSharedRoute
+      if (!isAllowed) {
+        return NextResponse.redirect(new URL('/home', request.url))
+      }
+    } else {
+      // Regular employees (and any other roles) get employee routes and shared routes only
+      const isAllowed = isEmployeeRoute || isSharedRoute
+      if (!isAllowed) {
+        return NextResponse.redirect(new URL('/home', request.url))
+      }
+    }
   }
   
   return NextResponse.next()

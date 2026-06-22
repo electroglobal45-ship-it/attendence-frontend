@@ -5,6 +5,7 @@ import {
   salaryAPI, adminAPI
 } from '@/lib/tasks-api'
 import { driveAPI } from '@/lib/drive-api'
+import { agentsAPI } from '@/lib/backend-api'
 
 export type LoadStatus = 'idle' | 'loading' | 'done' | 'error'
 
@@ -21,6 +22,7 @@ export type PrefetchChunk =
   | 'employees'
   | 'settings'
   | 'salary'
+  | 'agents'
 
 interface PrefetchState {
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -39,6 +41,7 @@ interface PrefetchState {
   salaryData: any | null
   driveConnected: boolean | null
   driveEmail: string | null
+  agents: any[]
 
   // ── Admin Specific Data ───────────────────────────────────────────────────
   adminStats: any | null
@@ -55,7 +58,7 @@ interface PrefetchState {
 
   // ── Actions ───────────────────────────────────────────────────────────────
   prefetchAll: () => Promise<void>
-  refreshChunk: (chunk: PrefetchChunk) => Promise<void>
+  refreshChunk: (chunk: PrefetchChunk, date?: string) => Promise<void>
 
   // Mutation helpers (update store after mutating API calls)
   updateTodayAttendance: (data: any) => void
@@ -88,6 +91,7 @@ const defaultStatus: Record<PrefetchChunk, LoadStatus> = {
   employees:  'idle',
   settings:   'idle',
   salary:     'idle',
+  agents:     'idle',
 }
 
 export const usePrefetchStore = create<PrefetchState>((set, get) => ({
@@ -107,6 +111,7 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
   salaryData:        null,
   driveConnected:    null,
   driveEmail:        null,
+  agents:            [],
 
   adminStats:        null,
   adminAttendance:   [],
@@ -137,6 +142,7 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
         employees:  'loading',
         settings:   'loading',
         salary:     'loading',
+        agents:     'loading',
       }
     })
 
@@ -168,6 +174,7 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
       adminLeaves: isAdmin ? adminAPI.getAllLeaves('pending').catch(() => null) : Promise.resolve(null),
       adminShortLeaves: isAdmin ? leavesAPI.getShortLeaves(true).catch(() => null) : Promise.resolve(null),
       adminTasks: isAdmin ? tasksAPI.getAllTasks().catch(() => null) : Promise.resolve(null),
+      agents: isAdmin ? agentsAPI.getAgents().catch(() => null) : Promise.resolve(null),
     }
 
     const keys = Object.keys(promises) as (keyof typeof promises)[]
@@ -324,14 +331,21 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
         if (adminTasksResult.status === 'fulfilled' && adminTasksResult.value) {
           updates.adminTasks = adminTasksResult.value.data?.tasks ?? []
         }
+        
+        const agentsResult = resultsMap.agents
+        if (agentsResult && agentsResult.status === 'fulfilled' && agentsResult.value) {
+          updates.agents = agentsResult.value.data?.agents ?? []
+          newStatus.agents = 'done'
+        } else if (isAdmin) {
+          newStatus.agents = 'error'
+        }
       }
 
       return { ...updates, status: newStatus, isPrefetched: true }
     })
   },
 
-  // ── Refresh a single chunk ────────────────────────────────────────────────
-  refreshChunk: async (chunk: PrefetchChunk) => {
+  refreshChunk: async (chunk: PrefetchChunk, date?: string) => {
     set((state) => ({ status: { ...state.status, [chunk]: 'loading' } }))
 
     const isAdmin = typeof window !== 'undefined' && localStorage.getItem('userRole') === 'admin'
@@ -340,8 +354,9 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
       switch (chunk) {
         case 'attendance': {
           if (isAdmin) {
+            const queryDate = date || new Date().toISOString().split('T')[0]
             const [attRes, statsRes, userAttRes] = await Promise.allSettled([
-              adminAPI.getAllAttendance({ date: new Date().toISOString().split('T')[0] }),
+              adminAPI.getAllAttendance({ date: queryDate }),
               adminAPI.getDashboardStats(),
               attendanceAPI.getTodayAttendance()
             ])
@@ -497,6 +512,20 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
           }))
           break
         }
+        case 'agents': {
+          if (isAdmin) {
+            const res = await agentsAPI.getAgents()
+            set((state) => ({
+              agents: res?.data?.agents ?? [],
+              status: { ...state.status, agents: 'done' },
+            }))
+          } else {
+            set((state) => ({
+              status: { ...state.status, agents: 'done' },
+            }))
+          }
+          break
+        }
       }
     } catch {
       set((state) => ({ status: { ...state.status, [chunk]: 'error' } }))
@@ -549,6 +578,7 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
       adminLeaves:       [],
       adminShortLeaves:  [],
       adminTasks:        [],
+      agents:            [],
 
       status:            { ...defaultStatus },
       isPrefetched:      false,

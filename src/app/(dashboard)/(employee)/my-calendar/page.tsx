@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { formatTimeIST } from '@/lib/time-utils'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -63,6 +64,13 @@ export default function CalendarPage() {
 
   const s = data?.summary
 
+  const fmtTimeCompact = (iso: string | null) => {
+    if (!iso) return ''
+    const formatted = formatTimeIST(iso)
+    if (formatted === '—') return ''
+    return formatted.replace(/\s?[AP]M/i, (m) => m.trim().toLowerCase())
+  }
+
   return (
     <PageWrapper title="My Calendar" subtitle="Attendance overview by month">
       <div className="max-w-3xl px-4 sm:px-0 space-y-4 sm:space-y-5 pb-6">
@@ -114,7 +122,7 @@ export default function CalendarPage() {
                   <button
                     key={cell.date}
                     onClick={() => setSelected(cell)}
-                    className={`aspect-square border-b border-r border-gray-100 flex flex-col items-center justify-center gap-0.5 hover:opacity-80 transition touch-manipulation ${cell.dayType !== 'future' ? 'cursor-pointer' : 'cursor-default'}`}
+                    className={`aspect-square border-b border-r border-gray-100 flex flex-col items-center justify-center p-1 gap-0.5 hover:opacity-80 transition touch-manipulation ${cell.dayType !== 'future' ? 'cursor-pointer' : 'cursor-default'}`}
                   >
                     <span className={`text-xs sm:text-sm font-medium w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full ${isToday ? 'bg-black text-white' : 'text-gray-800'}`}>
                       {cell.day}
@@ -123,6 +131,12 @@ export default function CalendarPage() {
                       <span className={`text-[8px] sm:text-[9px] px-1 rounded font-medium ${style.bg} ${style.text} leading-tight`}>
                         {style.label}
                       </span>
+                    )}
+                    {(cell.checkIn || cell.checkOut || cell.check_out) && (
+                      <div className="text-[8px] sm:text-[9px] text-gray-400 font-mono mt-0.5 flex flex-col items-center leading-none scale-90 sm:scale-100">
+                        {cell.checkIn && <span>↓{fmtTimeCompact(cell.checkIn)}</span>}
+                        {(cell.checkOut || cell.check_out) && <span>↑{fmtTimeCompact(cell.checkOut || cell.check_out)}</span>}
+                      </div>
                     )}
                   </button>
                 )
@@ -157,15 +171,15 @@ export default function CalendarPage() {
                 <div className="flex justify-between gap-2">
                   <span className="text-gray-500">Check In</span>
                   <span className="font-medium">
-                    {new Date((selected.checkIn.endsWith('Z') ? selected.checkIn : selected.checkIn + 'Z')).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' })}
+                    {formatTimeIST(selected.checkIn)}
                   </span>
                 </div>
               )}
-              {selected.check_out && (
+              {(selected.checkOut || selected.check_out) && (
                 <div className="flex justify-between gap-2">
                   <span className="text-gray-500">Mark Out</span>
                   <span className="font-medium">
-                    {new Date((selected.check_out.endsWith('Z') ? selected.check_out : selected.check_out + 'Z')).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true, timeZone:'Asia/Kolkata' })}
+                    {formatTimeIST(selected.checkOut || selected.check_out)}
                   </span>
                 </div>
               )}

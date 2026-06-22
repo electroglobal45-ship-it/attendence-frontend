@@ -131,17 +131,17 @@ export class AgentOrchestrator {
     let bestAgent: BaseAgent | null = null;
     let highestScore = 0;
 
-    for (const [name, agent] of this.agents) {
-      if (!agent.canHandle(task)) continue;
+    this.agents.forEach((agent, name) => {
+      if (agent.canHandle(task)) {
+        const score = agent.getConfidenceScore(task);
+        console.log(`  ${name}: confidence ${(score * 100).toFixed(1)}%`);
 
-      const score = agent.getConfidenceScore(task);
-      console.log(`  ${name}: confidence ${(score * 100).toFixed(1)}%`);
-
-      if (score > highestScore) {
-        highestScore = score;
-        bestAgent = agent;
+        if (score > highestScore) {
+          highestScore = score;
+          bestAgent = agent;
+        }
       }
-    }
+    });
 
     // Fallback to configured default agent
     if (!bestAgent && this.config.routing?.fallback) {
@@ -157,12 +157,12 @@ export class AgentOrchestrator {
   private selectMultipleAgents(task: Task): BaseAgent[] {
     const selectedAgents: Array<{ agent: BaseAgent; score: number }> = [];
 
-    for (const [name, agent] of this.agents) {
+    this.agents.forEach((agent, name) => {
       if (agent.canHandle(task)) {
         const score = agent.getConfidenceScore(task);
         selectedAgents.push({ agent, score });
       }
-    }
+    });
 
     // Sort by confidence and return top agents
     return selectedAgents
@@ -205,9 +205,9 @@ export class AgentOrchestrator {
       successRate: 0
     };
 
-    for (const [name, agent] of this.agents) {
+    this.agents.forEach((agent, name) => {
       stats.agents[name] = agent.getStats();
-    }
+    });
 
     const successful = this.taskHistory.filter(h => h.result.success).length;
     stats.successRate = this.taskHistory.length > 0 

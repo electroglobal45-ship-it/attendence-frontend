@@ -1,7 +1,7 @@
 import { AgentConfig, Task, TaskResult, AgentMemory } from '../types';
 
 export abstract class BaseAgent {
-  protected config: AgentConfig;
+  public config: AgentConfig;
   protected memory: AgentMemory[] = [];
   protected skillsLearned: Set<string> = new Set();
 

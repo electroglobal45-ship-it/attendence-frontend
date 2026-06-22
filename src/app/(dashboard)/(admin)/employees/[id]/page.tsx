@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { PageWrapper } from '@/components/layout/PageWrapper'
-import { ArrowLeft, Calendar, DollarSign, Clock } from 'lucide-react'
+import { ArrowLeft, Calendar, DollarSign, Clock, X, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 import { formatTimeIST, calculateHours } from '@/lib/time-utils'
+import { adminAPI } from '@/lib/tasks-api'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
 
@@ -21,8 +22,43 @@ export default function EmployeeDetailPage() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
 
+  // Attendance Override Modal states
+  const [showMarkModal, setShowMarkModal] = useState(false)
+  const [selectedDate, setSelectedDate] = useState('')
+  const [markAction, setMarkAction] = useState<'present' | 'absent' | 'half_day' | 'late_within_buffer' | 'mark_checkout'>('absent')
+  const [markReason, setMarkReason] = useState('')
+  const [customCheckIn, setCustomCheckIn] = useState('')
+  const [customCheckOut, setCustomCheckOut] = useState('')
+  const [marking, setMarking] = useState(false)
+
+  const fetchCalendarAndSalary = async (m: number, y: number) => {
+    const token = localStorage.getItem('authToken')
+    try {
+      const [calRes, salRes] = await Promise.all([
+        fetch(`/api/calendar?month=${m}&year=${y}&employeeId=${employeeId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`/api/salary/calculate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ month: m, year: y, employeeId }),
+        })
+      ])
+      const calData = await calRes.json()
+      const salData = await salRes.json()
+      setCalendar(calData)
+      setSalary(salData.error ? null : salData)
+    } catch (err) {
+      console.error('Fetch error:', err)
+    }
+  }
+
   useEffect(() => {
     const token = localStorage.getItem('authToken')
+    setLoading(true)
     
     // Fetch employee details
     fetch(`${BACKEND_URL}/api/v1/users`, {
@@ -34,26 +70,55 @@ export default function EmployeeDetailPage() {
         setEmployee(emp)
       })
 
-    // Fetch calendar
-    fetch(`/api/calendar?month=${selectedMonth}&year=${selectedYear}&employeeId=${employeeId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((d) => setCalendar(d))
-
-    // Fetch salary
-    fetch(`/api/salary/calculate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ month: selectedMonth, year: selectedYear, employeeId }),
-    })
-      .then((r) => r.json())
-      .then((d) => setSalary(d))
+    fetchCalendarAndSalary(selectedMonth, selectedYear)
       .finally(() => setLoading(false))
   }, [employeeId, selectedMonth, selectedYear])
+
+  const handleOpenMarkModal = (dateStr: string, existingDayRecord?: any) => {
+    setSelectedDate(dateStr)
+    setMarkAction((existingDayRecord?.dayType as any) || 'absent')
+    setMarkReason(existingDayRecord?.admin_reason || '')
+
+    const parseTime = (iso: string | null) => {
+      if (!iso) return ''
+      const timestamp = iso.endsWith('Z') ? iso : iso + 'Z'
+      const d = new Date(timestamp)
+      const hrs = String(d.toLocaleTimeString('en-IN', { hour: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })).split(':')
+      return `${hrs[0]}:${hrs[1]}`
+    }
+
+    setCustomCheckIn(parseTime(existingDayRecord?.checkIn))
+    setCustomCheckOut(parseTime(existingDayRecord?.checkOut))
+    setShowMarkModal(true)
+  }
+
+  const handleMarkAttendance = async () => {
+    setMarking(true)
+    try {
+      await adminAPI.markAttendance({
+        employeeId: employeeId,
+        date: selectedDate,
+        action: markAction,
+        reason: markReason || undefined,
+        checkIn: customCheckIn || undefined,
+        checkOut: customCheckOut || undefined,
+      })
+
+      setShowMarkModal(false)
+      setMarkReason('')
+      setCustomCheckIn('')
+      setCustomCheckOut('')
+      
+      // Refresh page data
+      setLoading(true)
+      await fetchCalendarAndSalary(selectedMonth, selectedYear)
+    } catch (error: any) {
+      alert(error.message || 'Failed to mark attendance')
+    } finally {
+      setMarking(false)
+      setLoading(false)
+    }
+  }
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>
@@ -191,6 +256,7 @@ export default function EmployeeDetailPage() {
                     <th>Check Out</th>
                     <th>Hours</th>
                     <th>Value</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -224,6 +290,14 @@ export default function EmployeeDetailPage() {
                       </td>
                       <td>{calculateHours(day.checkIn, day.checkOut)}</td>
                       <td className="font-semibold">{day.attendanceValue}</td>
+                      <td>
+                        <button
+                          onClick={() => handleOpenMarkModal(day.date, day)}
+                          className="px-2.5 py-1 text-xs font-semibold rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-650 transition cursor-pointer border border-slate-200"
+                        >
+                          Override
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -232,6 +306,99 @@ export default function EmployeeDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Attendance Override Modal */}
+      {showMarkModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 shadow-xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-800 font-jakarta">Attendance Override Action</h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Override attendance record for <span className="font-semibold text-indigo-650">{employee.name}</span>
+                </p>
+              </div>
+              <button 
+                onClick={() => { setShowMarkModal(false); setMarkReason(''); setCustomCheckIn(''); setCustomCheckOut(''); }}
+                className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-lg transition animate-none cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Date</span>
+                <span className="font-semibold text-slate-600 text-xs mt-1 block">{selectedDate}</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Override Status Value *</label>
+                <select value={markAction} onChange={(e) => setMarkAction(e.target.value as any)}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 font-semibold text-slate-700 text-sm bg-slate-50/50 cursor-pointer transition">
+                  <option value="present">Mark as Present (value = 1.0)</option>
+                  <option value="late_within_buffer">Mark as Late (value = 1.0)</option>
+                  <option value="half_day">Mark as Half Day (value = 0.5)</option>
+                  <option value="absent">Mark as Absent (value = 0.0)</option>
+                  <option value="mark_checkout">Mark Checkout Time</option>
+                </select>
+              </div>
+
+              {markAction !== 'absent' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Check In Time</label>
+                    <input 
+                      type="time" 
+                      value={customCheckIn} 
+                      onChange={(e) => setCustomCheckIn(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Check Out Time</label>
+                    <input 
+                      type="time" 
+                      value={customCheckOut} 
+                      onChange={(e) => setCustomCheckOut(e.target.value)}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 bg-slate-50/50 transition cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Override Justification *</label>
+                <textarea value={markReason} onChange={(e) => setMarkReason(e.target.value)}
+                  placeholder="Enter manual marking reason (e.g. forgot to check in, client site visit)..." rows={3}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm text-slate-700 placeholder:text-slate-400 resize-none bg-slate-50/50 transition" />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button 
+                onClick={() => { setShowMarkModal(false); setMarkReason(''); setCustomCheckIn(''); setCustomCheckOut(''); }} 
+                disabled={marking}
+                className="flex-1 btn-crm-secondary py-2.5 text-sm font-semibold rounded-xl active:scale-98 transition disabled:opacity-50">
+                Cancel
+              </button>
+              <button 
+                onClick={handleMarkAttendance} 
+                disabled={marking}
+                className="flex-1 btn-crm-primary py-2.5 text-sm font-semibold rounded-xl active:scale-98 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                {marking ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Apply Override'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageWrapper>
   )
 }

@@ -16,13 +16,31 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:500
 interface Employee { id: string; name: string; email: string }
 
 // ── Helper to format domains and URLs ─────────────────────────────────────────
-const getDomain = (serviceName: string) => {
-  const clean = serviceName.trim().toLowerCase()
+const getDomain = (urlOrName: string) => {
+  const clean = urlOrName.trim().toLowerCase()
+  try {
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      const parsed = new URL(clean)
+      return parsed.hostname
+    }
+  } catch (e) {}
   if (clean.includes('.')) return clean
   return `${clean}.com`
 }
 
-const getSiteLink = (serviceName: string) => {
+const getSiteLink = (serviceName: string, siteUrl?: string | null) => {
+  if (siteUrl) {
+    try {
+      const clean = siteUrl.trim().toLowerCase()
+      if (clean.startsWith('http://') || clean.startsWith('https://')) {
+        const parsed = new URL(clean)
+        return parsed.hostname
+      }
+      return clean
+    } catch {
+      return siteUrl
+    }
+  }
   const domain = getDomain(serviceName)
   if (serviceName.toLowerCase().includes('apollo')) {
     return 'app.apollo.io'
@@ -30,18 +48,22 @@ const getSiteLink = (serviceName: string) => {
   return domain
 }
 
-const getSiteUrl = (serviceName: string) => {
-  const link = getSiteLink(serviceName)
+const getSiteUrl = (serviceName: string, siteUrl?: string | null) => {
+  if (siteUrl) {
+    return siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`
+  }
+  const link = getSiteLink(serviceName, siteUrl)
   return link.startsWith('http') ? link : `https://${link}`
 }
 
 // ── Multi-employee selector ──────────────────────────────────────────────────
 function EmployeeMultiSelect({
-  employees, selected, onChange,
+  employees, selected, onChange, placeholder = 'Select employees…'
 }: {
   employees: Employee[]
   selected: string[]
   onChange: (ids: string[]) => void
+  placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -69,7 +91,7 @@ function EmployeeMultiSelect({
       >
         <span className={selected.length === 0 ? 'text-gray-400' : 'text-gray-800'}>
           {selected.length === 0
-            ? 'Select employees…'
+            ? placeholder
             : selectedNames.length <= 2
               ? selectedNames.join(', ')
               : `${selectedNames[0]}, ${selectedNames[1]} +${selected.length - 2} more`}
@@ -110,6 +132,7 @@ export default function AdminVaultPage() {
   const [employees, setEmployees] = useState<Employee[]>(() => storeEmployees ?? [])
   const [loading, setLoading]   = useState(() => !storeVaultEntries || storeVaultEntries.length === 0)
   const [showForm, setShowForm] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [resettingKey, setResettingKey] = useState<string | null>(null)
@@ -119,13 +142,14 @@ export default function AdminVaultPage() {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(() => 
     storeVaultEntries && storeVaultEntries.length > 0 ? storeVaultEntries[0].id : null
   )
-  const [showPassword, setShowPassword] = useState(false)
+  const [showCredentials, setShowCredentials] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showInfoToast, setShowInfoToast] = useState<string | null>(null)
   const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null)
+  const [filterEmployees, setFilterEmployees] = useState<string[]>([])
 
   useEffect(() => {
-    setShowPassword(false)
+    setShowCredentials(false)
   }, [selectedEntryId])
 
   // Form state
@@ -133,6 +157,7 @@ export default function AdminVaultPage() {
     service_name: '',
     username: '',
     password: '',
+    site_url: '',
     notes: '',
   })
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
@@ -199,71 +224,113 @@ export default function AdminVaultPage() {
   }, [fetchData])
 
   const resetForm = () => {
-    setForm({ service_name: '', username: '', password: '', notes: '' })
+    setForm({ service_name: '', username: '', password: '', site_url: '', notes: '' })
     setSelectedEmployees([])
     setShowFormPw(false)
+    setIsEditing(false)
     setError(null)
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleEditClick = () => {
+    if (!selectedEntry) return
+    setForm({
+      service_name: selectedEntry.service_name,
+      username: selectedEntry.username,
+      site_url: selectedEntry.site_url || '',
+      notes: selectedEntry.notes || '',
+      password: selectedEntry.password || '',
+    })
+    setSelectedEmployees(selectedEntry.assignments?.map(a => a.assigned_to) || [])
+    setIsEditing(true)
+    setShowForm(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (selectedEmployees.length === 0) {
       setError('Please select at least one employee')
       return
     }
     setError(null)
-
-    // ── OPTIMISTIC: show the entry immediately ────────────────────────────────
-    const tempId = `temp-${Date.now()}`
-    const optimisticEntry: AdminVaultEntry = {
-      id:           tempId,
-      service_name: form.service_name,
-      username:     form.username,
-      notes:        form.notes || null,
-      created_by:   '',
-      created_at:   new Date().toISOString(),
-      assignments:  selectedEmployees.map(id => ({
-        id:          `temp-a-${id}`,
-        assigned_to: id,
-        is_revealed: false,
-        assignee:    employees.find(emp => emp.id === id)
-                       ? { id, name: employees.find(emp => emp.id === id)!.name, email: employees.find(emp => emp.id === id)!.email }
-                       : undefined,
-      })),
-      password: form.password,
-    }
-    const snapshotForm = { ...form }
-    const snapshotEmployees = [...selectedEmployees]
-
-    setEntries(prev => [optimisticEntry, ...prev])
-    usePrefetchStore.setState({
-      vaultEntries: [optimisticEntry, ...usePrefetchStore.getState().vaultEntries]
-    })
-    setSelectedEntryId(tempId)
-    setShowForm(false)
-    resetForm()
-
-    // ── BACKGROUND: persist to server ────────────────────────────────────────
     setSubmitting(true)
+
     try {
-      const res = await vaultAPI.createEntry({
-        ...snapshotForm,
-        assigned_to: snapshotEmployees,
-      })
-      const newEntry = res.data.entry
-      // Swap the temp entry with the real one
-      setEntries(prev => prev.map(item => item.id === tempId ? newEntry : item))
-      usePrefetchStore.setState({
-        vaultEntries: usePrefetchStore.getState().vaultEntries.map(item => item.id === tempId ? newEntry : item)
-      })
-      setSelectedEntryId(newEntry.id)
+      if (isEditing && selectedEntryId) {
+        const payload: any = {
+          service_name: form.service_name,
+          username: form.username,
+          site_url: form.site_url,
+          notes: form.notes,
+          assigned_to: selectedEmployees,
+        }
+        if (form.password) {
+          payload.password = form.password
+        }
+
+        const res = await vaultAPI.updateEntry(selectedEntryId, payload)
+        const updatedEntry = res.data.entry
+
+        setEntries(prev => prev.map(item => item.id === selectedEntryId ? updatedEntry : item))
+        usePrefetchStore.setState({
+          vaultEntries: usePrefetchStore.getState().vaultEntries.map(item => item.id === selectedEntryId ? updatedEntry : item)
+        })
+        setShowForm(false)
+        resetForm()
+      } else {
+        // ── OPTIMISTIC: show the entry immediately ────────────────────────────────
+        const tempId = `temp-${Date.now()}`
+        const optimisticEntry: AdminVaultEntry = {
+          id:           tempId,
+          service_name: form.service_name,
+          username:     form.username,
+          notes:        form.notes || null,
+          site_url:     form.site_url || null,
+          created_by:   '',
+          created_at:   new Date().toISOString(),
+          assignments:  selectedEmployees.map(id => ({
+            id:          `temp-a-${id}`,
+            assigned_to: id,
+            is_revealed: false,
+            assignee:    employees.find(emp => emp.id === id)
+                           ? { id, name: employees.find(emp => emp.id === id)!.name, email: employees.find(emp => emp.id === id)!.email }
+                           : undefined,
+          })),
+          password: form.password,
+        }
+        const snapshotForm = { ...form }
+        const snapshotEmployees = [...selectedEmployees]
+
+        setEntries(prev => [optimisticEntry, ...prev])
+        usePrefetchStore.setState({
+          vaultEntries: [optimisticEntry, ...usePrefetchStore.getState().vaultEntries]
+        })
+        setSelectedEntryId(tempId)
+        setShowForm(false)
+        resetForm()
+
+        try {
+          const res = await vaultAPI.createEntry({
+            ...snapshotForm,
+            assigned_to: snapshotEmployees,
+          })
+          const newEntry = res.data.entry
+          // Swap the temp entry with the real one
+          setEntries(prev => prev.map(item => item.id === tempId ? newEntry : item))
+          usePrefetchStore.setState({
+            vaultEntries: usePrefetchStore.getState().vaultEntries.map(item => item.id === tempId ? newEntry : item)
+          })
+          setSelectedEntryId(newEntry.id)
+        } catch (err: any) {
+          // Roll back on failure
+          setEntries(prev => prev.filter(item => item.id !== tempId))
+          usePrefetchStore.setState({
+            vaultEntries: usePrefetchStore.getState().vaultEntries.filter(item => item.id !== tempId)
+          })
+          setSelectedEntryId(null)
+          setError(err.message || 'Failed to save credential')
+        }
+      }
     } catch (err: any) {
-      // Roll back on failure
-      setEntries(prev => prev.filter(item => item.id !== tempId))
-      usePrefetchStore.setState({
-        vaultEntries: usePrefetchStore.getState().vaultEntries.filter(item => item.id !== tempId)
-      })
-      setSelectedEntryId(null)
       setError(err.message || 'Failed to save credential')
     } finally {
       setSubmitting(false)
@@ -349,11 +416,18 @@ export default function AdminVaultPage() {
     setTimeout(() => setShowInfoToast(null), 3500)
   }
 
-  // Filtered list based on search
-  const filteredEntries = entries.filter(entry => 
-    entry.service_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    entry.username.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Filtered list based on search and employee filter
+  const filteredEntries = entries.filter(entry => {
+    const matchesSearch = entry.service_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      entry.username.toLowerCase().includes(searchQuery.toLowerCase())
+    if (!matchesSearch) return false
+
+    if (filterEmployees.length > 0) {
+      const assignedIds = entry.assignments?.map(a => a.assigned_to) || []
+      return filterEmployees.some(id => assignedIds.includes(id))
+    }
+    return true
+  })
 
   const selectedEntry = entries.find(e => e.id === selectedEntryId) || null
 
@@ -418,6 +492,28 @@ export default function AdminVaultPage() {
                 </button>
               )}
             </div>
+
+            {/* Employee Filter */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block px-1">Filter by Employee</span>
+              <EmployeeMultiSelect
+                employees={employees}
+                selected={filterEmployees}
+                onChange={setFilterEmployees}
+                placeholder="Filter by employee…"
+              />
+              {filterEmployees.length > 0 && (
+                <div className="flex justify-end px-1">
+                  <button 
+                    type="button" 
+                    onClick={() => setFilterEmployees([])} 
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* List items */}
@@ -433,7 +529,7 @@ export default function AdminVaultPage() {
             ) : (
               filteredEntries.map(entry => {
                 const isSelected = selectedEntryId === entry.id
-                const domain = getDomain(entry.service_name)
+                const domain = entry.site_url ? getDomain(entry.site_url) : getDomain(entry.service_name)
                 
                 return (
                   <div
@@ -500,7 +596,7 @@ export default function AdminVaultPage() {
                 <div className="w-10 h-10 rounded-xl bg-yellow-400/10 flex items-center justify-center text-yellow-600 border border-yellow-500/20">
                   {/* Mockup shows apollo's yellow icon or default flower/star */}
                   <img
-                    src={`https://www.google.com/icons/thirdparty/images/png?size=64&domain=${getDomain(selectedEntry.service_name)}`}
+                    src={`https://www.google.com/icons/thirdparty/images/png?size=64&domain=${selectedEntry.site_url ? getDomain(selectedEntry.site_url) : getDomain(selectedEntry.service_name)}`}
                     alt=""
                     className="w-6 h-6 object-contain"
                     onError={(e) => {
@@ -529,9 +625,13 @@ export default function AdminVaultPage() {
                   {/* Left Column: Username, Password */}
                   <div className="space-y-4">
                     <div>
-                      <span className="text-xs font-semibold text-gray-400 block mb-1">Username</span>
+                      <span className="text-xs font-semibold text-gray-400 block mb-1">Username / Email</span>
                       <div className="bg-[#f0eef9] hover:bg-[#eae8f5] text-[#1e1b4b] px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border border-transparent hover:border-indigo-100 transition duration-150">
-                        <span className="select-all font-medium truncate pr-2">{selectedEntry.username}</span>
+                        {showCredentials ? (
+                          <span className="select-all font-medium truncate pr-2">{selectedEntry.username}</span>
+                        ) : (
+                          <span className="tracking-widest font-semibold text-gray-500">••••••••••••••</span>
+                        )}
                         <button
                           onClick={() => copyToClipboard(selectedEntry.username, 'username')}
                           className="text-indigo-500 hover:text-indigo-700 transition-colors p-1"
@@ -549,31 +649,22 @@ export default function AdminVaultPage() {
                     <div>
                       <span className="text-xs font-semibold text-gray-400 block mb-1">Password</span>
                       <div className="bg-[#f0eef9] hover:bg-[#eae8f5] text-[#1e1b4b] px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border border-transparent hover:border-indigo-100 transition duration-150">
-                        {showPassword ? (
+                        {showCredentials ? (
                           <span className="select-all font-medium truncate pr-2">{selectedEntry.password || '••••••••••••••'}</span>
                         ) : (
                           <span className="tracking-widest font-semibold text-gray-500">••••••••••••••</span>
                         )}
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="text-indigo-500 hover:text-indigo-700 transition p-1"
-                            title={showPassword ? "Hide password" : "Show password"}
-                          >
-                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                          <button
-                            onClick={() => copyToClipboard(selectedEntry.password || '', 'password')}
-                            className="text-indigo-500 hover:text-indigo-700 transition p-1"
-                            title="Copy password"
-                          >
-                            {copiedField === 'password' ? (
-                              <Check size={16} className="text-emerald-600" />
-                            ) : (
-                              <Copy size={16} />
-                            )}
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => copyToClipboard(selectedEntry.password || '', 'password')}
+                          className="text-indigo-500 hover:text-indigo-700 transition p-1"
+                          title="Copy password"
+                        >
+                          {copiedField === 'password' ? (
+                            <Check size={16} className="text-emerald-600" />
+                          ) : (
+                            <Copy size={16} />
+                          )}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -583,12 +674,12 @@ export default function AdminVaultPage() {
                     <div>
                       <span className="text-xs font-semibold text-gray-400 block mb-1">Sites</span>
                       <a
-                        href={getSiteUrl(selectedEntry.service_name)}
+                        href={getSiteUrl(selectedEntry.service_name, selectedEntry.site_url)}
                         target="_blank"
                         rel="noreferrer"
                         className="text-indigo-600 hover:text-indigo-800 font-medium text-sm inline-flex items-center gap-1 underline mt-1.5 transition"
                       >
-                        {getSiteLink(selectedEntry.service_name)}
+                        {getSiteLink(selectedEntry.service_name, selectedEntry.site_url)}
                         <ExternalLink size={12} />
                       </a>
                     </div>
@@ -603,11 +694,21 @@ export default function AdminVaultPage() {
 
                 </div>
 
-                {/* Bottom Card Actions */}
-                <div className="flex gap-3 pt-4 border-t border-gray-150">
+                {/* Unified Reveal Toggle & Actions */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-150">
                   <button
-                    onClick={() => triggerToast("To edit, please delete and recreate this credential. In-place rotation is restricted to guarantee AES encryption integrity.")}
-                    className="rounded-full border border-indigo-600 text-indigo-600 px-6 py-2 hover:bg-indigo-50 font-semibold text-sm transition flex items-center gap-1.5"
+                    onClick={() => setShowCredentials(!showCredentials)}
+                    className="flex-1 rounded-full bg-indigo-600 text-white px-6 py-2.5 hover:bg-indigo-700 font-semibold text-sm transition flex items-center justify-center gap-2"
+                  >
+                    {showCredentials ? (
+                      <><EyeOff size={14} /> Hide Credentials</>
+                    ) : (
+                      <><Eye size={14} /> Reveal Credentials</>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleEditClick}
+                    className="rounded-full border border-indigo-600 text-indigo-600 px-6 py-2.5 hover:bg-indigo-50 font-semibold text-sm transition flex items-center justify-center gap-1.5"
                   >
                     <Edit size={14} />
                     Edit
@@ -615,7 +716,7 @@ export default function AdminVaultPage() {
                   <button
                     onClick={() => handleDelete(selectedEntry.id, selectedEntry.service_name)}
                     disabled={deletingId === selectedEntry.id}
-                    className="rounded-full border border-red-500 text-red-500 px-6 py-2 hover:bg-red-550 hover:text-white font-semibold text-sm transition flex items-center gap-1.5 disabled:opacity-50"
+                    className="rounded-full border border-red-500 text-red-500 px-6 py-2.5 hover:bg-red-50 font-semibold text-sm transition flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <Trash2 size={14} />
                     {deletingId === selectedEntry.id ? 'Deleting…' : 'Delete'}
@@ -717,7 +818,7 @@ export default function AdminVaultPage() {
 
       </div>
 
-      {/* ── Add Credential Modal ── */}
+      {/* ── Add/Edit Credential Modal ── */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -727,7 +828,7 @@ export default function AdminVaultPage() {
                   <Shield size={16} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900">Add Credential</h3>
+                  <h3 className="font-semibold text-gray-900">{isEditing ? 'Edit Credential' : 'Add Credential'}</h3>
                   <p className="text-xs text-gray-400">Password encrypted with AES-256-GCM</p>
                 </div>
               </div>
@@ -737,7 +838,7 @@ export default function AdminVaultPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
               )}
@@ -762,14 +863,24 @@ export default function AdminVaultPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Site URL <span className="text-gray-400 font-normal">(optional)</span></label>
+                <input value={form.site_url}
+                  onChange={e => setForm(p => ({ ...p, site_url: e.target.value }))}
+                  placeholder="e.g. https://app.apollo.io"
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Password {isEditing ? <span className="text-gray-400 font-normal">(leave blank to keep current)</span> : '*'}
+                </label>
                 <div className="relative">
                   <input
                     type={showFormPw ? 'text' : 'password'}
                     value={form.password}
                     onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                    placeholder="Enter the credential password"
-                    required
+                    placeholder={isEditing ? "Enter new password (optional)" : "Enter the credential password"}
+                    required={!isEditing}
                     className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none font-mono" />
                   <button type="button" onClick={() => setShowFormPw(p => !p)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -806,7 +917,7 @@ export default function AdminVaultPage() {
 
               {/* Security notice */}
               <div className="flex items-start gap-2 p-3 bg-[#f3f1fb] border border-indigo-100 rounded-lg">
-                <Shield size={14} className="text-indigo-650 mt-0.5 flex-shrink-0" />
+                <Shield size={14} className="text-indigo-600 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-indigo-700">
                   Password encrypted with <strong>AES-256-GCM</strong>. Each assigned employee gets their own
                   independent <strong>one-time reveal</strong> — one employee revealing does not affect others.
@@ -822,7 +933,7 @@ export default function AdminVaultPage() {
                   className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-700 text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2">
                   {submitting
                     ? <><RefreshCw size={14} className="animate-spin" />Saving…</>
-                    : <><Shield size={14} />Save Encrypted</>}
+                    : <><Shield size={14} />{isEditing ? 'Save Changes' : 'Save Encrypted'}</>}
                 </button>
               </div>
             </form>

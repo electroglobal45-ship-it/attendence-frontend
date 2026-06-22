@@ -14,8 +14,17 @@
       ],
       "capabilities": {
         "maxTokens": 200000,
-        "supportedLanguages": ["typescript", "javascript", "python", "sql"],
-        "tools": ["code-analysis", "file-operations", "reasoning"]
+        "supportedLanguages": [
+          "typescript",
+          "javascript",
+          "python",
+          "sql"
+        ],
+        "tools": [
+          "code-analysis",
+          "file-operations",
+          "reasoning"
+        ]
       },
       "priority": 1,
       "enabled": true
@@ -33,8 +42,18 @@
       ],
       "capabilities": {
         "maxTokens": 128000,
-        "supportedLanguages": ["typescript", "javascript", "react", "html", "css"],
-        "tools": ["code-generation", "completion", "transformation"]
+        "supportedLanguages": [
+          "typescript",
+          "javascript",
+          "react",
+          "html",
+          "css"
+        ],
+        "tools": [
+          "code-generation",
+          "completion",
+          "transformation"
+        ]
       },
       "priority": 2,
       "enabled": true
@@ -52,8 +71,17 @@
       ],
       "capabilities": {
         "maxTokens": 1000000,
-        "supportedLanguages": ["typescript", "javascript", "python", "sql"],
-        "tools": ["analysis", "testing", "batch-operations"]
+        "supportedLanguages": [
+          "typescript",
+          "javascript",
+          "python",
+          "sql"
+        ],
+        "tools": [
+          "analysis",
+          "testing",
+          "batch-operations"
+        ]
       },
       "priority": 3,
       "enabled": true

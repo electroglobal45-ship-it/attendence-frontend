@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { BoardView } from '@/components/board/BoardView'
 import { Plus, RefreshCw, Layout, ChevronRight } from 'lucide-react'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
+import { useAuth } from '@/lib/auth-context'
 
 const PROJECT_ID = 'c691dc11-b522-4e80-8ae6-337244d2a28d'
 
@@ -15,6 +16,7 @@ interface Board {
 }
 
 export default function BoardsPage() {
+  const { user } = useAuth()
   const storeProjects = usePrefetchStore((state) => state.projects)
   const [boards, setBoards] = useState<Board[]>(() => storeProjects ?? [])
   const [loading, setLoading] = useState(() => !storeProjects || storeProjects.length === 0)
@@ -22,6 +24,8 @@ export default function BoardsPage() {
   const [creatingBoard, setCreatingBoard] = useState(false)
   const [newBoardName, setNewBoardName] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [teamLeaders, setTeamLeaders] = useState<any[]>([])
+  const [selectedTeamLeader, setSelectedTeamLeader] = useState<string>('')
 
   const token = () => localStorage.getItem('authToken')
 
@@ -45,6 +49,21 @@ export default function BoardsPage() {
     finally { setLoading(false) }
   }
 
+  // Fetch team leaders for board assignment
+  const fetchTeamLeaders = async () => {
+    try {
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const response = await fetch(`${BACKEND_URL}/api/v1/users`, {
+        headers: { Authorization: `Bearer ${token()}` }
+      })
+      const data = await response.json()
+      const tls = (data.data?.users || []).filter((u: any) => u.role === 'team leader')
+      setTeamLeaders(tls)
+    } catch (err) {
+      console.error('Failed to fetch team leaders:', err)
+    }
+  }
+
   const createBoard = async () => {
     if (!newBoardName.trim()) return
     setCreatingBoard(true)
@@ -53,7 +72,11 @@ export default function BoardsPage() {
       const res = await fetch(`${BACKEND_URL}/api/v1/boards`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: PROJECT_ID, name: newBoardName.trim() }),
+        body: JSON.stringify({ 
+          project_id: PROJECT_ID, 
+          name: newBoardName.trim(),
+          team_leader_id: selectedTeamLeader || null
+        }),
       })
       if (res.ok) {
         const data = await res.json()
@@ -64,6 +87,7 @@ export default function BoardsPage() {
           setSelectedBoardId(board.id)
         }
         setNewBoardName('')
+        setSelectedTeamLeader('')
         setShowCreate(false)
       }
     } catch {}
@@ -83,6 +107,13 @@ export default function BoardsPage() {
     const timer = setTimeout(() => fetchBoards(hasData), 0)
     return () => clearTimeout(timer)
   }, [])
+
+  // Fetch team leaders for board creation
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchTeamLeaders()
+    }
+  }, [user])
 
   // If a board is selected, show the BoardView for that board
   if (selectedBoardId) {
@@ -127,17 +158,19 @@ export default function BoardsPage() {
                 <RefreshCw size={13} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
                 Refresh
               </button>
-              <button
-                onClick={() => setShowCreate(true)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 16px', background: '#111827',
-                  border: 'none', borderRadius: 8,
-                  color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                }}
-              >
-                <Plus size={14} /> New Board
-              </button>
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => setShowCreate(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px', background: '#111827',
+                    border: 'none', borderRadius: 8,
+                    color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  <Plus size={14} /> New Board
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -287,6 +320,29 @@ export default function BoardsPage() {
               onFocus={e => (e.target.style.borderColor = '#111827')}
               onBlur={e => (e.target.style.borderColor = '#E5E7EB')}
             />
+            {user?.role === 'admin' && (
+              <>
+                <label style={{ display: 'block', color: '#374151', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Team Leader (Optional)</label>
+                <select
+                  value={selectedTeamLeader}
+                  onChange={e => setSelectedTeamLeader(e.target.value)}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '10px 14px', border: '1px solid #E5E7EB',
+                    borderRadius: 8, fontSize: 14, color: '#111827',
+                    outline: 'none', marginBottom: 20,
+                    background: '#FFFFFF',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = '#111827')}
+                  onBlur={e => (e.target.style.borderColor = '#E5E7EB')}
+                >
+                  <option value="">None</option>
+                  {teamLeaders.map(tl => (
+                    <option key={tl.id} value={tl.id}>{tl.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
             <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={() => setShowCreate(false)}

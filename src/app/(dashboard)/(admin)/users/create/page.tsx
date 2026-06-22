@@ -16,7 +16,7 @@ export default function CreateUserPage() {
     name: '',
     password: '',
     confirmPassword: '',
-    role: 'employee' as 'admin' | 'employee',
+    role: 'employee' as 'admin' | 'employee' | 'hr' | 'team leader',
     category: 'regular',
     department: '',
     designation: '',
@@ -53,7 +53,7 @@ export default function CreateUserPage() {
 
       if (response.success) {
         alert(`User created successfully!\n\nEmail: ${formData.email}\nPassword: ${formData.password}\n\nMake sure to save these credentials!`)
-        router.push('/users')
+        router.push('/employees')
       }
     } catch (error: any) {
       alert(`Error: ${error.message}`)
@@ -163,10 +163,18 @@ export default function CreateUserPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="employee">Employee</option>
+                    <option value="team leader">Team Leader</option>
+                    <option value="hr">HR</option>
                     <option value="admin">Admin</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    {formData.role === 'admin' ? 'Full system access' : 'Limited access'}
+                    {formData.role === 'admin' 
+                      ? 'Full system access' 
+                      : formData.role === 'hr'
+                      ? 'HR dashboard & employee management'
+                      : formData.role === 'team leader'
+                      ? 'Board management + employee features'
+                      : 'Limited access'}
                   </p>
                 </div>
 
@@ -186,7 +194,7 @@ export default function CreateUserPage() {
                 </div>
               </div>
 
-              {formData.role === 'employee' && (
+              {(formData.role === 'employee' || formData.role === 'team leader') && (
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

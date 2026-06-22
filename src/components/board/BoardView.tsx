@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Plus, Loader2, X, MoreHorizontal,
   ChevronDown, Filter, Share2, Users, Lock,
@@ -385,6 +385,15 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   const [loading,setLoading]       = useState(true)  // Start true - show loader immediately
   const [boards,setBoards]         = useState<BoardObj[]>([])
   const [selectedBoard,setSelectedBoard] = useState<BoardObj|null>(null)
+  const [teamLeaders, setTeamLeaders] = useState<any[]>([])
+  
+  // Compute canManageBoard permission
+  const canManageBoard = useMemo(() => {
+    if (!selectedBoard || !user) return false
+    if (user.role === 'admin') return true
+    if (user.role === 'team leader' && (selectedBoard as any).team_leader_id === user.id) return true
+    return false
+  }, [selectedBoard, user])
   
   // Board creation state
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false)
@@ -492,7 +501,24 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
     if (currentProjectId) fetchBoards()
     // Fetch all users once on mount — persists across board changes
     fetchAllUsers()
+    // Fetch team leaders for board management
+    if (user?.role === 'admin') fetchTeamLeaders()
   }, [currentProjectId]);
+
+  const fetchTeamLeaders = async () => {
+    try {
+      const token = localStorage.getItem('authToken')
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const res = await fetch(`${BACKEND_URL}/api/v1/users`, { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) {
+        const u = await res.json()
+        const tls = (u.data?.users || []).filter((user: any) => user.role === 'team leader')
+        setTeamLeaders(tls)
+      }
+    } catch (err) {
+      console.warn('Failed to fetch team leaders:', err)
+    }
+  }
 
   const fetchAllUsers = async () => {
     try {
@@ -655,7 +681,7 @@ useEffect(() => {
   }
 
   const saveRename = async ()=>{
-    if(!nameInput.trim()||!selectedBoard){ setEditingName(false); return }
+    if(!nameInput.trim()||!selectedBoard||!canManageBoard){ setEditingName(false); return }
     try{
       const token=localStorage.getItem('authToken')
       const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
@@ -1115,7 +1141,9 @@ useEffect(() => {
             panel={close=>(
               <Panel width={220}>
                 <PanelSection label="Board actions"/>
-                <PanelRow icon={<Plus size={13}/>}   label="Add list"     onClick={()=>{ setShowCreateList(true); close() }}/>
+                {canManageBoard && (
+                  <PanelRow icon={<Plus size={13}/>}   label="Add list"     onClick={()=>{ setShowCreateList(true); close() }}/>
+                )}
                 {role === 'admin' && (
                   <PanelRow icon={<Pencil size={13}/>} label="Rename board" onClick={()=>{ 
                     setNameInput(selectedBoard?.name||''); 
@@ -1259,6 +1287,7 @@ useEffect(() => {
                 lists={boardData.lists}
                 tasks={filteredTasks}
                 boardBackground={boardBgColor}
+                canManageBoard={canManageBoard}
                 onRefresh={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
                 onAddTask={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
                 onTaskCreated={(newTask) => {
@@ -1393,6 +1422,7 @@ useEffect(() => {
       {selectedTask&&selectedBoard && (
         <TaskDetailModal
           task={selectedTask}
+          canManageBoard={canManageBoard}
           onClose={()=>setSelectedTask(null)}
           onUpdate={()=>{
             boardsAPI.getBoardDetails(selectedBoard.id).then(r=>{

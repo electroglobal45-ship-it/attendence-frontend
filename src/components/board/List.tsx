@@ -41,6 +41,7 @@ interface ListObj {
 interface ListProps {
   list: ListObj
   tasks: Task[]
+  canManageBoard?: boolean
   onTaskClick?: (task: Task) => void
   onAddTask?: (listId: string) => void
   onAddOptimisticTask?: (listId: string, title: string) => string
@@ -54,6 +55,7 @@ interface ListProps {
 export function List({ 
   list, 
   tasks, 
+  canManageBoard = true,
   onTaskClick, 
   onAddTask,
   onAddOptimisticTask,
@@ -176,7 +178,8 @@ export function List({
             <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500 font-semibold">
               {tasks.length}
             </span>
-            <div className="relative">
+            {canManageBoard && (
+              <div className="relative">
               <button
                 onClick={() => setShowListMenu(!showListMenu)}
                 className="p-1 rounded hover:bg-gray-100 transition-colors"
@@ -208,6 +211,7 @@ export function List({
                 </div>
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -249,7 +253,8 @@ export function List({
         </Droppable>
 
         {/* Add Card Section */}
-        <div className="p-2 border-t border-gray-100">
+        {canManageBoard && (
+          <div className="p-2 border-t border-gray-100">
           {isAddingCard ? (
             <div className="space-y-2">
               <textarea
@@ -302,6 +307,7 @@ export function List({
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   )
