@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useMessagingStore } from '@/store/messaging.store'
-import { Loader2, Smile } from 'lucide-react'
 import { MessageReactions } from './MessageReactions'
 import { UserAvatarWithPresence } from './PresenceIndicator'
 import { MessageAttachments } from './MessageAttachments'
@@ -53,17 +52,10 @@ export default function MessageList({ channelId, conversationId }: MessageListPr
 function MessageItem({ message }: { message: any }) {
   const setActiveThread = useMessagingStore((state) => state.setActiveThread)
   const setThreadPanelOpen = useMessagingStore((state) => state.setThreadPanelOpen)
-  const [showReactionPicker, setShowReactionPicker] = useState(false)
 
   const handleOpenThread = () => {
     setActiveThread(message.id)
     setThreadPanelOpen(true)
-  }
-
-  const handleAddReaction = (emoji: string) => {
-    // TODO: Add reaction via socket
-    console.log('Add reaction:', emoji, 'to message:', message.id)
-    setShowReactionPicker(false)
   }
 
   if (message.is_deleted) {
@@ -104,37 +96,7 @@ function MessageItem({ message }: { message: any }) {
         )}
 
         {/* Content */}
-        <div className="flex-1 min-w-0 relative group">
-          {/* Reaction Button - Shows on Hover */}
-          <div className={`absolute -top-2 ${isOwnMessage ? 'left-0' : 'right-0'} opacity-0 group-hover:opacity-100 transition-opacity z-10`}>
-            <div className="relative">
-              <button
-                onClick={() => setShowReactionPicker(!showReactionPicker)}
-                className="flex items-center gap-1 px-2 py-1 bg-white border border-gray-300 rounded-full hover:border-blue-500 hover:bg-blue-50 text-xs shadow-sm transition-all"
-                title="Add reaction"
-              >
-                <Smile className="w-3 h-3 text-gray-600" />
-              </button>
-              
-              {/* Quick Emoji Picker */}
-              {showReactionPicker && (
-                <div className={`absolute top-full ${isOwnMessage ? 'left-0' : 'right-0'} mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-20`}>
-                  <div className="flex gap-1">
-                    {['👍', '❤️', '😄', '🎉', '👏', '🔥', '✅', '👀'].map((emoji) => (
-                      <button
-                        key={emoji}
-                        onClick={() => handleAddReaction(emoji)}
-                        className="w-7 h-7 flex items-center justify-center hover:bg-gray-100 rounded transition-colors text-lg"
-                        title={`React with ${emoji}`}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="flex-1 min-w-0">
 
           {/* Message Bubble */}
           <div

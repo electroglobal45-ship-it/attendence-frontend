@@ -15,9 +15,15 @@ import { CalendarView as CalendarViewComponent } from './CalendarView'
 import { BoardSkeleton, BoardLoadingIndicator } from './BoardSkeleton'
 import { useAuth } from '@/lib/auth-context'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
+import { useSocket } from '@/hooks/useSocket'
 
 /* ─────────────────────────── Design tokens (CADBURY PURPLE THEME) ── */
 const DS = {
+  boardBg:     '#F8F9FA',
+  listBg:      '#EBE8F0',
+  listBorder:  '#D4CCE2',
+  inputBg:     '#FFFFFF',
+  inputBorder: '#D1D5DB',
   // Base surfaces — light theme
   bg0:        '#F8F9FA', // main background (light grey)
   bg1:        '#FFFFFF', // card / panel surface (white)
@@ -41,7 +47,7 @@ const DS = {
 }
 
 /* ─────────────────────────── Types ─────────────────────────── */
-interface BoardObj { id:string; name:string; description?:string; project_id:string; position:number; created_at:string }
+interface BoardObj { id:string; name:string; description?:string; project_id:string; position:number; created_at:string; background_image?: string | null; background_color?: string | null }
 interface List  { id:string; public_id:string; name:string; position:number; color:string; board_id:string }
 interface Task  {
   id:string; public_id:string; title:string; description?:string; list_id:string
@@ -384,6 +390,7 @@ function MapView({ boardData, onTaskClick }:{ boardData:BoardData; onTaskClick:(
 export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId, onBack }:BoardViewProps){
   const { user } = useAuth()
   const role = user?.role
+  const { socket } = useSocket()
 
   const storeProjects = usePrefetchStore((state) => state.projects)
   const boardDetailsCache = usePrefetchStore((state) => state.boardDetailsCache)
@@ -509,18 +516,65 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   const [boardLabels, setBoardLabels] = useState<any[]>([])
   const [allUsers, setAllUsers] = useState<any[]>([]) // persistent user list — never gets reset
   const [boardBgColor, setBoardBgColor] = useState<string>('#F8F9FA')
+  const [boardBgImage, setBoardBgImage] = useState<string>('')
+  const [bgImageInput, setBgImageInput] = useState<string>('')
 
-  // Load user custom background color from localStorage
   useEffect(() => {
-    if (selectedBoard && user?.id) {
-      const savedColor = localStorage.getItem(`board-bg-${user.id}-${selectedBoard.id}`)
-      if (savedColor) {
-        setBoardBgColor(savedColor)
+    if (selectedBoard) {
+      // 1. Check if DB has values
+      const dbColor = selectedBoard.background_color
+      const dbImage = selectedBoard.background_image
+
+      if (dbColor !== undefined && dbColor !== null) {
+        setBoardBgColor(dbColor)
+      } else if (user?.id) {
+        const savedColor = localStorage.getItem(`board-bg-${user.id}-${selectedBoard.id}`)
+        setBoardBgColor(savedColor || '#F8F9FA')
       } else {
         setBoardBgColor('#F8F9FA')
       }
+
+      if (dbImage !== undefined && dbImage !== null) {
+        setBoardBgImage(dbImage)
+        setBgImageInput(dbImage)
+      } else if (user?.id) {
+        const savedImage = localStorage.getItem(`board-bg-img-${user.id}-${selectedBoard.id}`)
+        setBoardBgImage(savedImage || '')
+        setBgImageInput(savedImage || '')
+      } else {
+        setBoardBgImage('')
+        setBgImageInput('')
+      }
     }
   }, [selectedBoard, user?.id])
+
+  // Real-time board events (Socket.IO room joining and background updates)
+  useEffect(() => {
+    if (!socket || !selectedBoard?.id) return
+
+    const boardId = selectedBoard.id
+    socket.emit('board:join', boardId)
+
+    const handleBgChanged = (data: {
+      boardId: string
+      backgroundImage: string | null
+      backgroundColor: string | null
+    }) => {
+      if (data.boardId === boardId) {
+        setBoardBgImage(data.backgroundImage || '')
+        setBoardBgColor(data.backgroundColor || '#F8F9FA')
+        setSelectedBoard(prev => prev ? { ...prev, background_image: data.backgroundImage, background_color: data.backgroundColor } : null)
+        setBoards(prev => prev.map(b => b.id === data.boardId ? { ...b, background_image: data.backgroundImage, background_color: data.backgroundColor } : b))
+      }
+    }
+
+    socket.on('board:background_changed', handleBgChanged)
+
+    return () => {
+      socket.off('board:background_changed', handleBgChanged)
+      socket.emit('board:leave', boardId)
+    }
+  }, [socket, selectedBoard?.id])
 
   /* hover states for header buttons */
   const [hov,setHov] = useState<Record<string,boolean>>({})
@@ -653,6 +707,16 @@ useEffect(() => {
     if (cachedData) {
       setBoardData(cachedData)
       setNameInput(cachedData.board.name)
+      if (cachedData.board.background_color !== undefined && cachedData.board.background_color !== null) {
+        setBoardBgColor(cachedData.board.background_color)
+      }
+      if (cachedData.board.background_image !== undefined && cachedData.board.background_image !== null) {
+        setBoardBgImage(cachedData.board.background_image)
+        setBgImageInput(cachedData.board.background_image)
+      } else {
+        setBoardBgImage('')
+        setBgImageInput('')
+      }
       setLoading(false)
     } else {
       setLoading(true)
@@ -701,6 +765,16 @@ useEffect(() => {
         
         setBoardData(freshData)
         setNameInput(freshData.board.name)
+        if (freshData.board.background_color !== undefined && freshData.board.background_color !== null) {
+          setBoardBgColor(freshData.board.background_color)
+        }
+        if (freshData.board.background_image !== undefined && freshData.board.background_image !== null) {
+          setBoardBgImage(freshData.board.background_image)
+          setBgImageInput(freshData.board.background_image)
+        } else {
+          setBoardBgImage('')
+          setBgImageInput('')
+        }
         usePrefetchStore.getState().updateBoardDetailsCache(boardId, freshData)
         setLoading(false)
       }
@@ -1273,6 +1347,10 @@ useEffect(() => {
                         if (selectedBoard && user?.id) {
                           localStorage.setItem(`board-bg-${user.id}-${selectedBoard.id}`, bg.color)
                           setBoardBgColor(bg.color)
+                          socket?.emit('board:update_background', {
+                            boardId: selectedBoard.id,
+                            backgroundColor: bg.color
+                          })
                         }
                       }}
                       style={{
@@ -1288,6 +1366,149 @@ useEffect(() => {
                       title={`Set background to ${bg.id}`}
                     />
                   ))}
+                </div>
+                <PanelDivider/>
+                <PanelSection label="Background Image"/>
+                <div style={{ padding: '4px 14px 12px' }}>
+                  {/* Device Upload Button */}
+                  <label style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '9px 12px', background: boardBgImage ? '#F5F3FF' : '#4A1F6F',
+                    color: boardBgImage ? '#4A1F6F' : '#fff',
+                    border: boardBgImage ? '1px dashed #7C3ACE' : 'none',
+                    borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                    marginBottom: 8, transition: 'all .15s',
+                  }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    {boardBgImage ? 'Change Image' : 'Upload from Device'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (!file || !selectedBoard || !user?.id) return
+                        const reader = new FileReader()
+                        reader.onload = (ev) => {
+                          const img = new Image()
+                          img.onload = () => {
+                            // Compress to max 1280px wide, quality 0.75
+                            const maxW = 1280
+                            const scale = img.width > maxW ? maxW / img.width : 1
+                            const canvas = document.createElement('canvas')
+                            canvas.width = img.width * scale
+                            canvas.height = img.height * scale
+                            const ctx = canvas.getContext('2d')!
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+                            const compressed = canvas.toDataURL('image/jpeg', 0.75)
+                            try {
+                              localStorage.setItem(`board-bg-img-${user.id}-${selectedBoard.id}`, compressed)
+                              setBoardBgImage(compressed)
+                              setBgImageInput('')
+                              socket?.emit('board:update_background', {
+                                boardId: selectedBoard.id,
+                                backgroundImage: compressed
+                              })
+                            } catch {
+                              alert('Image too large for local storage. Please use a smaller image or a URL instead.')
+                            }
+                          }
+                          img.src = ev.target?.result as string
+                        }
+                        reader.readAsDataURL(file)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+
+                  {/* URL Fallback */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+                    <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, whiteSpace: 'nowrap' }}>OR USE URL</span>
+                    <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                    <input
+                      type="text"
+                      placeholder="Paste image URL..."
+                      value={bgImageInput}
+                      onChange={e => setBgImageInput(e.target.value)}
+                      style={{
+                        flex: 1, background: '#F9FAFB', border: '1px solid #D1D5DB',
+                        borderRadius: 5, padding: '6px 8px', color: '#111827',
+                        fontSize: 12, outline: 'none', boxSizing: 'border-box' as any
+                      }}
+                      onFocus={e => (e.target.style.borderColor = '#4A1F6F')}
+                      onBlur={e => (e.target.style.borderColor = '#D1D5DB')}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && selectedBoard && user?.id) {
+                          localStorage.setItem(`board-bg-img-${user.id}-${selectedBoard.id}`, bgImageInput)
+                          setBoardBgImage(bgImageInput)
+                          socket?.emit('board:update_background', {
+                            boardId: selectedBoard.id,
+                            backgroundImage: bgImageInput
+                          })
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (selectedBoard && user?.id && bgImageInput.trim()) {
+                          localStorage.setItem(`board-bg-img-${user.id}-${selectedBoard.id}`, bgImageInput)
+                          setBoardBgImage(bgImageInput)
+                          socket?.emit('board:update_background', {
+                            boardId: selectedBoard.id,
+                            backgroundImage: bgImageInput
+                          })
+                        }
+                      }}
+                      style={{
+                        padding: '6px 10px', background: '#4A1F6F', color: '#fff',
+                        border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600
+                      }}
+                    >
+                      Set
+                    </button>
+                  </div>
+
+                  {/* Preview + Remove */}
+                  {boardBgImage && (
+                    <div style={{ marginTop: 10, position: 'relative' }}>
+                      <div style={{
+                        height: 56, borderRadius: 8, overflow: 'hidden',
+                        backgroundImage: `url(${boardBgImage})`,
+                        backgroundSize: 'cover', backgroundPosition: 'center',
+                        border: '1px solid #D4CCE2',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                      }} />
+                      <button
+                        onClick={() => {
+                          if (selectedBoard && user?.id) {
+                            localStorage.removeItem(`board-bg-img-${user.id}-${selectedBoard.id}`)
+                            setBoardBgImage('')
+                            setBgImageInput('')
+                            socket?.emit('board:update_background', {
+                              boardId: selectedBoard.id,
+                              backgroundImage: null
+                            })
+                          }
+                        }}
+                        style={{
+                          position: 'absolute', top: 4, right: 4,
+                          width: 20, height: 20, borderRadius: '50%',
+                          background: 'rgba(0,0,0,0.55)', color: '#fff',
+                          border: 'none', cursor: 'pointer', fontSize: 11,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          lineHeight: 1,
+                        }}
+                        title="Remove background image"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <PanelDivider/>
                 <PanelRow icon={<Copy size={13}/>}   label="Copy board"   onClick={close}/>
@@ -1388,7 +1609,10 @@ useEffect(() => {
                 projectId={currentProjectId||''}
                 lists={boardData.lists}
                 tasks={filteredTasks}
-                boardBackground={boardBgColor}
+                boardBackground={boardBgImage
+                  ? `url(${boardBgImage}) center/cover no-repeat, ${boardBgColor}`
+                  : boardBgColor
+                }
                 canManageBoard={canManageBoard}
                 onRefresh={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
                 onAddTask={(listId, title) => {

@@ -19,7 +19,7 @@ export const PageWrapper = memo(function PageWrapper({ children, title, subtitle
     <>
       {/* Page header */}
       {title && (
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex-shrink-0">
+        <div className="bg-white/80 backdrop-blur-sm border-b border-purple-100/60 px-4 sm:px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {/* Hamburger menu for mobile */}

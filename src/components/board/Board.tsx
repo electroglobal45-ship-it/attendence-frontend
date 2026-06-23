@@ -22,9 +22,9 @@ if (typeof document !== 'undefined') {
 
 /* ── Design tokens — Cadbury Purple theme ── */
 const DS = {
-  boardBg:     '#F8F9FA',  // light grey board background
-  listBg:      '#FFFFFF',  // white list column background
-  listBorder:  '#E5E7EB',  // light border
+  boardBg:     '#F8F9FA',
+  listBg:      '#EBE8F0',  // light purple-tinted — white cards will pop
+  listBorder:  '#D4CCE2',  // soft purple-grey border
   inputBg:     '#FFFFFF',
   inputBorder: '#D1D5DB',
   textPrimary: '#374151',
@@ -32,7 +32,7 @@ const DS = {
   textWhite:   '#111827',
   accent:      '#4A1F6F',
   accentDark:  '#2D0F47',
-  hover:       '#F3F4F6',
+  hover:       '#E8E4F0',
   movingBg:    '#FFFFFF',
 }
 

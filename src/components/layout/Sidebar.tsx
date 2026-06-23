@@ -181,11 +181,11 @@ const NavItemComponent = memo(({
       title={isCollapsed ? item.label : undefined}
       className={`flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
         isActive
-          ? 'bg-[#4A1F6F] text-white shadow-md shadow-[#4A1F6F]/10'
-          : 'text-gray-600 hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F]'
+          ? 'bg-white/20 text-white shadow-sm'
+          : 'text-white hover:bg-white/10'
       }`}
     >
-      <div className={`flex-shrink-0 transition-colors ${isActive ? 'text-[#D9A441]' : ''}`}>{item.icon}</div>
+      <div className={`flex-shrink-0 ${isActive ? 'text-[#D9A441]' : 'text-white'}`}>{item.icon}</div>
       {!isCollapsed && <span className="truncate">{item.label}</span>}
       {!isCollapsed && item.badge}
     </Link>
@@ -402,20 +402,21 @@ export const Sidebar = memo(function Sidebar() {
       <aside className={`
         fixed lg:sticky lg:top-0 lg:left-0 z-50
         ${isDesktopCollapsed ? 'w-20' : 'w-64 lg:w-60'} 
-        h-screen bg-white border-r border-gray-200 flex flex-col font-sans flex-shrink-0
+        h-screen flex flex-col font-sans flex-shrink-0
         transform transition-all duration-100 ease-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      `}
+      style={{ background: 'linear-gradient(180deg, #1E0A2E 0%, #2D1152 100%)' }}>
         {/* Mobile close button */}
         <button
           onClick={() => setOpen(false)}
-          className="lg:hidden absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-900"
+          className="lg:hidden absolute top-4 right-4 p-2 text-purple-300/70 hover:text-white"
         >
           <X size={24} />
         </button>
 
         {/* Brand Header */}
-        <div className={`px-4 py-5 border-b border-gray-200 relative flex-shrink-0 flex ${isDesktopCollapsed ? 'justify-center' : 'items-center justify-between'}`}>
+        <div className={`px-4 py-5 border-b border-white/10 relative flex-shrink-0 flex ${isDesktopCollapsed ? 'justify-center' : 'items-center justify-between'}`}>
           {isDesktopCollapsed ? (
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -435,14 +436,14 @@ export const Sidebar = memo(function Sidebar() {
                     <ShieldCheck size={18} className="text-[#D9A441]" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-extrabold text-[#4A1F6F] truncate font-jakarta">CRM Attendance</p>
-                    <p className="text-xs text-gray-400 capitalize truncate">{role}</p>
+                    <p className="text-sm font-extrabold text-white truncate font-jakarta">CRM Attendance</p>
+                    <p className="text-xs text-purple-300/70 capitalize truncate">{role}</p>
                   </div>
                 </div>
               </Link>
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="p-1.5 text-slate-400 hover:text-[#4A1F6F] rounded-lg hover:bg-slate-50 transition cursor-pointer flex-shrink-0 mr-1"
+                className="p-1.5 text-purple-300/60 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer flex-shrink-0 mr-1"
                 title="More actions"
               >
                 <MoreVertical size={16} />
@@ -453,7 +454,7 @@ export const Sidebar = memo(function Sidebar() {
           {/* Desktop collapse toggle */}
           <button 
             onClick={() => setCollapsed(!isDesktopCollapsed)}
-            className="hidden lg:flex absolute -right-3.5 top-6 bg-white border border-slate-200/80 rounded-full p-1.5 text-slate-500 hover:text-[#4A1F6F] hover:bg-slate-50 shadow-md hover:shadow-lg hover:scale-110 z-50 transition-all duration-200 cursor-pointer active:scale-95"
+            className="hidden lg:flex absolute -right-3.5 top-6 bg-[#2D1152] border border-purple-400/30 rounded-full p-1.5 text-purple-300 hover:text-white hover:bg-[#4A1F6F] shadow-md hover:shadow-lg hover:scale-110 z-50 transition-all duration-200 cursor-pointer active:scale-95"
             title={isDesktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {isDesktopCollapsed ? <ChevronRight size={13} strokeWidth={2.5} /> : <ChevronLeft size={13} strokeWidth={2.5} />}
@@ -525,28 +526,28 @@ export const Sidebar = memo(function Sidebar() {
           {/* Resize Divider */}
           <div 
             onPointerDown={startResize}
-            className={`h-2 cursor-ns-resize transition-all duration-150 flex-shrink-0 flex items-center justify-center relative z-10 hover:bg-[#4A1F6F]/20 ${
-              isResizing ? 'bg-[#4A1F6F]' : 'bg-slate-200'
+            className={`h-2 cursor-ns-resize transition-all duration-150 flex-shrink-0 flex items-center justify-center relative z-10 hover:bg-white/20 ${
+              isResizing ? 'bg-white/30' : 'bg-white/10'
             }`}
             title="Drag to resize messages panel"
           >
             <div className="absolute inset-y-[-6px] inset-x-0 cursor-ns-resize" />
-            <div className="w-8 h-1 rounded bg-slate-400 z-10" />
+            <div className="w-8 h-1 rounded bg-white/25 z-10" />
           </div>
 
           {/* Embedded resizable messages section */}
           <div 
             ref={messagesPanelRef}
             style={messagesHeight ? { height: `${messagesHeight}px` } : undefined} 
-            className={`flex flex-col border-t border-gray-200 bg-slate-50/40 min-h-[100px] overflow-hidden ${
+            className={`flex flex-col border-t border-white/10 bg-black/10 min-h-[100px] overflow-hidden ${
               messagesHeight ? 'flex-shrink-0' : 'flex-1'
             }`}
           >
             {/* Messages Header */}
-            <div className="px-4 py-2 bg-slate-100/60 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+            <div className="px-4 py-2 bg-black/10 border-b border-white/10 flex items-center justify-between flex-shrink-0">
               {isDesktopCollapsed ? (
                 <div className="flex flex-col items-center gap-1 w-full">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 font-jakarta text-center">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300/60 font-jakarta text-center">
                     Chat
                   </span>
                   <div className="flex gap-1.5">
@@ -555,7 +556,7 @@ export const Sidebar = memo(function Sidebar() {
                         e.stopPropagation()
                         setIsCreateChannelOpen(true)
                       }}
-                      className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+                      className="p-1 hover:bg-white/10 rounded text-purple-300/60 hover:text-white transition-all cursor-pointer"
                       title="Create Channel"
                     >
                       <Plus size={10} strokeWidth={2.5} />
@@ -565,7 +566,7 @@ export const Sidebar = memo(function Sidebar() {
                         e.stopPropagation()
                         setIsNewMessageOpen(true)
                       }}
-                      className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+                      className="p-1 hover:bg-white/10 rounded text-purple-300/60 hover:text-white transition-all cursor-pointer"
                       title="New Message"
                     >
                       <MessageSquare size={10} strokeWidth={2.5} />
@@ -573,7 +574,7 @@ export const Sidebar = memo(function Sidebar() {
                   </div>
                 </div>
               ) : (
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 font-jakarta">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300/60 font-jakarta">
                   Channels & DMs
                 </span>
               )}
@@ -586,13 +587,13 @@ export const Sidebar = memo(function Sidebar() {
                   {/* Channels list */}
                   <div className="px-2">
                     <div className="flex items-center justify-between mb-1 px-2">
-                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 font-jakarta">Channels</p>
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-purple-300/50 font-jakarta">Channels</p>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           setIsCreateChannelOpen(true)
                         }}
-                        className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+                        className="p-1 hover:bg-white/10 rounded text-purple-300/50 hover:text-white transition-all cursor-pointer"
                         title="Create Channel"
                       >
                         <Plus size={11} strokeWidth={2.5} />
@@ -611,16 +612,16 @@ export const Sidebar = memo(function Sidebar() {
                               onClick={() => handleChannelClick(channel.id)}
                               className={`flex items-center w-full rounded-lg text-xs font-medium transition-all px-2 py-1.5 cursor-pointer gap-2 ${
                                 isChanActive
-                                  ? 'bg-[#4A1F6F]/10 text-[#4A1F6F] font-semibold'
-                                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                  ? 'bg-white/15 text-white font-semibold'
+                                  : 'text-purple-200/60 hover:bg-white/10 hover:text-white'
                               }`}
                             >
-                              <span className="text-slate-400">
+                              <span className="opacity-60">
                                 {channel.type === 'private' ? <Lock size={13} /> : <Hash size={13} />}
                               </span>
-                              <span className={`truncate flex-1 text-left ${hasUnread ? 'font-semibold text-slate-900' : ''}`}>{channel.name}</span>
+                              <span className={`truncate flex-1 text-left ${hasUnread ? 'font-semibold text-white' : ''}`}>{channel.name}</span>
                               {hasUnread && (
-                                <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[1rem] text-center ml-auto">
+                                <span className="bg-red-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[1rem] text-center ml-auto">
                                   {unreadCount}
                                 </span>
                               )}
@@ -629,20 +630,20 @@ export const Sidebar = memo(function Sidebar() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-[10px] text-slate-400 px-2 italic">No channels</p>
+                      <p className="text-[10px] text-purple-300/40 px-2 italic">No channels</p>
                     )}
                   </div>
 
                   {/* Direct Messages list */}
                   <div className="px-2">
                     <div className="flex items-center justify-between mb-1 px-2">
-                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 font-jakarta">Direct Messages</p>
+                      <p className="text-[9px] font-extrabold uppercase tracking-wider text-purple-300/50 font-jakarta">Direct Messages</p>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           setIsNewMessageOpen(true)
                         }}
-                        className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
+                        className="p-1 hover:bg-white/10 rounded text-purple-300/50 hover:text-white transition-all cursor-pointer"
                         title="New Message"
                       >
                         <Plus size={11} strokeWidth={2.5} />
@@ -668,21 +669,21 @@ export const Sidebar = memo(function Sidebar() {
                               onClick={() => handleConversationClick(conv.id)}
                               className={`flex items-center w-full rounded-lg text-xs font-medium transition-all px-2 py-1.5 cursor-pointer gap-2 ${
                                 isConvActive
-                                  ? 'bg-[#4A1F6F]/10 text-[#4A1F6F] font-semibold'
-                                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                  ? 'bg-white/15 text-white font-semibold'
+                                  : 'text-purple-200/60 hover:bg-white/10 hover:text-white'
                               }`}
                             >
                               <div className="relative flex-shrink-0">
-                                <div className="w-5 h-5 rounded-full bg-[#4A1F6F]/10 border border-[#4A1F6F]/20 flex items-center justify-center text-[9px] font-bold text-[#4A1F6F]">
+                                <div className="w-5 h-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[9px] font-bold text-purple-200">
                                   {initials}
                                 </div>
                                 {hasUnread && (
-                                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white" />
+                                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-400 rounded-full border border-[#1E0A2E]" />
                                 )}
                               </div>
-                              <span className={`truncate flex-1 text-left ${hasUnread ? 'font-semibold text-slate-900' : ''}`}>{name}</span>
+                              <span className={`truncate flex-1 text-left ${hasUnread ? 'font-semibold text-white' : ''}`}>{name}</span>
                               {hasUnread && (
-                                <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[1rem] text-center ml-auto">
+                                <span className="bg-red-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[1rem] text-center ml-auto">
                                   {unreadCount}
                                 </span>
                               )}
@@ -691,7 +692,7 @@ export const Sidebar = memo(function Sidebar() {
                         })}
                       </div>
                     ) : (
-                      <p className="text-[10px] text-slate-400 px-2 italic">No messages</p>
+                      <p className="text-[10px] text-purple-300/40 px-2 italic">No messages</p>
                     )}
                   </div>
                 </div>

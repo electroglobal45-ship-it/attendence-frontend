@@ -162,15 +162,18 @@ export function List({
 
   return (
     <div className="flex-shrink-0 w-[272px]">
-      <div className={`bg-white border border-gray-200 rounded-xl flex flex-col 
+      <div className={`border border-[#D4CCE2] rounded-xl flex flex-col 
         ${isDragging ? 'opacity-50 rotate-2 shadow-lg' : 'shadow-md hover:shadow-lg'}
         transition-all duration-200`}
-        style={{ boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.08)' }}
+        style={{ 
+          background: '#EBE8F0',
+          boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : '0 2px 8px rgba(0,0,0,0.08)'
+        }}
       >
         {/* List Header - with drag handle */}
         <div 
           {...dragHandleProps}
-          className="p-2.5 flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing border-b border-gray-100"
+          className="p-2.5 flex items-center justify-between gap-2 cursor-grab active:cursor-grabbing border-b border-[#D4CCE2]"
           style={{ touchAction: 'none' }}
         >
           <h3 className="text-sm font-bold text-gray-800 px-1 flex-1 truncate pointer-events-none">
@@ -259,7 +262,7 @@ export function List({
 
         {/* Add Card Section */}
         {canManageBoard && (
-          <div className="p-2 border-t border-gray-100">
+          <div className="p-2 border-t border-[#D4CCE2]">
           {isAddingCard ? (
             <div className="space-y-2">
               <textarea
