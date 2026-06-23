@@ -52,6 +52,46 @@ export function Card({ task, onClick, isDragging = false, onRefresh, onDeleteTas
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const lastTouchTimeRef = useRef<number>(0)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    if (touch) {
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now()
+      }
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return
+    const touch = e.changedTouches[0]
+    if (touch) {
+      const deltaX = Math.abs(touch.clientX - touchStartRef.current.x)
+      const deltaY = Math.abs(touch.clientY - touchStartRef.current.y)
+      const deltaTime = Date.now() - touchStartRef.current.time
+      
+      const target = e.target as HTMLElement
+      const isInteractive = !!target.closest('button, a, input, select, textarea, [role="button"]')
+
+      if (!isInteractive && deltaX < 10 && deltaY < 10 && deltaTime < 300) {
+        lastTouchTimeRef.current = Date.now()
+        onClick?.()
+      }
+    }
+    touchStartRef.current = null
+  }
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (Date.now() - lastTouchTimeRef.current < 1000) {
+      return
+    }
+    onClick?.()
+  }
+
   const updateMenuPosition = useCallback(() => {
     if (!buttonRef.current) return
     const rect = buttonRef.current.getBoundingClientRect()
@@ -321,7 +361,9 @@ export function Card({ task, onClick, isDragging = false, onRefresh, onDeleteTas
 
   return (
     <div
-      onClick={onClick}
+      onClick={handleCardClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={`

@@ -872,10 +872,10 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
         </div>
 
         {/* ════ BODY (two columns) ═════════════════════════════════════════════ */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
 
           {/* ── LEFT ─────────────────────────────────────────────────────────── */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 min-w-0">
+          <div className="flex-1 overflow-y-visible md:overflow-y-auto px-6 py-5 space-y-5 min-w-0">
 
             {/* Action buttons */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -888,19 +888,29 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
                     <Users size={13} /> Members
                   </button>
                   {showMembersMenu && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 z-30 w-52 max-h-52 overflow-y-auto">
-                      {availableUsers.map(u => (
-                        <button
-                          key={u.id}
-                          onClick={() => { toggleMember(u.id); setShowMembersMenu(false) }}
-                          className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-gray-50 rounded-lg text-sm"
-                        >
-                          <Avatar name={u.name} px={26} />
-                          <span className="flex-1 truncate text-gray-700">{u.name}</span>
-                          {assignedMembers.some(m => m.id === u.id) && <Check size={12} className="text-green-500 shrink-0" />}
-                        </button>
-                      ))}
-                    </div>
+                    <>
+                      {/* Mobile backdrop overlay */}
+                      <div className="fixed inset-0 bg-black/30 z-20 md:hidden" onClick={() => setShowMembersMenu(false)} />
+                      <div className="fixed md:absolute top-1/2 md:top-full left-1/2 md:left-0 -translate-x-1/2 md:translate-x-0 -translate-y-1/2 md:translate-y-0 mt-0 md:mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-30 w-64 md:w-52 max-h-60 md:max-h-52 overflow-y-auto">
+                        <div className="md:hidden flex items-center justify-between px-2 pb-2 border-b border-gray-100 mb-2">
+                          <span className="text-sm font-semibold text-gray-800">Members</span>
+                          <button onClick={() => setShowMembersMenu(false)} className="text-gray-400 hover:text-gray-600">
+                            <X size={14} />
+                          </button>
+                        </div>
+                        {availableUsers.map(u => (
+                          <button
+                            key={u.id}
+                            onClick={() => { toggleMember(u.id); setShowMembersMenu(false) }}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:bg-gray-50 rounded-lg text-sm"
+                          >
+                            <Avatar name={u.name} px={26} />
+                            <span className="flex-1 truncate text-left text-gray-700">{u.name}</span>
+                            {assignedMembers.some(m => m.id === u.id) && <Check size={12} className="text-green-500 shrink-0" />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -933,7 +943,7 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
             </div>
 
             {/* ── Meta row (Read-only display) ── */}
-            <div className="grid grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
 
               {/* Members - Display only */}
               <div>
@@ -1218,7 +1228,7 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
           </div>
 
           {/* ── RIGHT — Comments & activity ───────────────────────────────────── */}
-          <div className="w-[300px] shrink-0 border-l border-gray-100 flex flex-col">
+          <div className="w-full md:w-[300px] shrink-0 border-t md:border-t-0 md:border-l border-gray-100 flex flex-col overflow-y-visible md:overflow-y-auto">
             {/* header + tabs */}
             <div className="px-4 pt-4 pb-0 shrink-0">
               <div className="flex items-center gap-2 mb-3">
@@ -1417,12 +1427,12 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
         </div>
 
         {/* ════ FOOTER ══════════════════════════════════════════════════════════ */}
-        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 shrink-0 bg-gray-50 rounded-b-2xl">
-          <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-6 py-3 border-t border-gray-100 shrink-0 bg-gray-50 rounded-b-2xl">
+          <div className="flex gap-2 w-full sm:w-auto">
             {canManageBoard && task.status !== 'done' && (
               <button
                 onClick={markAsDone}
-                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
               >
                 <Check size={14} /> Done
               </button>
@@ -1430,7 +1440,7 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
             {canManageBoard && (
               <button
                 onClick={deleteCard}
-                className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-200 text-sm font-semibold rounded-lg transition-colors"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 bg-white hover:bg-red-50 text-red-600 border border-red-200 text-sm font-semibold rounded-lg transition-colors"
               >
                 <Trash2 size={14} /> Delete
               </button>
@@ -1439,7 +1449,7 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
           {canManageBoard && (
             <button
               onClick={handleSave}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+              className="w-full sm:w-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors text-center"
             >
               Save
             </button>
