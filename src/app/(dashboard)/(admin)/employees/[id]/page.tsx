@@ -151,9 +151,9 @@ export default function EmployeeDetailPage() {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black font-jakarta tracking-tight text-white">{employee.name}</h1>
-              <p className="text-sm text-gray-300 mt-0.5">{employee.email}</p>
+              <p className="text-sm text-purple-200 mt-0.5">{employee.email}</p>
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="px-2.5 py-0.5 bg-white/10 border border-white/15 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 bg-white/10 border border-white/15 rounded-md text-[10px] font-bold uppercase tracking-wider text-purple-100">
                   {employee.category}
                 </span>
                 <span className={`px-2.5 py-0.5 border rounded-md text-[10px] font-bold uppercase tracking-wider ${
@@ -165,14 +165,25 @@ export default function EmployeeDetailPage() {
             </div>
           </div>
 
-          <div className="flex gap-6 text-sm">
-            <div>
-              <p className="text-[10px] text-gray-300 font-bold uppercase tracking-wider mb-1">Monthly Salary</p>
-              <p className="text-lg font-black text-[#D9A441]">₹{employee.monthly_salary?.toLocaleString()}</p>
+          <div className="flex items-center gap-6 sm:gap-12 text-sm border-t border-white/10 pt-4 md:border-t-0 md:pt-0 w-full md:w-auto justify-between md:justify-end">
+            <div className="flex-1 md:flex-none">
+              <p className="text-[10px] text-purple-200 font-bold uppercase tracking-wider mb-1">Monthly Salary</p>
+              <p className="text-lg font-black text-[#D9A441] whitespace-nowrap">
+                ₹{employee.monthly_salary ? Number(employee.monthly_salary).toLocaleString('en-IN') : '—'}
+              </p>
             </div>
-            <div className="border-l border-white/15 pl-6">
-              <p className="text-[10px] text-gray-300 font-bold uppercase tracking-wider mb-1">Joining Date</p>
-              <p className="text-lg font-bold text-white">{employee.joining_date?.split('T')[0]}</p>
+            <div className="border-l border-white/15 pl-6 sm:pl-12 flex-1 md:flex-none">
+              <p className="text-[10px] text-purple-200 font-bold uppercase tracking-wider mb-1">Joining Date</p>
+              <p className="text-lg font-bold text-white whitespace-nowrap">
+                {employee.joining_date ? (() => {
+                  try {
+                    const d = new Date(employee.joining_date)
+                    return isNaN(d.getTime()) ? employee.joining_date?.split('T')[0] : format(d, 'dd MMM yyyy')
+                  } catch (e) {
+                    return employee.joining_date?.split('T')[0] || '—'
+                  }
+                })() : '—'}
+              </p>
             </div>
           </div>
         </div>
@@ -270,8 +281,8 @@ export default function EmployeeDetailPage() {
               <Clock size={18} className="text-slate-500" />
               <h2 className="font-semibold text-slate-800 text-base">Daily Attendance</h2>
             </div>
-            <div className="overflow-x-auto rounded-2xl border border-slate-100">
-              <table className="table">
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 no-scrollbar">
+              <table className="table min-w-[750px]">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -286,8 +297,8 @@ export default function EmployeeDetailPage() {
                 <tbody>
                   {calendar.days?.map((day: any) => (
                     <tr key={day.date} className={`${day.isWeekend || day.isHoliday ? 'bg-slate-50/50' : ''} hover:bg-[#4A1F6F]/5 transition group`}>
-                      <td className="font-bold text-slate-800">{format(new Date(day.date), 'MMM dd, EEE')}</td>
-                      <td>
+                      <td className="font-bold text-slate-800 whitespace-nowrap">{format(new Date(day.date), 'MMM dd, EEE')}</td>
+                      <td className="whitespace-nowrap">
                         <span
                           className={`px-2 py-0.5 rounded border text-xs font-semibold capitalize ${
                             day.dayType === 'present' || day.dayType === 'late_within_buffer'
@@ -306,11 +317,11 @@ export default function EmployeeDetailPage() {
                           {day.label}
                         </span>
                       </td>
-                      <td className="text-slate-650 font-medium">{formatTimeIST(day.checkIn)}</td>
-                      <td className="text-slate-650 font-medium">{formatTimeIST(day.checkOut)}</td>
-                      <td className="text-slate-550 font-medium">{calculateHours(day.checkIn, day.checkOut)}</td>
-                      <td className="font-bold text-slate-800">{day.attendanceValue}</td>
-                      <td>
+                      <td className="text-slate-650 font-medium whitespace-nowrap">{formatTimeIST(day.checkIn)}</td>
+                      <td className="text-slate-650 font-medium whitespace-nowrap">{formatTimeIST(day.checkOut)}</td>
+                      <td className="text-slate-550 font-medium whitespace-nowrap">{calculateHours(day.checkIn, day.checkOut)}</td>
+                      <td className="font-bold text-slate-800 whitespace-nowrap">{day.attendanceValue}</td>
+                      <td className="whitespace-nowrap">
                         <button
                           onClick={() => handleOpenMarkModal(day.date, day)}
                           className="btn-crm-secondary py-1 px-2.5 text-xs shadow-2xs"

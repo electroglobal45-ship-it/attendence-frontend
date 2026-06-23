@@ -149,32 +149,17 @@ export default function EmployeeDashboard() {
   const [activeTaskTab, setActiveTaskTab] = useState<'all' | 'todo' | 'in_progress'>('all')
 
   const [greeting, setGreeting] = useState('Welcome')
-  const [currentTime, setCurrentTime] = useState('')
 
   useEffect(() => {
-    const updateTimeAndGreeting = () => {
-      const now = new Date()
-      const formattedTime = now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      })
-      setCurrentTime(formattedTime)
-
-      const hours = now.getHours()
-      if (hours < 12) {
-        setGreeting('Good Morning')
-      } else if (hours < 17) {
-        setGreeting('Good Afternoon')
-      } else {
-        setGreeting('Good Evening')
-      }
+    const now = new Date()
+    const hours = now.getHours()
+    if (hours < 12) {
+      setGreeting('Good Morning')
+    } else if (hours < 17) {
+      setGreeting('Good Afternoon')
+    } else {
+      setGreeting('Good Evening')
     }
-
-    updateTimeAndGreeting()
-    const interval = setInterval(updateTimeAndGreeting, 1000)
-    return () => clearInterval(interval)
   }, [])
 
   // Read from prefetch store
@@ -254,8 +239,8 @@ export default function EmployeeDashboard() {
 
   return (
     <PageWrapper
-      title=""
-      subtitle=""
+      title="Employee Dashboard"
+      subtitle="Welcome back, view your attendance, leaves, and ongoing tasks."
     >
       <div className="max-w-7xl mx-auto space-y-6 pb-12">
         {/* ── Welcome Banner ──────────────────────────────────────────────────────── */}
@@ -281,18 +266,7 @@ export default function EmployeeDashboard() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 font-sans shrink-0">
-              {/* Dynamic Clock Widget */}
-              {currentTime && (
-                <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-3.5 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
-                    <Clock size={14} className="text-[#D9A441] animate-pulse" />
-                  </div>
-                  <div>
-                    <p className="text-[9px] uppercase font-bold text-slate-350 tracking-wider">Local Time</p>
-                    <p className="text-xs font-bold text-white tracking-wider">{currentTime}</p>
-                  </div>
-                </div>
-              )}
+
 
               {/* Monthly Progress Stats */}
               <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-3 min-w-[200px] shadow-sm">
@@ -501,7 +475,7 @@ export default function EmployeeDashboard() {
             {/* Quick Toolbar */}
             <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_4px_18px_rgba(0,0,0,0.05)]">
               <h2 className="font-semibold text-slate-800 text-base mb-4">Workspace Utilities</h2>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <Link
                   href="/attendance"
                   className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 hover:border-[#4A1F6F]/30 hover:bg-[#4A1F6F]/5 hover:shadow-sm transition text-center group"

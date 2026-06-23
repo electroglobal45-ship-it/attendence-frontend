@@ -5,6 +5,7 @@ import { MeetingsProvider } from '@/lib/meetings-context'
 import ActiveMeetingWidget from '@/components/meetings/ActiveMeetingWidget'
 import NextTopLoader from 'nextjs-toploader'
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google'
+import Script from 'next/script'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ActiveMeetingWidget />
           </MeetingsProvider>
         </AuthProvider>
+        <Script src="/external_api.js" strategy="beforeInteractive" />
       </body>
     </html>
   )

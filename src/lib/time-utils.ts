@@ -69,19 +69,64 @@ export function formatDateIST(utcTimestamp: string): string {
   })
 }
 
+export function parseTimestampToDate(ts: string | null): Date | null {
+  if (!ts) return null
+  try {
+    let timestamp = ts.trim()
+    // Handle PostgreSQL timestamp format: "2026-05-25 04:48:53.851+00"
+    // Convert to ISO format by replacing space with T and +00/offset with Z
+    if (timestamp.includes(' ') && !timestamp.includes('T')) {
+      timestamp = timestamp.replace(' ', 'T')
+      if (timestamp.endsWith('+00')) {
+        timestamp = timestamp.replace('+00', 'Z')
+      } else if (!timestamp.endsWith('Z') && !timestamp.includes('+')) {
+        timestamp = timestamp + 'Z'
+      }
+    } else if (!timestamp.endsWith('Z') && !timestamp.includes('+')) {
+      // Add Z if no timezone indicator
+      timestamp = timestamp + 'Z'
+    }
+    
+    const d = new Date(timestamp)
+    if (isNaN(d.getTime())) {
+      const fallback = new Date(ts)
+      return isNaN(fallback.getTime()) ? null : fallback
+    }
+    return d
+  } catch {
+    return null
+  }
+}
+
 /**
  * Calculate hours between two timestamps
  */
 export function calculateHours(checkIn: string | null, checkOut: string | null): string {
   if (!checkIn || !checkOut) return '—'
   
-  // Ensure timestamps have Z suffix
-  const checkInTimestamp = checkIn.endsWith('Z') ? checkIn : checkIn + 'Z'
-  const checkOutTimestamp = checkOut.endsWith('Z') ? checkOut : checkOut + 'Z'
+  const start = parseTimestampToDate(checkIn)
+  const end = parseTimestampToDate(checkOut)
+  if (!start || !end) return '—'
   
-  const start = new Date(checkInTimestamp)
-  const end = new Date(checkOutTimestamp)
   const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+  if (isNaN(hours) || hours <= 0) return '0.0h'
   
   return `${hours.toFixed(1)}h`
 }
+
+/**
+ * Calculate decimal hours between check-in and check-out
+ */
+export function calculateHoursNumeric(checkIn: string | null, checkOut: string | null): number {
+  if (!checkIn || !checkOut) return 0
+  
+  const start = parseTimestampToDate(checkIn)
+  const end = parseTimestampToDate(checkOut)
+  if (!start || !end) return 0
+  
+  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+  if (isNaN(hours) || hours <= 0) return 0
+  
+  return parseFloat(hours.toFixed(2))
+}
+

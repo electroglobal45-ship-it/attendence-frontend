@@ -1,8 +1,9 @@
 'use client'
 
-import { Star, Users, MoreHorizontal, ArrowLeft } from 'lucide-react'
+import { Star, Users, MoreHorizontal, ArrowLeft, Menu } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
+import { useSidebarStore } from '@/lib/store/sidebar-store'
 
 interface BoardHeaderProps {
   boardName: string
@@ -37,6 +38,15 @@ export function BoardHeader({
       <div className="px-4 py-3 flex items-center justify-between gap-4">
         {/* Left Section */}
         <div className="flex items-center gap-3">
+          {/* Hamburger menu for mobile */}
+          <button
+            onClick={() => useSidebarStore.getState().setOpen(true)}
+            className="lg:hidden p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer"
+            aria-label="Open menu"
+          >
+            <Menu size={18} />
+          </button>
+
           <Link 
             href="/projects"
             className="p-1.5 rounded hover:bg-white/20 transition-colors"

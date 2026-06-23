@@ -255,8 +255,8 @@ export default function EmployeesPage() {
 
       {/* ── Employees table ── */}
       <div className="card p-0">
-        <div className="table-wrapper border-0 rounded-none">
-          <table className="table">
+        <div className="table-wrapper border-0 rounded-none overflow-x-auto w-full no-scrollbar">
+          <table className="table min-w-[850px]">
             <thead>
               <tr>
                 <th>Name</th>
@@ -278,13 +278,13 @@ export default function EmployeesPage() {
               ) : (
                 employees.map((emp) => (
                   <tr key={emp.id} onClick={() => window.location.href = `/employees/${emp.id}`} className="cursor-pointer hover:bg-[#4A1F6F]/5 transition group">
-                    <td className="font-bold text-slate-800 group-hover:text-[#4A1F6F] transition">{emp.name}</td>
-                    <td className="text-slate-600 font-medium">{emp.email}</td>
-                    <td className="capitalize text-slate-600 font-medium">{emp.category}</td>
-                    <td className="text-slate-650 font-medium">{emp.department || '—'}</td>
-                    <td className="text-slate-700 font-bold">₹{emp.monthly_salary?.toLocaleString()}</td>
-                    <td className="text-slate-500 font-medium">{emp.joining_date?.split('T')[0]}</td>
-                    <td>
+                    <td className="font-bold text-slate-800 group-hover:text-[#4A1F6F] transition whitespace-nowrap">{emp.name}</td>
+                    <td className="text-slate-600 font-medium whitespace-nowrap">{emp.email}</td>
+                    <td className="capitalize text-slate-600 font-medium whitespace-nowrap">{emp.category}</td>
+                    <td className="text-slate-655 font-medium whitespace-nowrap">{emp.department || '—'}</td>
+                    <td className="text-slate-700 font-bold whitespace-nowrap">₹{emp.monthly_salary?.toLocaleString()}</td>
+                    <td className="text-slate-500 font-medium whitespace-nowrap">{emp.joining_date?.split('T')[0]}</td>
+                    <td className="whitespace-nowrap">
                       <span className={emp.is_active ? 'badge-present' : 'badge-absent'}>
                         {emp.is_active ? 'Active' : 'Inactive'}
                       </span>

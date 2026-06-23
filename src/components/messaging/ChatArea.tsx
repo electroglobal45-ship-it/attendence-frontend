@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useMessagingStore } from '@/store/messaging.store'
 import { useSocket } from '@/hooks/useSocket'
-import { Hash, Lock, Users, Star, Pin, Settings } from 'lucide-react'
+import { Hash, Lock, Users, Star, Pin, Settings, Video, Menu } from 'lucide-react'
+import { useSidebarStore } from '@/lib/store/sidebar-store'
+import { useMeetings } from '@/lib/meetings-context'
+import { meetingsAPI } from '@/lib/tasks-api'
+import { useAuth } from '@/lib/auth-context'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 import TypingIndicator from './TypingIndicator'
@@ -22,6 +26,45 @@ export default function ChatArea() {
   const setConversations = useMessagingStore((state) => state.setConversations)
   
   const { joinChannel } = useSocket()
+  const { user: currentUser } = useAuth()
+  const { joinMeeting } = useMeetings()
+
+  const handleVideoCall = async () => {
+    if (!activeConversation || !currentUser) return
+    const otherUser = activeConversation.other_user
+    if (!otherUser) return
+
+    try {
+      const title = `Direct Call: ${currentUser.name} & ${otherUser.name}`
+      const res = await meetingsAPI.createMeeting({
+        title,
+        is_permanent: false,
+        assigned_to: [otherUser.id]
+      })
+
+      if (res.success && res.data?.meeting) {
+        const meeting = res.data.meeting
+        
+        // Start the meeting in the database first
+        await meetingsAPI.startMeeting(meeting.id)
+        
+        // 1. Join meeting locally as host
+        joinMeeting(meeting.id, meeting.room_name, meeting.title, true)
+
+        // 2. Emit call event via socket to instantly ring the recipient
+        const socket = require('@/lib/socket').socketManager.getSocket()
+        socket?.emit('meeting:call_user', {
+          targetUserId: otherUser.id,
+          meetingId: meeting.id,
+          roomName: meeting.room_name,
+          title: meeting.title
+        })
+      }
+    } catch (err) {
+      console.error('Failed to initiate call:', err)
+      alert('Failed to start video call. Please try again.')
+    }
+  }
 
   const [isStarred, setIsStarred] = useState(false)
   const [isPinnedModalOpen, setIsPinnedModalOpen] = useState(false)
@@ -170,6 +213,15 @@ export default function ChatArea() {
       {/* Chat Header */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Hamburger menu for mobile */}
+          <button
+            onClick={() => useSidebarStore.getState().setOpen(true)}
+            className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer flex items-center justify-center shrink-0"
+            aria-label="Open menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+
           {activeChannel ? (
             <>
               {activeChannel.type === 'private' ? (
@@ -207,6 +259,15 @@ export default function ChatArea() {
 
         {/* Header Actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
+          {activeConversation && activeConversation.type === 'direct' && (
+            <button 
+              onClick={handleVideoCall}
+              className="p-2 hover:bg-slate-100 text-[#4A1F6F] rounded transition-colors" 
+              title="Start Video Call"
+            >
+              <Video className="w-5 h-5" />
+            </button>
+          )}
           <button 
             onClick={handleStarToggle}
             className={`p-2 hover:bg-gray-100 rounded transition-colors ${isStarred ? 'text-yellow-500' : 'text-gray-600'}`}

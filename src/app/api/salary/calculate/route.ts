@@ -90,61 +90,175 @@ export async function POST(req: NextRequest) {
     const lastDay   = new Date(year, month, 0).getDate()
     const endDate   = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-    // ── 4. Attendance records ─────────────────────────────────────────────
-    const { data: attRecords } = await supabaseServer
-      .from('attendance')
-      .select('date, status, attendance_value')
-      .eq('employee_id', employeeId)
-      .gte('date', startDate)
-      .lte('date', endDate)
+    // ── 4. Fetch All Data in Parallel ─────────────────────────────────────
+    const [attRes, leaveRes, shortLeaveRes, holidayRes] = await Promise.all([
+      supabaseServer
+        .from('attendance')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .gte('date', startDate)
+        .lte('date', endDate),
 
-    let totalAttendanceValue = 0
+      supabaseServer
+        .from('leave_requests')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('status', 'approved')
+        .gte('start_date', startDate)
+        .lte('end_date', endDate),
+
+      supabaseServer
+        .from('short_leaves')
+        .select('*')
+        .eq('employee_id', employeeId)
+        .eq('status', 'approved')
+        .gte('date', startDate)
+        .lte('date', endDate),
+
+      supabaseServer
+        .from('holidays')
+        .select('date')
+        .eq('is_active', true)
+        .gte('date', startDate)
+        .lte('date', endDate),
+    ])
+
+    // Build lookup maps
+    const attendanceMap: Record<string, any> = {}
+    for (const rec of attRes.data || []) attendanceMap[rec.date] = rec
+
+    const leaveMap: Record<string, any> = {}
+    for (const leave of leaveRes.data || []) {
+      const s = new Date(leave.start_date + 'T00:00:00Z')
+      const e = new Date(leave.end_date   + 'T00:00:00Z')
+      for (const d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
+        const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+        leaveMap[key] = leave
+      }
+    }
+
+    const shortLeaveMap: Record<string, any> = {}
+    for (const sl of shortLeaveRes.data || []) shortLeaveMap[sl.date] = sl
+
+    const holidaySet: Set<string> = new Set((holidayRes.data || []).map((h: any) => h.date as string))
+
+    // Helper to check third Saturday
+    const isThirdSaturdayIST = (y: number, m: number, d: number): boolean => {
+      const date = new Date(Date.UTC(y, m - 1, d))
+      const ist = new Date(date.getTime() + 5.5 * 60 * 60 * 1000)
+      return ist.getUTCDay() === 6 && ist.getUTCDate() >= 15 && ist.getUTCDate() <= 21
+    }
+
+    const isIntern = employee.category === 'intern'
+    const maxPaidLeaves = isIntern ? 1 : 2
+    const maxPaidShortLeaves = 2
+
+    let leaveCount = 0
+    let shortLeaveCount = 0
+    let totalPayableSalary = 0
+    
     let presentDays = 0
     let halfDays    = 0
     let absentDays  = 0
     let lateDays    = 0
+    let leaveDays   = 0
 
-    for (const rec of attRecords || []) {
-      // Use stored attendance_value if available; fall back to status-based default
-      const val = rec.attendance_value != null
-        ? Number(rec.attendance_value)
-        : (
-            rec.status === 'present' ||
-            rec.status === 'late_within_buffer' ||
-            rec.status === 'approved_short_leave'
-              ? 1
-              : rec.status === 'half_day' || rec.status === 'extra_approved_short_leave'
-              ? 0.5
-              : 0
-          )
+    const today = new Date()
+    const todayIST = new Date(today.getTime() + 5.5 * 60 * 60 * 1000)
+    const todayStr = `${todayIST.getUTCFullYear()}-${String(todayIST.getUTCMonth() + 1).padStart(2, '0')}-${String(todayIST.getUTCDate()).padStart(2, '0')}`
 
-      totalAttendanceValue += val
+    const perDaySalary = workingDays > 0 ? monthlySalary / workingDays : 0
 
-      if (val >= 1)        presentDays++
-      else if (val >= 0.5) halfDays++
-      else                 absentDays++
-
-      if (rec.status === 'late_within_buffer') lateDays++
+    const getHoursNumeric = (checkIn: string | null, checkOut: string | null) => {
+      if (!checkIn || !checkOut) return 0
+      try {
+        const start = new Date(checkIn.endsWith('Z') ? checkIn : checkIn + 'Z')
+        const end = new Date(checkOut.endsWith('Z') ? checkOut : checkOut + 'Z')
+        const diffMs = end.getTime() - start.getTime()
+        if (isNaN(diffMs) || diffMs <= 0) return 0
+        return diffMs / (1000 * 60 * 60)
+      } catch {
+        return 0
+      }
     }
 
-    // ── 5. Approved leaves this month ─────────────────────────────────────
-    const { data: leaveRecords } = await supabaseServer
-      .from('leave_requests')
-      .select('total_days, type')
-      .eq('employee_id', employeeId)
-      .eq('status', 'approved')
-      .gte('start_date', startDate)
-      .lte('end_date', endDate)
+    for (let d = 1; d <= lastDay; d++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      
+      // Skip if future day
+      if (dateStr > todayStr) continue
 
-    const leaveDays = (leaveRecords || []).reduce(
-      (s: number, l: any) => s + (Number(l.total_days) || 0),
-      0
-    )
+      const isSunday = new Date(dateStr + 'T00:00:00Z').getUTCDay() === 0
+      const isHoliday = holidaySet.has(dateStr)
+      const is3rdSat = isThirdSaturdayIST(year, month, d)
+      const isWeekendOrHoliday = isSunday || isHoliday || is3rdSat
 
-    // ── 6. Salary calculation (Section 13.3) ─────────────────────────────
-    const perDaySalary  = workingDays > 0 ? monthlySalary / workingDays : 0
-    const payableSalary = perDaySalary * totalAttendanceValue
-    const deductions    = monthlySalary - payableSalary
+      if (isWeekendOrHoliday) continue
+
+      const leave = leaveMap[dateStr]
+      const att = attendanceMap[dateStr]
+      const shortLeave = shortLeaveMap[dateStr]
+
+      let daySalary = 0
+
+      if (leave) {
+        leaveDays++
+        leaveCount++
+        if (leaveCount <= maxPaidLeaves) {
+          daySalary = perDaySalary
+        } else {
+          daySalary = 0
+          absentDays++
+        }
+      } else if (shortLeave) {
+        shortLeaveCount++
+        if (shortLeaveCount <= maxPaidShortLeaves) {
+          daySalary = perDaySalary
+          presentDays++
+        } else {
+          // Unpaid short leave -> fallback to working hours
+          const hrs = att ? getHoursNumeric(att.check_in, att.check_out) : 0
+          if (hrs >= 8) {
+            daySalary = perDaySalary
+            presentDays++
+          } else if (hrs >= 5) {
+            daySalary = perDaySalary * 0.5
+            halfDays++
+          } else {
+            daySalary = 0
+            absentDays++
+          }
+        }
+      } else if (att) {
+        const hrs = getHoursNumeric(att.check_in, att.check_out)
+        if (hrs >= 8) {
+          daySalary = perDaySalary
+          presentDays++
+        } else if (hrs >= 5) {
+          daySalary = perDaySalary * 0.5
+          halfDays++
+        } else if (att.status === 'present' || att.status === 'late_within_buffer') {
+          daySalary = perDaySalary
+          presentDays++
+        } else if (att.status === 'half_day') {
+          daySalary = perDaySalary * 0.5
+          halfDays++
+        } else {
+          daySalary = 0
+          absentDays++
+        }
+        if (att.status === 'late_within_buffer') lateDays++
+      } else {
+        daySalary = 0
+        absentDays++
+      }
+
+      totalPayableSalary += daySalary
+    }
+
+    const payableSalary = totalPayableSalary
+    const deductions = monthlySalary - payableSalary
+    const totalAttendanceValue = perDaySalary > 0 ? payableSalary / perDaySalary : 0
 
     // ── 7. No-leave bonus (Section 16) ────────────────────────────────────
     // 2 days salary if zero approved leaves taken this month

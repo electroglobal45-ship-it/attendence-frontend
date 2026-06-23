@@ -27,6 +27,10 @@ export default function JitsiWrapper({ roomName, onLeave, onMuteChange }: JitsiW
           prejoinPageEnabled: false, // Bypass prejoin screen for instant join
           disableInviteFunctions: true, // Internal only meeting
           enableWelcomePage: false,
+          analytics: {
+            disabled: true
+          },
+          disableThirdPartyRequests: true,
           toolbarButtons: [
             'microphone',
             'camera',
@@ -45,7 +49,7 @@ export default function JitsiWrapper({ roomName, onLeave, onMuteChange }: JitsiW
           SHOW_JITSI_WATERMARK: false,
           SHOW_BRAND_WATERMARK: false,
           SHOW_WATERMARK_FOR_GUESTS: false,
-          DEFAULT_BACKGROUND: '#0f172a',
+          DEFAULT_BACKGROUND: '#1E0A2E',
         }}
         userInfo={{
           displayName,

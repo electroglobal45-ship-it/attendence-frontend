@@ -218,9 +218,18 @@ export const Sidebar = memo(function Sidebar() {
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false)
   
-  const dropdownRef = useRef<HTMLDivElement>(null)
+    const dropdownRef = useRef<HTMLDivElement>(null)
   const heightRef = useRef(300)
   const messagesPanelRef = useRef<HTMLDivElement>(null)
+
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -407,14 +416,6 @@ export const Sidebar = memo(function Sidebar() {
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
       style={{ background: 'linear-gradient(180deg, #1E0A2E 0%, #2D1152 100%)' }}>
-        {/* Mobile close button */}
-        <button
-          onClick={() => setOpen(false)}
-          className="lg:hidden absolute top-4 right-4 p-2 text-purple-300/70 hover:text-white"
-        >
-          <X size={24} />
-        </button>
-
         {/* Brand Header */}
         <div className={`px-4 py-5 border-b border-white/10 relative flex-shrink-0 flex ${isDesktopCollapsed ? 'justify-center' : 'items-center justify-between'}`}>
           {isDesktopCollapsed ? (
@@ -441,13 +442,22 @@ export const Sidebar = memo(function Sidebar() {
                   </div>
                 </div>
               </Link>
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="p-1.5 text-purple-300/60 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer flex-shrink-0 mr-1"
-                title="More actions"
-              >
-                <MoreVertical size={16} />
-              </button>
+              <div className="flex items-center gap-1.5 flex-shrink-0 mr-1">
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="p-1.5 text-purple-300/60 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer"
+                  title="More actions"
+                >
+                  <MoreVertical size={16} />
+                </button>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="lg:hidden p-1.5 text-purple-300/70 hover:text-white rounded-lg hover:bg-white/10 transition cursor-pointer"
+                  title="Close sidebar"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </>
           )}
           
@@ -524,23 +534,25 @@ export const Sidebar = memo(function Sidebar() {
           </div>
 
           {/* Resize Divider */}
-          <div 
-            onPointerDown={startResize}
-            className={`h-2 cursor-ns-resize transition-all duration-150 flex-shrink-0 flex items-center justify-center relative z-10 hover:bg-white/20 ${
-              isResizing ? 'bg-white/30' : 'bg-white/10'
-            }`}
-            title="Drag to resize messages panel"
-          >
-            <div className="absolute inset-y-[-6px] inset-x-0 cursor-ns-resize" />
-            <div className="w-8 h-1 rounded bg-white/25 z-10" />
-          </div>
+          {!isMobile && (
+            <div 
+              onPointerDown={startResize}
+              className={`h-2 cursor-ns-resize transition-all duration-150 flex-shrink-0 flex items-center justify-center relative z-10 hover:bg-white/20 ${
+                isResizing ? 'bg-white/30' : 'bg-white/10'
+              }`}
+              title="Drag to resize messages panel"
+            >
+              <div className="absolute inset-y-[-6px] inset-x-0 cursor-ns-resize" />
+              <div className="w-8 h-1 rounded bg-white/25 z-10" />
+            </div>
+          )}
 
           {/* Embedded resizable messages section */}
           <div 
             ref={messagesPanelRef}
-            style={messagesHeight ? { height: `${messagesHeight}px` } : undefined} 
+            style={messagesHeight && !isMobile ? { height: `${messagesHeight}px` } : undefined} 
             className={`flex flex-col border-t border-white/10 bg-black/10 min-h-[100px] overflow-hidden ${
-              messagesHeight ? 'flex-shrink-0' : 'flex-1'
+              messagesHeight && !isMobile ? 'flex-shrink-0' : 'flex-1'
             }`}
           >
             {/* Messages Header */}

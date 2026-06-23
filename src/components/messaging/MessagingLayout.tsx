@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useMessagingStore } from '@/store/messaging.store'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Menu } from 'lucide-react'
 import ChatArea from './ChatArea'
 import ThreadPanel from './ThreadPanel'
+import { useSidebarStore } from '@/lib/store/sidebar-store'
 
 export default function MessagingLayout() {
   const [isMounted, setIsMounted] = useState(false)
@@ -78,18 +79,35 @@ export default function MessagingLayout() {
 }
 
 function EmptyState() {
+  const setOpen = useSidebarStore((state) => state.setOpen)
   return (
-    <div className="flex-1 flex items-center justify-center bg-gray-50">
-      <div className="text-center max-w-md">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
-          <MessageSquare className="w-10 h-10 text-gray-400" />
+    <div className="flex-1 flex flex-col h-full bg-gray-50">
+      {/* Mobile Header when empty */}
+      <header className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white lg:hidden flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setOpen(true)}
+            className="p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer flex items-center justify-center"
+            aria-label="Open menu"
+          >
+            <Menu size={24} />
+          </button>
+          <h1 className="text-lg font-bold text-gray-900">Messages</h1>
         </div>
-        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-          Welcome to Messages
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Select a channel or conversation from the sidebar to get started.
-        </p>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
+            <MessageSquare className="w-10 h-10 text-gray-400" />
+          </div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+            Welcome to Messages
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Select a channel or conversation from the sidebar to get started.
+          </p>
+        </div>
       </div>
     </div>
   )

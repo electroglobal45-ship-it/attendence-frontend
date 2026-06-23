@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { BoardView } from '@/components/board/BoardView'
-import { Plus, RefreshCw, Layout, ChevronRight } from 'lucide-react'
+import { Plus, RefreshCw, Layout, ChevronRight, Menu } from 'lucide-react'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
 import { useAuth } from '@/lib/auth-context'
+import { useSidebarStore } from '@/lib/store/sidebar-store'
 
 const PROJECT_ID = 'c691dc11-b522-4e80-8ae6-337244d2a28d'
 
@@ -139,11 +140,22 @@ export default function BoardsPage() {
           boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h1 style={{ color: '#111827', fontSize: 22, fontWeight: 800, margin: 0, fontFamily: 'var(--font-plus-jakarta), sans-serif' }}>Boards</h1>
-              <p style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0' }}>
-                {boards.length} board{boards.length !== 1 ? 's' : ''} in your workspace
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+              {/* Hamburger menu for mobile */}
+              <button
+                onClick={() => useSidebarStore.getState().setOpen(true)}
+                className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer"
+                style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                aria-label="Open menu"
+              >
+                <Menu size={24} />
+              </button>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ color: '#111827', fontSize: 22, fontWeight: 800, margin: 0, fontFamily: 'var(--font-plus-jakarta), sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Boards</h1>
+                <p style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {boards.length} board{boards.length !== 1 ? 's' : ''} in your workspace
+                </p>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button

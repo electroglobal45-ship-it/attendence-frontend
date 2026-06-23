@@ -6,7 +6,8 @@ import {
   ChevronDown, Filter, Share2, Users, Lock,
   Globe, Building2, Eye, Pencil, Copy, Link,
   Check, Search, Trash2, LayoutGrid, Table as TableIcon,
-  Calendar as CalendarIcon, Clock, BarChart3, Map as MapIcon
+  Calendar as CalendarIcon, Clock, BarChart3, Map as MapIcon,
+  Menu
 } from 'lucide-react'
 import { boardsAPI, listsAPI } from '@/lib/kanban-api'
 import { Board } from './Board'
@@ -15,6 +16,7 @@ import { CalendarView as CalendarViewComponent } from './CalendarView'
 import { BoardSkeleton, BoardLoadingIndicator } from './BoardSkeleton'
 import { useAuth } from '@/lib/auth-context'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
+import { useSidebarStore } from '@/lib/store/sidebar-store'
 import { useSocket } from '@/hooks/useSocket'
 
 /* ─────────────────────────── Design tokens (CADBURY PURPLE THEME) ── */
@@ -90,21 +92,52 @@ function Dropdown({ trigger, panel, align='left' }:{ trigger:React.ReactNode; pa
   const [open,setOpen] = useState(false)
   const close = ()=>setOpen(false)
   const ref = useRef<HTMLDivElement>(null)
+
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   useEffect(()=>{
     const h=(e:MouseEvent)=>{ if(ref.current&&!ref.current.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown',h)
     return ()=>setOpen(false)
   },[])
+
   return (
     <div style={{position:'relative', zIndex: open ? 1000 : 'auto'}} ref={ref}>
       <div onClick={()=>setOpen(v=>!v)}>{trigger}</div>
       {open && (
-        <div style={{
-          position:'absolute', top:'calc(100% + 6px)', zIndex:1001,
-          [align==='right'?'right':'left']:0,
-        }} onClick={e=>e.stopPropagation()}>
-          {panel(close)}
-        </div>
+        <>
+          {isMobile && (
+            <div 
+              onClick={close}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0, 0, 0, 0.4)',
+                backdropFilter: 'blur(2px)',
+                zIndex: 10000,
+              }}
+            />
+          )}
+          <div style={isMobile ? {
+            position:'fixed', top:'50%', left:'50%', transform:'translate(-50%, -50%)',
+            zIndex: 10001,
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            borderRadius: 8,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          } : {
+            position:'absolute', top:'calc(100% + 6px)', zIndex:1001,
+            [align==='right'?'right':'left']:0,
+          }} onClick={e=>e.stopPropagation()}>
+            {panel(close)}
+          </div>
+        </>
       )}
     </div>
   )
@@ -416,6 +449,14 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   })
   const [teamLeaders, setTeamLeaders] = useState<any[]>([])
   
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   // Compute canManageBoard permission
   const canManageBoard = useMemo(() => {
     if (!selectedBoard || !user) return false
@@ -919,8 +960,13 @@ useEffect(() => {
 
       {/* ════════════ SIMPLIFIED HEADER ════════════ */}
       <div style={{
-        flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between',
-        padding:'12px 20px', gap:16,
+        flexShrink:0,
+        display:'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        justifyContent:'space-between',
+        padding: isMobile ? '12px 16px' : '12px 20px',
+        gap: isMobile ? 12 : 16,
         background:'#FFFFFF',
         borderBottom:`1px solid ${DS.headerBorder}`,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -929,7 +975,17 @@ useEffect(() => {
       }}>
 
         {/* LEFT - Back Button + Board Name */}
-        <div style={{ display:'flex', alignItems:'center', gap:12, flex: 1, minWidth: 0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, width: '100%', minWidth: 0 }}>
+          
+          {/* Hamburger menu for mobile */}
+          <button
+            onClick={() => useSidebarStore.getState().setOpen(true)}
+            className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer"
+            style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, flexShrink: 0 }}
+            aria-label="Open menu"
+          >
+            <Menu size={20} />
+          </button>
           
           {/* Back Button */}
           <button 
@@ -1046,7 +1102,14 @@ useEffect(() => {
         </div>
 
         {/* RIGHT - Members + Actions */}
-        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink: 0 }}>
+        <div style={{ 
+          display:'flex', 
+          alignItems:'center', 
+          gap:8, 
+          flexWrap: 'wrap', 
+          width: '100%', 
+          justifyContent: isMobile ? 'flex-start' : 'flex-end' 
+        }}>
 
           {/* Avatars — show ALL employees */}
           <div style={{ display:'flex', alignItems:'center' }}>
@@ -1429,14 +1492,14 @@ useEffect(() => {
                     <span style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, whiteSpace: 'nowrap' }}>OR USE URL</span>
                     <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
                   </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
                     <input
                       type="text"
                       placeholder="Paste image URL..."
                       value={bgImageInput}
                       onChange={e => setBgImageInput(e.target.value)}
                       style={{
-                        flex: 1, background: '#F9FAFB', border: '1px solid #D1D5DB',
+                        flex: 1, minWidth: 0, background: '#F9FAFB', border: '1px solid #D1D5DB',
                         borderRadius: 5, padding: '6px 8px', color: '#111827',
                         fontSize: 12, outline: 'none', boxSizing: 'border-box' as any
                       }}
@@ -1465,9 +1528,12 @@ useEffect(() => {
                         }
                       }}
                       style={{
-                        padding: '6px 10px', background: '#4A1F6F', color: '#fff',
-                        border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600
+                        padding: '6px 12px', background: '#4A1F6F', color: '#fff',
+                        border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        flexShrink: 0, transition: 'background .15s'
                       }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#3B1859')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '#4A1F6F')}
                     >
                       Set
                     </button>
@@ -1523,14 +1589,19 @@ useEffect(() => {
 
       {/* ════════════ VIEW SWITCHER ════════════ */}
       {boardData && (
-        <div style={{
-          background: '#FFFFFF',
-          borderBottom: `1px solid ${DS.headerBorder}`,
-          padding: '8px 20px',
-          display: 'flex',
-          gap: 4,
-          flexShrink: 0,
-        }}>
+        <div 
+          className="no-scrollbar"
+          style={{
+            background: '#FFFFFF',
+            borderBottom: `1px solid ${DS.headerBorder}`,
+            padding: isMobile ? '8px 16px' : '8px 20px',
+            display: 'flex',
+            gap: 4,
+            flexShrink: 0,
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {[
             { id: 'board', icon: LayoutGrid, label: 'Board' },
             { id: 'table', icon: TableIcon, label: 'Table' },
@@ -1560,6 +1631,7 @@ useEffect(() => {
                   cursor: 'pointer',
                   transition: 'all .15s',
                   fontFamily: 'var(--font-inter), sans-serif',
+                  flexShrink: 0,
                 }}
                 onMouseEnter={e => {
                   if (!isActive) {

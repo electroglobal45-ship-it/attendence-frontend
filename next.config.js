@@ -61,11 +61,12 @@ const nextConfig = {
 
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://meet.jit.si https://*.jit.si",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://lxshgillxjohtideuugq.supabase.co https://coqpvdpkrthiwessgurq.supabase.co",
       `connect-src ${connectSrc}`,
+      "frame-src 'self' https://meet.jit.si https://*.jit.si",
       "frame-ancestors 'none'",   // replaces X-Frame-Options — stronger
       "base-uri 'self'",
       "form-action 'self'",
@@ -89,8 +90,8 @@ const nextConfig = {
           }]),
 
           // Limit which browser features this origin can use
-          // camera/mic denied — geolocation allowed (needed for attendance check-in)
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
+          // camera/mic allowed for self and Jitsi — geolocation allowed (needed for attendance check-in)
+          { key: 'Permissions-Policy', value: 'camera=(self "https://meet.jit.si"), microphone=(self "https://meet.jit.si"), display-capture=(self "https://meet.jit.si"), geolocation=(self)' },
 
           // Don't send the full Referer URL to third-party domains
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

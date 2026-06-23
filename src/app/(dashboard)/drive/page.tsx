@@ -319,7 +319,7 @@ export default function DrivePage() {
       title="Drive"
       subtitle={connectionEmail || 'Connected'}
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {tab === 'my-drive' && (
             <>
               <button onClick={() => setShowNewFolder(true)} className="btn-secondary flex items-center gap-2">
@@ -339,10 +339,10 @@ export default function DrivePage() {
       }
     >
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-gray-200">
+      <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto whitespace-nowrap no-scrollbar max-w-full">
         <button
           onClick={() => setTab('my-drive')}
-          className={`px-4 py-2 font-medium transition ${
+          className={`px-4 py-2 font-medium transition shrink-0 whitespace-nowrap ${
             tab === 'my-drive'
               ? 'text-black border-b-2 border-black'
               : 'text-gray-500 hover:text-gray-700'
@@ -352,7 +352,7 @@ export default function DrivePage() {
         </button>
         <button
           onClick={() => setTab('shared-by-me')}
-          className={`px-4 py-2 font-medium transition ${
+          className={`px-4 py-2 font-medium transition shrink-0 whitespace-nowrap ${
             tab === 'shared-by-me'
               ? 'text-black border-b-2 border-black'
               : 'text-gray-500 hover:text-gray-700'
@@ -362,7 +362,7 @@ export default function DrivePage() {
         </button>
         <button
           onClick={() => setTab('shared-with-me')}
-          className={`px-4 py-2 font-medium transition flex items-center gap-2 ${
+          className={`px-4 py-2 font-medium transition flex items-center gap-2 shrink-0 whitespace-nowrap ${
             tab === 'shared-with-me'
               ? 'text-black border-b-2 border-black'
               : 'text-gray-500 hover:text-gray-700'
@@ -377,7 +377,7 @@ export default function DrivePage() {
         </button>
         <button
           onClick={() => setTab('meeting-recordings')}
-          className={`px-4 py-2 font-medium transition ${
+          className={`px-4 py-2 font-medium transition shrink-0 whitespace-nowrap ${
             tab === 'meeting-recordings'
               ? 'text-black border-b-2 border-black'
               : 'text-gray-500 hover:text-gray-700'
@@ -399,8 +399,8 @@ export default function DrivePage() {
               No files yet. Upload your first file!
             </div>
           ) : (
-            <div className="table-wrapper border-0">
-              <table className="table">
+            <div className="table-wrapper border-0 overflow-x-auto w-full no-scrollbar">
+              <table className="table min-w-[650px]">
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -414,20 +414,22 @@ export default function DrivePage() {
                     const isOptimistic = file.id.startsWith('temp-')
                     return (
                       <tr key={file.id} style={isOptimistic ? { opacity: 0.5 } : undefined}>
-                        <td className="flex items-center gap-2">
-                          <span className="text-2xl">{driveAPI.getFileIcon(file.mimeType)}</span>
-                          <span className="font-medium flex items-center gap-2">
-                            {file.name}
-                            {isOptimistic && (
-                              <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-semibold animate-pulse">
-                                {file.mimeType.includes('folder') ? 'Creating...' : 'Uploading...'}
-                              </span>
-                            )}
-                          </span>
-                        </td>
-                        <td>{new Date(file.modifiedTime).toLocaleDateString()}</td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{driveAPI.formatFileSize(file.size)}</td>
                         <td>
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{driveAPI.getFileIcon(file.mimeType)}</span>
+                            <span className="font-medium flex items-center gap-2">
+                              {file.name}
+                              {isOptimistic && (
+                                <span className="text-[11px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-semibold animate-pulse whitespace-nowrap">
+                                  {file.mimeType.includes('folder') ? 'Creating...' : 'Uploading...'}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap">{new Date(file.modifiedTime).toLocaleDateString()}</td>
+                        <td className="whitespace-nowrap">{driveAPI.formatFileSize(file.size)}</td>
+                        <td className="whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             {!isOptimistic && file.webViewLink && (
                               <a
@@ -491,8 +493,8 @@ export default function DrivePage() {
               No recordings found. Use the Record button during meetings to save to Drive.
             </div>
           ) : (
-            <div className="table-wrapper border-0">
-              <table className="table">
+            <div className="table-wrapper border-0 overflow-x-auto w-full no-scrollbar">
+              <table className="table min-w-[650px]">
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -504,13 +506,15 @@ export default function DrivePage() {
                 <tbody>
                   {files.map((file) => (
                     <tr key={file.id}>
-                      <td className="flex items-center gap-2">
-                        <span className="text-2xl">🎥</span>
-                        <span className="font-medium">{file.name}</span>
-                      </td>
-                      <td>{new Date(file.modifiedTime).toLocaleDateString()}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>{driveAPI.formatFileSize(file.size)}</td>
                       <td>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">🎥</span>
+                          <span className="font-medium">{file.name}</span>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap">{new Date(file.modifiedTime).toLocaleDateString()}</td>
+                      <td className="whitespace-nowrap">{driveAPI.formatFileSize(file.size)}</td>
+                      <td className="whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           {file.webViewLink && (
                             <a
@@ -567,8 +571,8 @@ export default function DrivePage() {
               No files shared yet
             </div>
           ) : (
-            <div className="table-wrapper border-0">
-              <table className="table">
+            <div className="table-wrapper border-0 overflow-x-auto w-full no-scrollbar">
+              <table className="table min-w-[850px]">
                 <thead>
                   <tr>
                     <th>File</th>
@@ -587,23 +591,23 @@ export default function DrivePage() {
                           href={share.file_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline flex items-center gap-2"
+                          className="text-blue-600 hover:underline inline-flex items-center gap-2 whitespace-nowrap"
                         >
                           {share.file_name}
-                          <ExternalLink size={14} />
+                          <ExternalLink size={14} className="shrink-0" />
                         </a>
                       </td>
-                      <td>{share.shared_with_user?.name}</td>
-                      <td className="capitalize">{share.permission}</td>
-                      <td>{new Date(share.shared_at).toLocaleDateString()}</td>
-                      <td>
+                      <td className="whitespace-nowrap">{share.shared_with_user?.name}</td>
+                      <td className="whitespace-nowrap capitalize">{share.permission}</td>
+                      <td className="whitespace-nowrap">{new Date(share.shared_at).toLocaleDateString()}</td>
+                      <td className="whitespace-nowrap">
                         {share.viewed ? (
                           <span className="badge-present">Viewed</span>
                         ) : (
                           <span className="badge-pending">Not viewed</span>
                         )}
                       </td>
-                      <td>
+                      <td className="whitespace-nowrap">
                         <button
                           onClick={async () => {
                             if (confirm('Revoke access to this file?')) {
@@ -638,8 +642,8 @@ export default function DrivePage() {
               No files shared with you yet
             </div>
           ) : (
-            <div className="table-wrapper border-0">
-              <table className="table">
+            <div className="table-wrapper border-0 overflow-x-auto w-full no-scrollbar">
+              <table className="table min-w-[750px]">
                 <thead>
                   <tr>
                     <th>File</th>
@@ -657,18 +661,18 @@ export default function DrivePage() {
                           href={share.file_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`hover:underline flex items-center gap-2 ${!share.viewed ? 'text-blue-600 font-semibold' : 'text-gray-700'}`}
+                          className={`hover:underline inline-flex items-center gap-2 whitespace-nowrap ${!share.viewed ? 'text-blue-600 font-semibold' : 'text-gray-700'}`}
                           onClick={() => handleOpenShare(share)}
                         >
                           {share.file_name}
-                          {!share.viewed && <span className="w-2 h-2 rounded-full bg-blue-500"></span>}
-                          <ExternalLink size={14} />
+                          {!share.viewed && <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></span>}
+                          <ExternalLink size={14} className="shrink-0" />
                         </a>
                       </td>
-                      <td>{share.shared_by_user?.name}</td>
-                      <td className="capitalize">{share.permission}</td>
-                      <td>{new Date(share.shared_at).toLocaleDateString()}</td>
-                      <td>
+                      <td className="whitespace-nowrap">{share.shared_by_user?.name}</td>
+                      <td className="whitespace-nowrap capitalize">{share.permission}</td>
+                      <td className="whitespace-nowrap">{new Date(share.shared_at).toLocaleDateString()}</td>
+                      <td className="whitespace-nowrap">
                         <a
                           href={share.file_url}
                           target="_blank"

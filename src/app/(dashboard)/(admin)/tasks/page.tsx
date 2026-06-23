@@ -1,11 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, RefreshCw, LayoutGrid, CheckCircle2, GripVertical, Filter } from 'lucide-react'
+import { Clock, RefreshCw, LayoutGrid, CheckCircle2, GripVertical, Filter, Menu } from 'lucide-react'
 import { TaskDetailModal } from '@/components/board/TaskDetailModal'
 import { BoardView } from '@/components/board/BoardView'
 import Link from 'next/link'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
+import { useSidebarStore } from '@/lib/store/sidebar-store'
 import {
   DndContext,
   closestCenter,
@@ -88,17 +89,16 @@ function SortableTaskRow({
 
   return (
     <div ref={setNodeRef} style={style} onClick={onTaskClick} className="task-row">
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '40px 1fr 200px 180px',
-        gap: 16,
-        padding: '14px 20px',
-        borderBottom: idx < totalTasks - 1 ? '1px solid #F3F4F6' : 'none',
-        cursor: 'pointer',
-        transition: 'background 0.15s',
-        alignItems: 'center',
-        background: isDragging ? PURPLE_5 : 'transparent',
-      }}>
+      <div 
+        className="task-row-grid"
+        style={{
+          borderBottom: idx < totalTasks - 1 ? '1px solid #F3F4F6' : 'none',
+          cursor: 'pointer',
+          transition: 'background 0.15s',
+          alignItems: 'center',
+          background: isDragging ? PURPLE_5 : 'transparent',
+        }}
+      >
         {/* Drag Handle */}
         <div
           {...attributes} {...listeners}
@@ -113,8 +113,8 @@ function SortableTaskRow({
           <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {task.title}
           </div>
-          {task.board?.name && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {task.board?.name && (
               <Link
                 href={`/board/${task.board_id}`}
                 onClick={(e) => e.stopPropagation()}
@@ -128,17 +128,52 @@ function SortableTaskRow({
               >
                 📋 {task.board.name}
               </Link>
-              {task.labels && task.labels.slice(0, 2).map((lbl: any, i: number) => (
-                <span key={i} style={{ backgroundColor: lbl.color || GOLD, color: '#fff', padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>
-                  {lbl.name || 'LABEL'}
-                </span>
-              ))}
+            )}
+            {task.labels && task.labels.slice(0, 2).map((lbl: any, i: number) => (
+              <span key={i} style={{ backgroundColor: lbl.color || GOLD, color: '#fff', padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>
+                {lbl.name || 'LABEL'}
+              </span>
+            ))}
+          </div>
+
+          {/* On Mobile: Render Assignee and Due Date below */}
+          <div className="task-mobile-details" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+            {/* Assignee */}
+            <div>
+              {assigneeName ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, flexShrink: 0 }}>
+                    {assigneeName.charAt(0).toUpperCase()}
+                  </div>
+                  <span style={{ fontSize: 12, color: '#4B5563', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }}>{assigneeName}</span>
+                </div>
+              ) : (
+                <span style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>Unassigned</span>
+              )}
             </div>
-          )}
+
+            {/* Due Date */}
+            <div>
+              {task.due_date ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Clock size={12} color={isOverdue ? '#EF4444' : '#6B7280'} />
+                  <span style={{ fontSize: 12, color: isOverdue ? '#EF4444' : '#4B5563', fontWeight: isOverdue ? 600 : 500 }}>
+                    {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                  {isOverdue && (
+                    <span style={{ padding: '1px 4px', background: '#FEE2E2', color: '#EF4444', borderRadius: 3, fontSize: 8, fontWeight: 700 }}>OVERDUE</span>
+                  )}
+                </div>
+              ) : (
+                <span style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>No due date</span>
+              )}
+            </div>
+          </div>
         </div>
 
+        {/* Desktop Columns */}
         {/* Assignee */}
-        <div>
+        <div className="task-desktop-col">
           {assigneeName ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
@@ -152,7 +187,7 @@ function SortableTaskRow({
         </div>
 
         {/* Due Date */}
-        <div>
+        <div className="task-desktop-col">
           {task.due_date ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Clock size={14} color={isOverdue ? '#EF4444' : '#6B7280'} />
@@ -371,23 +406,150 @@ export default function TasksPage() {
           padding: 7px 16px; border-radius: 10px; border: none; cursor: pointer;
           font-size: 12px; font-weight: 600; transition: all 0.15s;
           display: flex; align-items: center; gap: 7px; font-family: inherit;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .crm-tab-btn:hover { background: ${PURPLE_5}; color: ${PURPLE}; }
+
+        /* Responsive Layout styles */
+        .tasks-header-wrapper {
+          padding: 16px 16px;
+        }
+        .tasks-header-container {
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 12px;
+        }
+        .tasks-header-actions {
+          display: flex;
+          flex-wrap: wrap;
+          width: 100%;
+          justify-content: flex-start;
+        }
+        .tasks-tabs-container {
+          width: 100%;
+        }
+        .tasks-content-container {
+          padding: 16px 14px;
+        }
+        .task-table-header {
+          display: none;
+        }
+        .task-row-grid {
+          display: grid;
+          grid-template-columns: 40px 1fr;
+          gap: 8px;
+          padding: 12px 14px;
+        }
+        .task-mobile-details {
+          display: flex;
+        }
+        .task-desktop-col {
+          display: none;
+        }
+
+        .filter-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 999;
+          background: rgba(0,0,0,0.45);
+          backdrop-filter: blur(2px);
+        }
+        .filter-dropdown-container {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: calc(100vw - 32px);
+          max-width: 320px;
+          background: #FFFFFF;
+          border: 1px solid #E5E7EB;
+          border-radius: 14px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+          z-index: 1000;
+          max-height: 80vh;
+          overflow-y: auto;
+        }
+
+        @media (min-width: 768px) {
+          .tasks-header-wrapper {
+            padding: 18px 28px;
+          }
+          .tasks-header-container {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+          }
+          .tasks-header-actions {
+            width: auto;
+            justify-content: flex-end;
+          }
+          .tasks-tabs-container {
+            width: fit-content;
+          }
+          .tasks-content-container {
+            padding: 24px 28px;
+          }
+          .task-table-header {
+            display: grid;
+            grid-template-columns: 40px 1fr 200px 180px;
+          }
+          .task-row-grid {
+            grid-template-columns: 40px 1fr 200px 180px;
+            gap: 16px;
+            padding: 14px 20px;
+          }
+          .task-mobile-details {
+            display: none;
+          }
+          .task-desktop-col {
+            display: block;
+          }
+          .filter-backdrop {
+            background: transparent;
+            backdrop-filter: none;
+          }
+          .filter-dropdown-container {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            left: auto;
+            transform: none;
+            width: 300px;
+            max-width: none;
+            margin-top: 8px;
+            box-shadow: 0 10px 30px rgba(74,31,111,0.12);
+            max-height: calc(100vh - 200px);
+          }
+        }
       `}</style>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh', background: '#F8F9FA', fontFamily: 'system-ui,sans-serif' }}>
 
         {/* ── Header ───────────────────────────────────────────────────────────── */}
-        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '18px 28px', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="tasks-header-wrapper" style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div className="tasks-header-container">
             {/* Title */}
-            <div>
-              <h1 style={{ color: PURPLE, fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-.3px' }}>All Tasks</h1>
-              <p style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0' }}>Tasks across all boards · {tasks.length} total</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+              {/* Hamburger menu for mobile */}
+              <button
+                onClick={() => useSidebarStore.getState().setOpen(true)}
+                className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer"
+                style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                aria-label="Open menu"
+              >
+                <Menu size={24} />
+              </button>
+              <div style={{ minWidth: 0 }}>
+                <h1 style={{ color: PURPLE, fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-.3px', fontFamily: 'var(--font-plus-jakarta), sans-serif' }}>All Tasks</h1>
+                <p style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0' }}>Tasks across all boards · {tasks.length} total</p>
+              </div>
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div className="tasks-header-actions" style={{ gap: 8 }}>
               {/* Refresh */}
               <button
                 onClick={() => fetchTasks(true)}
@@ -422,8 +584,11 @@ export default function TasksPage() {
 
                 {showFilters && (
                   <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 999 }} onClick={() => setShowFilters(false)} />
-                    <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 8, width: 300, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 14, boxShadow: '0 10px 30px rgba(74,31,111,0.12)', zIndex: 1000, maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+                    <div 
+                      className="filter-backdrop"
+                      onClick={() => setShowFilters(false)} 
+                    />
+                    <div className="filter-dropdown-container">
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#FFFFFF', zIndex: 1 }}>
                         <h3 style={{ fontSize: 14, fontWeight: 700, color: PURPLE, margin: 0 }}>Filter Tasks</h3>
                         {activeFiltersCount > 0 && (
@@ -486,7 +651,19 @@ export default function TasksPage() {
           </div>
 
           {/* Tab Filters */}
-          <div style={{ display: 'flex', gap: 4, marginTop: 14, flexWrap: 'wrap', background: '#F8F9FA', padding: '4px', borderRadius: 12, border: '1px solid #E5E7EB', width: 'fit-content' }}>
+          <div className="tasks-tabs-container no-scrollbar" style={{
+            display: 'flex',
+            gap: 4,
+            marginTop: 14,
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
+            background: '#F8F9FA',
+            padding: '4px',
+            borderRadius: 12,
+            border: '1px solid #E5E7EB',
+            msOverflowStyle: 'none',
+            scrollbarWidth: 'none',
+          }}>
             {TABS.map(tab => {
               const active = activeFilter === tab.key
               return (
@@ -516,7 +693,7 @@ export default function TasksPage() {
         </div>
 
         {/* ── Content ──────────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px' }}>
+        <div className="tasks-content-container" style={{ flex: 1, overflow: 'auto' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, gap: 16 }}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', border: `3px solid ${PURPLE_10}`, borderTopColor: PURPLE, animation: 'spin 0.8s linear infinite' }} />
@@ -533,7 +710,7 @@ export default function TasksPage() {
           ) : (
             <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
               {/* Table Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 200px 180px', gap: 16, padding: '12px 20px', background: PURPLE_5, borderBottom: `1px solid ${PURPLE}15`, fontSize: 11, fontWeight: 700, color: PURPLE, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+              <div className="task-table-header" style={{ gap: 16, padding: '12px 20px', background: PURPLE_5, borderBottom: `1px solid ${PURPLE}15`, fontSize: 11, fontWeight: 700, color: PURPLE, textTransform: 'uppercase', letterSpacing: '.5px' }}>
                 <div />
                 <div>Name</div>
                 <div>Assignee</div>

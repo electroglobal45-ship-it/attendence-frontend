@@ -81,34 +81,19 @@ export default function AdminDashboard() {
   const { user } = useAuth()
   const isHR = user?.role === 'hr'
 
-  // Live ticking clock & dynamic greeting logic
+  // Dynamic greeting logic based on time of day
   const [greeting, setGreeting] = useState('Welcome')
-  const [currentTime, setCurrentTime] = useState('')
 
   useEffect(() => {
-    const updateTimeAndGreeting = () => {
-      const now = new Date()
-      const formattedTime = now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      })
-      setCurrentTime(formattedTime)
-
-      const hours = now.getHours()
-      if (hours < 12) {
-        setGreeting('Good Morning')
-      } else if (hours < 17) {
-        setGreeting('Good Afternoon')
-      } else {
-        setGreeting('Good Evening')
-      }
+    const now = new Date()
+    const hours = now.getHours()
+    if (hours < 12) {
+      setGreeting('Good Morning')
+    } else if (hours < 17) {
+      setGreeting('Good Afternoon')
+    } else {
+      setGreeting('Good Evening')
     }
-
-    updateTimeAndGreeting()
-    const interval = setInterval(updateTimeAndGreeting, 1000)
-    return () => clearInterval(interval)
   }, [])
 
   const stats = usePrefetchStore((state) => state.adminStats)
@@ -347,18 +332,7 @@ export default function AdminDashboard() {
 
             {/* Right Corner stats: Ongoing, Imp, Clock */}
             <div className="flex flex-wrap items-center gap-3 shrink-0 font-jakarta">
-              {/* Dynamic Clock Widget */}
-              {currentTime && (
-                <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                    <Clock size={14} className="text-[#D9A441] animate-pulse" />
-                  </div>
-                  <div>
-                    <p className="text-[9px] uppercase font-bold text-slate-350 tracking-wider font-sans">Local Time</p>
-                    <p className="text-xs font-bold text-white tracking-wider">{currentTime}</p>
-                  </div>
-                </div>
-              )}
+
 
               {/* Ongoing Tasks */}
               <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 flex items-center gap-3">
@@ -532,10 +506,10 @@ export default function AdminDashboard() {
         )}
 
         {/* ── Segmented Pill Tab Workspace ────────────────────────────────────────── */}
-        <div className="bg-slate-100 p-1 rounded-2xl flex flex-wrap gap-0.5 shadow-sm max-w-max border border-gray-150">
+        <div className="bg-slate-100 p-1 rounded-2xl flex overflow-x-auto whitespace-nowrap no-scrollbar max-w-full sm:max-w-max border border-gray-150 gap-0.5 shadow-sm">
           {/* Today's Attendance Tab */}
           <button onClick={() => setActiveTab('attendance')}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shrink-0 ${
               activeTab === 'attendance'
                 ? 'bg-[#4A1F6F] text-white shadow-xs'
                 : 'text-slate-500 hover:text-[#4A1F6F] hover:bg-[#4A1F6F]/5'
@@ -552,7 +526,7 @@ export default function AdminDashboard() {
           {/* Leave Requests Tab — hidden for HR */}
           {!isHR && (
             <button onClick={() => setActiveTab('leaves')}
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shrink-0 ${
                 activeTab === 'leaves'
                   ? 'bg-[#4A1F6F] text-white shadow-xs'
                   : 'text-slate-500 hover:text-[#4A1F6F] hover:bg-[#4A1F6F]/5'
@@ -572,7 +546,7 @@ export default function AdminDashboard() {
           {/* Short Leaves Tab — hidden for HR */}
           {!isHR && (
             <button onClick={() => setActiveTab('shortLeaves')}
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shrink-0 ${
                 activeTab === 'shortLeaves'
                   ? 'bg-[#4A1F6F] text-white shadow-xs'
                   : 'text-slate-500 hover:text-[#4A1F6F] hover:bg-[#4A1F6F]/5'
@@ -592,7 +566,7 @@ export default function AdminDashboard() {
           {/* Workforce Tasks Tab — hidden for HR */}
           {!isHR && (
             <button onClick={() => setActiveTab('tasks')}
-              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shrink-0 ${
                 activeTab === 'tasks'
                   ? 'bg-[#4A1F6F] text-white shadow-xs'
                   : 'text-slate-500 hover:text-[#4A1F6F] hover:bg-[#4A1F6F]/5'

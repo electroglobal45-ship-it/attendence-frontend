@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { ChevronLeft, ChevronRight, X, RefreshCw } from 'lucide-react'
 import { adminAPI } from '@/lib/tasks-api'
-import { formatTimeIST } from '@/lib/time-utils'
+import { formatTimeIST, calculateHours, calculateHoursNumeric } from '@/lib/time-utils'
 
 const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -22,6 +22,19 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> 
   future:              { bg: 'bg-white',      text: 'text-gray-300',   label: '' },
 }
 
+const STATUS_DOTS: Record<string, string> = {
+  present:             'bg-green-500',
+  late_within_buffer:  'bg-yellow-500',
+  half_day:            'bg-orange-500',
+  approved_short_leave:'bg-blue-500',
+  leave:               'bg-purple-500',
+  leave_pending:       'bg-purple-300',
+  absent:              'bg-red-500',
+  holiday:             'bg-gray-400',
+  sunday:              'bg-gray-300',
+  future:              'bg-transparent',
+}
+
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
 
 export default function AdminCalendarPage() {
@@ -34,6 +47,7 @@ export default function AdminCalendarPage() {
   const [salary,     setSalary]     = useState<any>(null)
   const [loading,    setLoading]    = useState(false)
   const [selected,   setSelected]   = useState<any>(null)
+  const [viewMode,   setViewMode]   = useState<'calendar' | 'table' | 'both'>('both')
 
   // Attendance Override Modal states
   const [showMarkModal, setShowMarkModal] = useState(false)
@@ -168,21 +182,38 @@ export default function AdminCalendarPage() {
 
   return (
     <PageWrapper title="Employee Calendar" subtitle="View attendance calendar and salary for any employee">
-      <div className="max-w-4xl space-y-5">
+      <div className="max-w-4xl mx-auto space-y-5 pb-10">
 
         {/* Controls */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-48">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Employee</label>
-            <select value={selectedEmp} onChange={e => setSelectedEmp(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-black">
-              {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.email})</option>)}
-            </select>
+        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-4 items-center justify-between">
+          <div className="flex flex-wrap flex-1 gap-3 items-end min-w-0">
+            <div className="flex-1 min-w-48 max-w-xs">
+              <label className="block text-xs font-medium text-gray-500 mb-1">Employee</label>
+              <select value={selectedEmp} onChange={e => setSelectedEmp(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-black">
+                {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.email})</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={prev} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
+              <span className="font-medium text-sm min-w-32 text-center">{MONTHS[month-1]} {year}</span>
+              <button onClick={next} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18} /></button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={prev} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
-            <span className="font-medium text-sm min-w-32 text-center">{MONTHS[month-1]} {year}</span>
-            <button onClick={next} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18} /></button>
+          
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg text-xs font-medium border border-gray-200 shrink-0">
+            <button onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 rounded-md transition ${viewMode === 'calendar' ? 'bg-white text-gray-950 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>
+              Calendar Grid
+            </button>
+            <button onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-md transition ${viewMode === 'table' ? 'bg-white text-gray-950 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>
+              Tabular Sheet
+            </button>
+            <button onClick={() => setViewMode('both')}
+              className={`px-3 py-1.5 rounded-md transition ${viewMode === 'both' ? 'bg-white text-gray-950 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>
+              Show Both
+            </button>
           </div>
         </div>
 
@@ -208,53 +239,60 @@ export default function AdminCalendarPage() {
         )}
 
         {/* Calendar */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-gray-200">
-            {DAY_LABELS.map(d => (
-              <div key={d} className="py-2 text-center text-xs font-medium text-gray-500">{d}</div>
-            ))}
-          </div>
-          {loading ? (
-            <div className="py-16 text-center text-gray-400">Loading...</div>
-          ) : (
-            <div className="grid grid-cols-7">
-              {cells.map((cell, i) => {
-                if (!cell) return <div key={`e-${i}`} className="aspect-square border-b border-r border-gray-100" />
-                const style = STATUS_STYLE[cell.dayType] || STATUS_STYLE.future
-                return (
-                  <button key={cell.date} onClick={() => setSelected(cell)}
-                    className="aspect-square border-b border-r border-gray-100 flex flex-col items-center justify-center p-1 gap-0.5 hover:opacity-80 transition cursor-pointer">
-                    <span className="text-sm font-medium text-gray-800">{cell.day}</span>
-                    {style.label && (
-                      <span className={`text-[9px] px-1 rounded font-medium ${style.bg} ${style.text} leading-tight`}>
-                        {style.label}
-                      </span>
-                    )}
-                    {(cell.checkIn || cell.checkOut || cell.check_out) && (
-                      <div className="text-[8px] text-gray-400 font-mono mt-0.5 flex flex-col items-center leading-none scale-90">
-                        {cell.checkIn && <span>↓{fmtTimeCompact(cell.checkIn)}</span>}
-                        {(cell.checkOut || cell.check_out) && <span>↑{fmtTimeCompact(cell.checkOut || cell.check_out)}</span>}
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
+        {viewMode !== 'table' && (
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-gray-200">
+              {DAY_LABELS.map(d => (
+                <div key={d} className="py-2 text-center text-xs font-medium text-gray-500">{d}</div>
+              ))}
             </div>
-          )}
-        </div>
+            {loading ? (
+              <div className="py-16 text-center text-gray-400">Loading...</div>
+            ) : (
+              <div className="grid grid-cols-7">
+                {cells.map((cell, i) => {
+                  if (!cell) return <div key={`e-${i}`} className="aspect-square border-b border-r border-gray-100" />
+                  const style = STATUS_STYLE[cell.dayType] || STATUS_STYLE.future
+                  return (
+                    <button key={cell.date} onClick={() => setSelected(cell)}
+                      className="aspect-square border-b border-r border-gray-100 flex flex-col items-center justify-center p-1 gap-0.5 hover:opacity-80 transition cursor-pointer">
+                      <span className="text-sm font-medium text-gray-800">{cell.day}</span>
+                      {style.label && (
+                        <>
+                          <span className={`text-[9px] px-1 rounded font-medium ${style.bg} ${style.text} leading-tight hidden sm:inline-block`}>
+                            {style.label}
+                          </span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOTS[cell.dayType] || 'bg-transparent'} sm:hidden`} />
+                        </>
+                      )}
+                      {(cell.checkIn || cell.checkOut || cell.check_out) && (
+                        <div className="text-[8px] text-gray-400 font-mono mt-0.5 flex-col items-center leading-none scale-90 hidden sm:flex">
+                          {cell.checkIn && <span>↓{fmtTimeCompact(cell.checkIn)}</span>}
+                          {(cell.checkOut || cell.check_out) && <span>↑{fmtTimeCompact(cell.checkOut || cell.check_out)}</span>}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-3">
-          {Object.entries(STATUS_STYLE).filter(([,v]) => v.label).map(([key, val]) => (
-            <div key={key} className="flex items-center gap-1.5">
-              <div className={`w-3 h-3 rounded-sm ${val.bg}`} />
-              <span className="text-xs text-gray-500">{val.label}</span>
-            </div>
-          ))}
-        </div>
+        {viewMode !== 'table' && (
+          <div className="flex flex-wrap gap-3">
+            {Object.entries(STATUS_STYLE).filter(([,v]) => v.label).map(([key, val]) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <div className={`w-3 h-3 rounded-sm ${val.bg}`} />
+                <span className="text-xs text-gray-500">{val.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Day detail */}
-        {selected && selected.dayType !== 'future' && (
+        {viewMode !== 'table' && selected && selected.dayType !== 'future' && (
           <div className="bg-white border border-gray-200 rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-gray-900">{selected.date}</h3>
@@ -278,6 +316,138 @@ export default function AdminCalendarPage() {
             </div>
           </div>
         )}
+
+        {/* Timesheet Details Table */}
+        {viewMode !== 'calendar' && calData && calData.days && (() => {
+          const isIntern = salary?.employee_category === 'intern'
+          const maxPaidLeaves = isIntern ? 1 : 2
+          const maxPaidShortLeaves = 2
+
+          let leaveCount = 0
+          let shortLeaveCount = 0
+
+          const dayPaidStatus: Record<string, { isPaidLeave: boolean; isPaidShortLeave: boolean }> = {}
+
+          calData.days.forEach((day: any) => {
+            let isPaidLeave = false
+            let isPaidShortLeave = false
+            
+            if (day.dayType === 'leave') {
+              leaveCount++
+              if (leaveCount <= maxPaidLeaves) {
+                isPaidLeave = true
+              }
+            }
+            
+            if (day.shortLeave && day.shortLeave.status === 'approved') {
+              shortLeaveCount++
+              if (shortLeaveCount <= maxPaidShortLeaves) {
+                isPaidShortLeave = true
+              }
+            }
+            
+            dayPaidStatus[day.date] = { isPaidLeave, isPaidShortLeave }
+          })
+
+          return (
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs mt-6">
+              <div className="px-5 py-4 border-b border-gray-200 bg-gray-50/50">
+                <h3 className="font-semibold text-gray-950 text-sm sm:text-base">Monthly Timesheet Details</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Detailed breakdown of check-in, check-out, working hours, and daily salary earnings</p>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="bg-gray-50 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Check In</th>
+                      <th className="py-3 px-4">Check Out</th>
+                      <th className="py-3 px-4">Working Hours</th>
+                      <th className="py-3 px-4 text-right">Daily Salary</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-xs sm:text-sm">
+                    {calData.days
+                      .filter((day: any) => day.dayType !== 'future')
+                      .map((day: any) => {
+                        const style = STATUS_STYLE[day.dayType] || STATUS_STYLE.future
+                        const checkInTime = day.checkIn ? formatTimeIST(day.checkIn) : '—'
+                        const checkOutTime = (day.checkOut || day.day_out || day.check_out) ? formatTimeIST(day.checkOut || day.day_out || day.check_out) : '—'
+                        
+                        const hrsStr = calculateHours(day.checkIn, day.checkOut || day.day_out || day.check_out)
+                        const hrsNumeric = calculateHoursNumeric(day.checkIn, day.checkOut || day.day_out || day.check_out)
+                        const paidInfo = dayPaidStatus[day.date] || { isPaidLeave: false, isPaidShortLeave: false }
+                        
+                        const dailyRate = salary?.per_day_salary || 0
+                        let daySalary = 0
+                        
+                        if (day.dayType === 'leave') {
+                          // "if its paid leave then full salary otherwise absent/0"
+                          daySalary = paidInfo.isPaidLeave ? dailyRate : 0
+                        } else if (day.shortLeave && day.shortLeave.status === 'approved') {
+                          // Approved short leave
+                          if (paidInfo.isPaidShortLeave) {
+                            // "if its paid short leave then full salary"
+                            daySalary = dailyRate
+                          } else {
+                            // Unpaid short leave -> fallback to normal working hours
+                            if (hrsNumeric >= 8) {
+                              daySalary = dailyRate
+                            } else if (hrsNumeric >= 5) {
+                              daySalary = dailyRate * 0.5
+                            } else {
+                              daySalary = 0
+                            }
+                          }
+                        } else if (day.checkIn && (day.checkOut || day.day_out || day.check_out)) {
+                          // Worked at least 5 hours -> half day/half salary, full present (>=8 hours) -> full salary
+                          if (hrsNumeric >= 8) {
+                            daySalary = dailyRate
+                          } else if (hrsNumeric >= 5) {
+                            daySalary = dailyRate * 0.5
+                          } else {
+                            daySalary = 0
+                          }
+                        } else if (day.dayType === 'present' || day.dayType === 'late_within_buffer') {
+                          daySalary = dailyRate
+                        } else if (day.dayType === 'half_day') {
+                          daySalary = dailyRate * 0.5
+                        } else {
+                          daySalary = 0
+                        }
+                        
+                        const dateObj = new Date(day.date + 'T00:00:00Z')
+                        const dayName = DAY_LABELS[dateObj.getUTCDay()]
+                        const formattedDate = `${String(day.day).padStart(2, '0')} ${MONTHS[month-1].substring(0, 3)} (${dayName})`
+                        
+                        return (
+                          <tr key={day.date} className="hover:bg-gray-50/50 transition">
+                            <td className="py-3 px-4 font-medium text-gray-900">{formattedDate}</td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-medium ${style.bg} ${style.text}`}>
+                                {style.label || day.dayType.replace(/_/g, ' ')}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-gray-600 font-mono">{checkInTime}</td>
+                            <td className="py-3 px-4 text-gray-600 font-mono">{checkOutTime}</td>
+                            <td className="py-3 px-4 text-gray-600">{hrsStr}</td>
+                            <td className="py-3 px-4 text-right font-semibold text-gray-950">
+                              {daySalary > 0 ? fmt(daySalary) : '₹0'}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              </div>
+              {calData.days.filter((day: any) => day.dayType !== 'future').length === 0 && (
+                <div className="py-8 text-center text-gray-400 text-sm">No days to display for this month.</div>
+              )}
+            </div>
+          )
+        })()}
 
       </div>
 
