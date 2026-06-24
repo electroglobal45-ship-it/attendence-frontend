@@ -151,14 +151,15 @@ export default function EmployeeDashboard() {
   const [greeting, setGreeting] = useState('Welcome')
 
   useEffect(() => {
-    const now = new Date()
-    const hours = now.getHours()
-    if (hours < 12) {
+    const hours = new Date().getHours()
+    if (hours >= 5 && hours < 12) {
       setGreeting('Good Morning')
-    } else if (hours < 17) {
+    } else if (hours >= 12 && hours < 17) {
       setGreeting('Good Afternoon')
-    } else {
+    } else if (hours >= 17 && hours < 21) {
       setGreeting('Good Evening')
+    } else {
+      setGreeting('Good Night')
     }
   }, [])
 
@@ -240,7 +241,6 @@ export default function EmployeeDashboard() {
   return (
     <PageWrapper
       title="Employee Dashboard"
-      subtitle="Welcome back, view your attendance, leaves, and ongoing tasks."
     >
       <div className="max-w-7xl mx-auto space-y-6 pb-12">
         {/* ── Welcome Banner ──────────────────────────────────────────────────────── */}
@@ -251,37 +251,33 @@ export default function EmployeeDashboard() {
           <div className="absolute -right-6 -top-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
           <div className="absolute right-1/4 bottom-0 w-24 h-24 bg-white/5 rounded-full blur-lg pointer-events-none" />
           
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-xl font-bold border border-white/20 shadow-md shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-lg sm:text-xl font-bold border border-white/20 shadow-md shrink-0">
                 {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-jakarta">{greeting}, {user?.name}</h1>
-                  <Sparkles size={18} className="text-yellow-400 animate-pulse hidden sm:inline" />
+                  <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white font-jakarta truncate">{greeting}, {user?.name}!</h1>
+                  <Sparkles size={16} className="text-yellow-400 animate-pulse hidden sm:inline shrink-0" />
                 </div>
-                <p className="text-xs text-gray-300 mt-1">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
+                <p className="text-xs text-gray-300 mt-0.5">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 font-sans shrink-0">
-
-
-              {/* Monthly Progress Stats */}
-              <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-3 min-w-[200px] shadow-sm">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs text-gray-300 font-medium">Month Attendance</span>
-                  <span className="text-xs font-bold text-emerald-450">{presentDaysThisMonth} Days</span>
-                </div>
-                <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${Math.min(100, (presentDaysThisMonth / 22) * 100)}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-gray-400 mt-1 text-right">Targeting 22 working days</p>
+            {/* Monthly Progress Stats */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl p-3 w-full sm:w-auto sm:min-w-[200px] shadow-sm">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs text-gray-300 font-medium">Month Attendance</span>
+                <span className="text-xs font-bold text-emerald-300">{presentDaysThisMonth} Days</span>
               </div>
+              <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-emerald-400 to-teal-300 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${Math.min(100, (presentDaysThisMonth / 22) * 100)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1 text-right">Targeting 22 working days</p>
             </div>
           </div>
         </div>
@@ -429,19 +425,19 @@ export default function EmployeeDashboard() {
                             <CheckCircle size={12} className="text-transparent group-hover:text-emerald-500 hover:text-emerald-600" />
                           </button>
 
-                          <div className="min-w-0">
-                            <h3 className="font-semibold text-slate-800 text-sm group-hover:text-black truncate">{task.title}</h3>
-                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-slate-800 text-sm group-hover:text-black truncate leading-tight">{task.title}</h3>
+                            <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
+                              {/* Priority badge */}
+                              <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded border font-semibold shrink-0 ${priority.bg} ${priority.text} ${priority.border}`}>
+                                {priority.label}
+                              </span>
                               {/* Board name */}
                               {task.board?.name && (
-                                <span className="inline-block text-[10px] px-1.5 py-0.5 bg-[#4A1F6F]/5 text-[#4A1F6F] rounded border border-[#4A1F6F]/10 font-semibold uppercase tracking-wider">
+                                <span className="text-[10px] text-slate-400 truncate font-medium">
                                   {task.board.name}
                                 </span>
                               )}
-                              {/* Priority badge */}
-                              <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded border font-semibold ${priority.bg} ${priority.text} ${priority.border}`}>
-                                {priority.label}
-                              </span>
                             </div>
                           </div>
                         </div>

@@ -85,14 +85,15 @@ export default function AdminDashboard() {
   const [greeting, setGreeting] = useState('Welcome')
 
   useEffect(() => {
-    const now = new Date()
-    const hours = now.getHours()
-    if (hours < 12) {
+    const hours = new Date().getHours()
+    if (hours >= 5 && hours < 12) {
       setGreeting('Good Morning')
-    } else if (hours < 17) {
+    } else if (hours >= 12 && hours < 17) {
       setGreeting('Good Afternoon')
-    } else {
+    } else if (hours >= 17 && hours < 21) {
       setGreeting('Good Evening')
+    } else {
+      setGreeting('Good Night')
     }
   }, [])
 
@@ -323,21 +324,17 @@ export default function AdminDashboard() {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:20px_20px] opacity-20" />
           <div className="absolute right-0 bottom-0 w-64 h-64 bg-[#D9A441]/10 rounded-full translate-x-16 translate-y-16 blur-2xl animate-pulse" style={{ animationDuration: '8s' }} />
           
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="space-y-1">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
               <h2 className="text-xl sm:text-2xl font-extrabold font-jakarta tracking-tight text-white">{greeting}, {isHR ? 'HR Manager' : 'Administrator'}!</h2>
-              <p className="text-xs sm:text-xs text-slate-350 font-medium max-w-md font-sans">
-                Manage your team logs, override attendance, and process leave requests.
-              </p>
             </div>
 
-            {/* Right Corner stats: Ongoing, Imp, Clock */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0 font-jakarta">
-
+            {/* Right Corner stats: Ongoing, Imp */}
+            <div className="flex items-center gap-3 shrink-0 font-jakarta">
 
               {/* Ongoing Tasks */}
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 flex items-center gap-3 flex-1 sm:flex-none">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
                   <ClipboardList size={14} className="text-[#D9A441]" />
                 </div>
                 <div>
@@ -347,8 +344,8 @@ export default function AdminDashboard() {
               </div>
 
               {/* Imp Alerts */}
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center relative">
+              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 flex items-center gap-3 flex-1 sm:flex-none">
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center relative shrink-0">
                   <AlertCircle size={14} className="text-[#D9A441]" />
                   {((stats?.pendingLeaves ?? 0) + (stats?.pendingShortLeaves ?? 0)) > 0 && (
                     <span className="w-1.5 h-1.5 bg-rose-500 rounded-full absolute -right-0.5 -top-0.5 animate-pulse" />
