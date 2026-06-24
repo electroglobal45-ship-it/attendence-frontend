@@ -5,7 +5,7 @@ import { PageWrapper } from '@/components/layout/PageWrapper'
 import { driveAPI, DriveFile, ShareData } from '@/lib/drive-api'
 import { 
   FolderPlus, Upload, Share2, X, Download, 
-  Trash2, ExternalLink
+  Trash2, ExternalLink, LogOut
 } from 'lucide-react'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
 
@@ -319,21 +319,23 @@ export default function DrivePage() {
       title="Drive"
       subtitle={connectionEmail || 'Connected'}
       actions={
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {tab === 'my-drive' && (
             <>
-              <button onClick={() => setShowNewFolder(true)} className="btn-secondary flex items-center gap-2">
+              <button onClick={() => setShowNewFolder(true)} className="btn-secondary flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
                 <FolderPlus size={16} />
-                New Folder
+                <span className="hidden sm:inline">New Folder</span>
+                <span className="sm:hidden">Folder</span>
               </button>
-              <button onClick={() => setShowUpload(true)} className="btn-primary flex items-center gap-2">
+              <button onClick={() => setShowUpload(true)} className="btn-primary flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm">
                 <Upload size={16} />
-                Upload
+                <span className="hidden sm:inline">Upload</span>
               </button>
             </>
           )}
-          <button onClick={handleDisconnect} className="btn-secondary text-red-600">
-            Disconnect
+          <button onClick={handleDisconnect} className="btn-secondary text-red-600 flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+            <LogOut size={16} />
+            <span className="hidden sm:inline">Disconnect</span>
           </button>
         </div>
       }
@@ -342,33 +344,36 @@ export default function DrivePage() {
       <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto whitespace-nowrap no-scrollbar max-w-full">
         <button
           onClick={() => setTab('my-drive')}
-          className={`px-4 py-2 font-medium transition shrink-0 whitespace-nowrap ${
+          className={`px-3 py-2 lg:px-4 font-medium transition shrink-0 whitespace-nowrap text-sm ${
             tab === 'my-drive'
               ? 'text-black border-b-2 border-black'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          My Drive
+          <span className="lg:hidden">Mine</span>
+          <span className="hidden lg:inline">My Drive</span>
         </button>
         <button
           onClick={() => setTab('shared-by-me')}
-          className={`px-4 py-2 font-medium transition shrink-0 whitespace-nowrap ${
+          className={`px-3 py-2 lg:px-4 font-medium transition shrink-0 whitespace-nowrap text-sm ${
             tab === 'shared-by-me'
               ? 'text-black border-b-2 border-black'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          Shared by me
+          <span className="lg:hidden">By Me</span>
+          <span className="hidden lg:inline">Shared by me</span>
         </button>
         <button
           onClick={() => setTab('shared-with-me')}
-          className={`px-4 py-2 font-medium transition flex items-center gap-2 shrink-0 whitespace-nowrap ${
+          className={`px-3 py-2 lg:px-4 font-medium transition flex items-center gap-1.5 shrink-0 whitespace-nowrap text-sm ${
             tab === 'shared-with-me'
               ? 'text-black border-b-2 border-black'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          Shared with me
+          <span className="lg:hidden">With Me</span>
+          <span className="hidden lg:inline">Shared with me</span>
           {unreadCount > 0 && (
             <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -377,13 +382,14 @@ export default function DrivePage() {
         </button>
         <button
           onClick={() => setTab('meeting-recordings')}
-          className={`px-4 py-2 font-medium transition shrink-0 whitespace-nowrap ${
+          className={`px-3 py-2 lg:px-4 font-medium transition shrink-0 whitespace-nowrap text-sm ${
             tab === 'meeting-recordings'
               ? 'text-black border-b-2 border-black'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          Meeting Recordings
+          <span className="lg:hidden">Recordings</span>
+          <span className="hidden lg:inline">Meeting Recordings</span>
         </button>
       </div>
 

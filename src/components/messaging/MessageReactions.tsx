@@ -43,7 +43,7 @@ export function MessageReactions({ messageId, reactions, currentUserId }: Messag
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1 mt-2">
+    <div className="flex flex-wrap items-center gap-1 mt-1.5">
       {Object.entries(groupedReactions).map(([emoji, reactionList]) => {
         const userReaction = currentUserId
           ? reactionList.find((r) => r.user_id === currentUserId)
@@ -79,20 +79,18 @@ function ReactionButton({ emoji, count, hasUserReacted, users, onClick }: Reacti
     <button
       onClick={onClick}
       className={`
-        inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm
-        transition-all
+        inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
+        transition-all border
         ${
           hasUserReacted
-            ? 'bg-indigo-100 border-2 border-indigo-500 text-indigo-700'
-            : 'bg-gray-100 border border-gray-300 hover:border-indigo-500 hover:bg-indigo-50'
+            ? 'bg-[#D9A441]/20 border-[#D9A441]/60 text-[#D9A441]'
+            : 'bg-[#2D1152] border-[#4A1F6F]/40 text-purple-300 hover:border-[#D9A441]/40 hover:text-[#D9A441]'
         }
       `}
       title={users}
     >
-      <span className="text-base leading-none">{emoji}</span>
-      <span className={`text-xs font-medium ${hasUserReacted ? 'text-indigo-700' : 'text-gray-700'}`}>
-        {count}
-      </span>
+      <span className="text-sm leading-none">{emoji}</span>
+      <span className="font-medium">{count}</span>
     </button>
   )
 }

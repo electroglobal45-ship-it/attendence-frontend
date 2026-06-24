@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import {
   Shield, Eye, EyeOff, RefreshCw, Copy, Check,
   AlertTriangle, KeyRound, X, ArrowLeft, ExternalLink,
-  Plus, Trash2,
+  Plus, Trash2, Edit, MoreVertical,
 } from 'lucide-react'
 
 // ── Helper to format domains and URLs ─────────────────────────────────────────
@@ -66,6 +66,7 @@ export default function EmployeeVaultPage() {
   
   // Unified credentials reveal state
   const [showCredentials, setShowCredentials] = useState(false)
+  const [showActionsDropdown, setShowActionsDropdown] = useState(false)
   const [revealing, setRevealing] = useState<string | null>(null)
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({})
 
@@ -120,6 +121,7 @@ export default function EmployeeVaultPage() {
 
   useEffect(() => {
     setShowCredentials(false)
+    setShowActionsDropdown(false)
   }, [selectedEntryId])
 
   const handleToggleReveal = async () => {
@@ -356,33 +358,21 @@ export default function EmployeeVaultPage() {
           <span>My Passwords</span>
         </div>
       }
-      subtitle="Credentials assigned to you — handle with care"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button onClick={() => fetchEntries(false, false)} disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition">
+            className="flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </button>
           <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition font-medium">
-            <Plus size={16} /> Add Credential
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition font-medium">
+            <Plus size={16} />
+            Add
           </button>
         </div>
       }
     >
-      {/* Security notice */}
-      <div className="flex items-start gap-3 p-4 bg-[#f8fafc] border border-slate-200 rounded-xl mb-6 shadow-2xs">
-        <Shield size={18} className="text-indigo-600 mt-0.5 flex-shrink-0" />
-        <div className="text-sm text-slate-600">
-          <p className="font-semibold text-slate-800">Secure Vault Storage</p>
-          <p className="text-slate-500 mt-0.5">
-            Both employees and administrators can securely store login details here. All credentials
-            are masked by default. Clicking the Reveal Credentials button will temporarily display
-            both the login email/username and password.
-          </p>
-        </div>
-      </div>
 
       {error && (
         <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 mb-4">
@@ -393,10 +383,10 @@ export default function EmployeeVaultPage() {
       )}
 
       {/* Two-Pane Password Manager Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden min-h-[550px]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[550px]">
         
         {/* LEFT PANEL: SEARCH & PASSWORD LIST */}
-        <div className={`col-span-1 border-r border-gray-200 flex flex-col ${selectedEntryId ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`col-span-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${selectedEntryId ? 'hidden lg:flex' : 'flex'}`}>
           <div className="p-4 border-b border-gray-100 space-y-3">
             {/* Search Bar */}
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
@@ -472,7 +462,7 @@ export default function EmployeeVaultPage() {
         </div>
 
         {/* RIGHT PANEL: SELECTED ENTRY DETAILS */}
-        <div className={`col-span-1 lg:col-span-2 flex flex-col ${!selectedEntryId ? 'hidden lg:flex items-center justify-center p-8 bg-gray-50/50' : 'flex p-6'}`}>
+        <div className={`col-span-1 lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${!selectedEntryId ? 'hidden lg:flex items-center justify-center p-8' : 'p-6'}`}>
           {!selectedEntry ? (
             <div className="text-center max-w-sm">
               <div className="w-16 h-16 bg-gray-150 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-450 border border-gray-200">
@@ -514,7 +504,7 @@ export default function EmployeeVaultPage() {
               </div>
 
               {/* CARD DETAILS */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-5">
+              <div className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
                   {/* Left Column: Username, Password */}
@@ -590,7 +580,7 @@ export default function EmployeeVaultPage() {
                 </div>
 
                 {/* Unified Reveal Toggle & Actions */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-150">
+                <div className="flex gap-3 pt-4 border-t border-gray-150 relative">
                   <button
                     onClick={handleToggleReveal}
                     disabled={revealing === selectedEntry.id}
@@ -606,21 +596,42 @@ export default function EmployeeVaultPage() {
                   </button>
 
                   {isCreatedBySelf && (
-                    <>
+                    <div className="relative">
                       <button
-                        onClick={handleEditClick}
-                        className="rounded-full border border-gray-300 text-gray-700 px-6 py-2.5 hover:bg-gray-50 font-semibold text-sm transition flex items-center justify-center gap-1.5"
+                        onClick={() => setShowActionsDropdown(!showActionsDropdown)}
+                        className="w-[42px] h-[42px] rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition text-gray-600 focus:outline-none"
                       >
-                        Edit
+                        <MoreVertical size={18} />
                       </button>
-                      <button
-                        onClick={() => handleDelete(selectedEntry.id, selectedEntry.service_name)}
-                        className="rounded-full border border-red-500 text-red-500 px-6 py-2.5 hover:bg-red-50 font-semibold text-sm transition flex items-center justify-center gap-1.5"
-                      >
-                        <Trash2 size={14} />
-                        Delete
-                      </button>
-                    </>
+
+                      {showActionsDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-20" onClick={() => setShowActionsDropdown(false)} />
+                          <div className="absolute bottom-full right-0 mb-2 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-30">
+                            <button
+                              onClick={() => {
+                                setShowActionsDropdown(false)
+                                handleEditClick()
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50 flex items-center gap-2 text-gray-700 transition"
+                            >
+                              <Edit size={14} className="text-gray-500" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowActionsDropdown(false)
+                                handleDelete(selectedEntry.id, selectedEntry.service_name)
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm font-semibold hover:bg-red-50 flex items-center gap-2 text-red-600 transition"
+                            >
+                              <Trash2 size={14} />
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

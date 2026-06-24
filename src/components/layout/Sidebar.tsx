@@ -8,6 +8,7 @@ import { useSidebarStore } from '@/lib/store/sidebar-store'
 import { usePrefetchStore, PrefetchChunk } from '@/lib/store/prefetch-store'
 import { useMessagingStore } from '@/store/messaging.store'
 import { useSocket } from '@/hooks/useSocket'
+import { getBackendUrl } from '@/lib/socket'
 import {
   LayoutDashboard,
   Clock,
@@ -47,7 +48,7 @@ const DriveBadge = memo(() => {
       try {
         const token = localStorage.getItem('authToken')
         if (!token) return
-        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+        const BACKEND_URL = getBackendUrl()
         const res = await fetch(`${BACKEND_URL}/api/v1/drive/shared/with-me`, {
           headers: { Authorization: `Bearer ${token}` }
         })
@@ -84,7 +85,7 @@ interface NavItem {
 
 const employeeNav: NavItem[] = [
   { label: 'Mark Attendance', href: '/attendance',   icon: <Clock size={18} />,             prefetchChunks: ['attendance', 'history'] },
-  { label: 'Messages',        href: '/messages',     icon: <MessageSquare size={18} /> },
+  { label: 'Inbox',        href: '/messages',     icon: <MessageSquare size={18} /> },
   { label: 'Meetings',        href: '/meetings',     icon: <Video size={18} />,             prefetchChunks: ['meetings'] },
   { label: 'Drive',           href: '/drive',        icon: <HardDrive size={18} />,         badge: <DriveBadge />, prefetchChunks: ['drive'] },
   { label: 'My Passwords',    href: '/my-passwords', icon: <KeyRound size={18} />,          prefetchChunks: ['vault'] },
@@ -92,7 +93,7 @@ const employeeNav: NavItem[] = [
 ]
 
 const adminNav: NavItem[] = [
-  { label: 'Messages',    href: '/messages',     icon: <MessageSquare size={18} /> },
+  { label: 'Inbox',    href: '/messages',     icon: <MessageSquare size={18} /> },
   { label: 'Meetings',    href: '/meetings',     icon: <Video size={18} />,             prefetchChunks: ['meetings'] },
   { label: 'Drive',       href: '/drive',        icon: <HardDrive size={18} />,         badge: <DriveBadge />, prefetchChunks: ['drive'] },
   { label: 'Vault',       href: '/vault',        icon: <KeyRound size={18} />,          prefetchChunks: ['vault'] },
@@ -103,7 +104,7 @@ const adminNav: NavItem[] = [
 ]
 
 const hrNav: NavItem[] = [
-  { label: 'Messages',    href: '/messages',     icon: <MessageSquare size={18} /> },
+  { label: 'Inbox',    href: '/messages',     icon: <MessageSquare size={18} /> },
   { label: 'Meetings',    href: '/meetings',     icon: <Video size={18} />,             prefetchChunks: ['meetings'] },
   { label: 'Drive',       href: '/drive',        icon: <HardDrive size={18} />,         badge: <DriveBadge />, prefetchChunks: ['drive'] },
   { label: 'Employees',   href: '/employees',    icon: <Users size={18} />,             prefetchChunks: ['employees'] },
@@ -111,7 +112,7 @@ const hrNav: NavItem[] = [
 
 const teamLeaderNav: NavItem[] = [
   { label: 'Mark Attendance', href: '/attendance',   icon: <Clock size={18} />,             prefetchChunks: ['attendance', 'history'] },
-  { label: 'Messages',        href: '/messages',     icon: <MessageSquare size={18} /> },
+  { label: 'Inbox',        href: '/messages',     icon: <MessageSquare size={18} /> },
   { label: 'Meetings',        href: '/meetings',     icon: <Video size={18} />,             prefetchChunks: ['meetings'] },
   { label: 'Drive',           href: '/drive',        icon: <HardDrive size={18} />,         badge: <DriveBadge />, prefetchChunks: ['drive'] },
   { label: 'My Passwords',    href: '/my-passwords', icon: <KeyRound size={18} />,          prefetchChunks: ['vault'] },
@@ -263,7 +264,7 @@ export const Sidebar = memo(function Sidebar() {
         const token = localStorage.getItem('authToken')
         if (!token) return
 
-        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+        const BACKEND_URL = getBackendUrl()
 
         // Load channels
         const channelsRes = await fetch(`${BACKEND_URL}/api/v1/channels`, {
@@ -372,7 +373,11 @@ export const Sidebar = memo(function Sidebar() {
   const handleLinkClick = useCallback((href: string) => {
     setOptimisticPathname(href)
     setOpen(false)
-  }, [setOpen])
+    if (href === '/messages') {
+      setActiveChannel(null)
+      setActiveConversation(null)
+    }
+  }, [setOpen, setActiveChannel, setActiveConversation])
 
   const currentPath = optimisticPathname || pathname
 
@@ -560,7 +565,7 @@ export const Sidebar = memo(function Sidebar() {
               {isDesktopCollapsed ? (
                 <div className="flex flex-col items-center gap-1 w-full">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300/60 font-jakarta text-center">
-                    Chat
+                    Inbox
                   </span>
                   <div className="flex gap-1.5">
                     <button
@@ -587,7 +592,7 @@ export const Sidebar = memo(function Sidebar() {
                 </div>
               ) : (
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300/60 font-jakarta">
-                  Channels & DMs
+                  Inbox
                 </span>
               )}
             </div>

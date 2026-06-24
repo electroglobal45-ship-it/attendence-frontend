@@ -30,14 +30,10 @@ export default function MessageInput({
     if (!content.trim() && selectedFiles.length === 0) return
 
     const tempId = `temp-${Date.now()}`
-    
-    // TODO: Upload files to storage (Supabase) and get URLs
-    // For now, we'll just send the message without attachments
+
     if (selectedFiles.length > 0) {
       setIsUploading(true)
       try {
-        // Upload files logic here
-        // const attachments = await uploadFiles(selectedFiles)
         console.log('Files to upload:', selectedFiles)
       } catch (error) {
         console.error('File upload error:', error)
@@ -45,7 +41,7 @@ export default function MessageInput({
         setIsUploading(false)
       }
     }
-    
+
     sendMessage({
       content: content.trim() || '📎 File attachment',
       channelId,
@@ -58,14 +54,12 @@ export default function MessageInput({
     setSelectedFiles([])
     handleStopTyping()
 
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Send on Enter, new line on Shift+Enter
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -75,28 +69,19 @@ export default function MessageInput({
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value)
     handleTyping()
-
-    // Auto-resize textarea
     const textarea = e.target
     textarea.style.height = 'auto'
     textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`
   }
 
-  const handleAddEmoji = (emoji: string) => {
-    setContent((prev) => prev + emoji)
-    if (textareaRef.current) {
-      textareaRef.current.focus()
-    }
-  }
-
-  const handleFilesSelected = (files: File[]) => {
-    setSelectedFiles(files)
-  }
+  const canSend = (content.trim() || selectedFiles.length > 0) && !isUploading
 
   return (
-    <div className="px-4 py-4">
-      <div className="flex items-end gap-2 bg-white border-2 border-gray-200 rounded-lg focus-within:border-indigo-500 transition-colors">
-        {/* Text Input */}
+    <div className="px-4 py-3">
+      <div className={`flex items-end gap-2 bg-[#2D1152] border rounded-xl transition-colors ${
+        canSend ? 'border-[#D9A441]/40' : 'border-[#4A1F6F]/40'
+      } focus-within:border-[#D9A441]/60`}>
+        {/* Textarea */}
         <textarea
           ref={textareaRef}
           value={content}
@@ -105,38 +90,36 @@ export default function MessageInput({
           placeholder={placeholder}
           rows={1}
           disabled={isUploading}
-          className="flex-1 px-4 py-3 resize-none outline-none max-h-[150px]"
+          className="flex-1 px-4 py-3 resize-none outline-none max-h-[150px] bg-transparent text-white placeholder-purple-400 text-sm"
           style={{ minHeight: '44px' }}
         />
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1 px-2 pb-2">
-          <EmojiPicker onEmojiSelect={handleAddEmoji} />
-
-          <FileUpload onFilesSelected={handleFilesSelected} />
-
+          <EmojiPicker onEmojiSelect={(emoji) => {
+            setContent(prev => prev + emoji)
+            textareaRef.current?.focus()
+          }} />
+          <FileUpload onFilesSelected={setSelectedFiles} />
           <button
             onClick={handleSend}
-            disabled={(!content.trim() && selectedFiles.length === 0) || isUploading}
-            className={`
-              p-2 rounded-lg transition-colors
-              ${
-                (content.trim() || selectedFiles.length > 0) && !isUploading
-                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }
-            `}
+            disabled={!canSend}
+            className={`p-2 rounded-lg transition-all ${
+              canSend
+                ? 'bg-[#D9A441] hover:bg-[#C48B2F] text-[#1E0A2E]'
+                : 'bg-[#4A1F6F]/30 text-purple-500 cursor-not-allowed'
+            }`}
             title="Send message"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Helper Text */}
-      <p className="text-xs text-gray-500 mt-2 px-2">
-        Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded border border-gray-300">Enter</kbd> to send,{' '}
-        <kbd className="px-1.5 py-0.5 bg-gray-100 rounded border border-gray-300">Shift+Enter</kbd> for new line
+      {/* Helper */}
+      <p className="text-[10px] text-purple-500 mt-1.5 px-1">
+        Press <kbd className="px-1 py-0.5 bg-[#2D1152] rounded border border-[#4A1F6F]/40 text-purple-300">Enter</kbd> to send,{' '}
+        <kbd className="px-1 py-0.5 bg-[#2D1152] rounded border border-[#4A1F6F]/40 text-purple-300">Shift+Enter</kbd> for new line
       </p>
     </div>
   )

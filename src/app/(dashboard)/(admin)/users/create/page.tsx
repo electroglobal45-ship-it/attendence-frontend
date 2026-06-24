@@ -151,27 +151,31 @@ export default function CreateUserPage() {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F8F9FA', fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
 
-      {/* ── Mobile Menu ─────────────────────────────────────────────────────── */}
-      <div className="lg:hidden" style={{ padding: '12px 16px', background: '#fff', borderBottom: '1px solid #E5E7EB' }}>
-        <button onClick={() => setOpen(true)} style={{ padding: 8, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 8 }}>
-          <Menu size={22} color="#6B7280" />
-        </button>
-      </div>
-
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '16px 28px', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button
-            onClick={() => router.back()}
-            style={{ padding: '8px 10px', background: 'transparent', border: `1px solid #E5E7EB`, borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.15s', color: '#6B7280' }}
-            onMouseEnter={e => { e.currentTarget.style.background = PURPLE_5; e.currentTarget.style.borderColor = `${PURPLE}40`; e.currentTarget.style.color = PURPLE }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#6B7280' }}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 style={{ color: PURPLE, fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-.3px' }}>Create New User</h1>
-            <p style={{ color: '#6B7280', fontSize: 13, margin: '2px 0 0' }}>Add a new admin or employee to the system</p>
+      <div className="bg-white border-b border-gray-200 px-3 py-3 sm:px-7 sm:py-4 flex-shrink-0 shadow-xs">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+            {/* Hamburger menu for mobile */}
+            <button
+              onClick={() => setOpen(true)}
+              className="lg:hidden p-1.5 -ml-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer flex-shrink-0"
+              style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              aria-label="Open menu"
+            >
+              <Menu size={20} />
+            </button>
+            <button
+              onClick={() => router.back()}
+              style={{ padding: '6px 8px', background: 'transparent', border: `1px solid #E5E7EB`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.15s', color: '#6B7280', flexShrink: 0 }}
+              onMouseEnter={e => { e.currentTarget.style.background = PURPLE_5; e.currentTarget.style.borderColor = `${PURPLE}40`; e.currentTarget.style.color = PURPLE }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#6B7280' }}
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <div style={{ minWidth: 0 }}>
+              <h1 className="text-base sm:text-2xl font-extrabold tracking-tight" style={{ color: PURPLE, margin: 0, letterSpacing: '-.3px' }}>Create New User</h1>
+              <p className="hidden sm:block" style={{ color: '#6B7280', fontSize: 13, margin: '2px 0 0' }}>Add a new admin or employee to the system</p>
+            </div>
           </div>
         </div>
       </div>

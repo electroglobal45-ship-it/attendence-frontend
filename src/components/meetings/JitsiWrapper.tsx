@@ -19,7 +19,7 @@ export default function JitsiWrapper({ roomName, onLeave, onMuteChange }: JitsiW
   return (
     <div className="w-full h-full bg-slate-900 overflow-hidden relative">
       <JitsiMeeting
-        domain="meet.jit.si"
+        domain="jitsi.belnet.be"
         roomName={roomName}
         configOverwrite={{
           startWithAudioMuted: false,

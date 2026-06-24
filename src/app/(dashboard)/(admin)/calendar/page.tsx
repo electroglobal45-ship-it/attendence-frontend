@@ -179,43 +179,72 @@ export default function AdminCalendarPage() {
     if (formatted === '—') return ''
     return formatted.replace(/\s?[AP]M/i, (m) => m.trim().toLowerCase())
   }
-
   return (
-    <PageWrapper title="Employee Calendar" subtitle="View attendance calendar and salary for any employee">
-      <div className="max-w-4xl mx-auto space-y-5 pb-10">
+    <PageWrapper
+      title="Employee Calendar"
+      actions={
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <select
+            value={selectedEmp}
+            onChange={e => setSelectedEmp(e.target.value)}
+            className="max-w-[90px] sm:max-w-none px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg bg-white focus:outline-none text-gray-800 font-semibold cursor-pointer truncate"
+          >
+            {employees.map(e => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
 
-        {/* Controls */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-4 items-center justify-between">
-          <div className="flex flex-wrap flex-1 gap-3 items-end min-w-0">
-            <div className="flex-1 min-w-48 max-w-xs">
-              <label className="block text-xs font-medium text-gray-500 mb-1">Employee</label>
-              <select value={selectedEmp} onChange={e => setSelectedEmp(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-black">
-                {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.email})</option>)}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={prev} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
-              <span className="font-medium text-sm min-w-32 text-center">{MONTHS[month-1]} {year}</span>
-              <button onClick={next} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18} /></button>
-            </div>
+          <div className="flex items-center gap-1">
+            <button onClick={prev} className="p-1.5 hover:bg-gray-100 rounded-lg transition" title="Previous Month">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="font-semibold text-xs sm:text-sm px-1 min-w-[65px] sm:min-w-[100px] text-center text-gray-850 font-mono">
+              <span className="sm:hidden">{MONTHS[month - 1].substring(0, 3)} '{year.toString().slice(-2)}</span>
+              <span className="hidden sm:inline">{MONTHS[month - 1].substring(0, 3)} {year}</span>
+            </span>
+            <button onClick={next} className="p-1.5 hover:bg-gray-100 rounded-lg transition" title="Next Month">
+              <ChevronRight size={16} />
+            </button>
           </div>
-          
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg text-xs font-medium border border-gray-200 shrink-0">
-            <button onClick={() => setViewMode('calendar')}
-              className={`px-3 py-1.5 rounded-md transition ${viewMode === 'calendar' ? 'bg-white text-gray-950 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>
-              Calendar Grid
+
+          {/* View mode selector for mobile */}
+          <select
+            value={viewMode}
+            onChange={e => setViewMode(e.target.value as any)}
+            className="sm:hidden px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none text-gray-800 font-semibold cursor-pointer max-w-[75px]"
+          >
+            <option value="calendar">Grid</option>
+            <option value="table">Sheet</option>
+            <option value="both">Both</option>
+          </select>
+
+          {/* View mode selector for desktop */}
+          <div className="hidden sm:flex items-center gap-0.5 bg-gray-100 p-0.5 rounded-lg text-xs font-semibold border border-gray-200 shrink-0">
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-2 py-1 rounded transition ${viewMode === 'calendar' ? 'bg-white text-gray-950 shadow-xs font-bold' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              Grid
             </button>
-            <button onClick={() => setViewMode('table')}
-              className={`px-3 py-1.5 rounded-md transition ${viewMode === 'table' ? 'bg-white text-gray-950 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>
-              Tabular Sheet
+            <button
+              onClick={() => setViewMode('table')}
+              className={`px-2 py-1 rounded transition ${viewMode === 'table' ? 'bg-white text-gray-950 shadow-xs font-bold' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              Sheet
             </button>
-            <button onClick={() => setViewMode('both')}
-              className={`px-3 py-1.5 rounded-md transition ${viewMode === 'both' ? 'bg-white text-gray-950 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>
-              Show Both
+            <button
+              onClick={() => setViewMode('both')}
+              className={`px-2 py-1 rounded transition ${viewMode === 'both' ? 'bg-white text-gray-950 shadow-xs font-bold' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              Both
             </button>
           </div>
         </div>
+      }
+    >
+      <div className="max-w-4xl mx-auto space-y-5 pb-10">
 
         {/* Summary + Salary */}
         {s && (
@@ -353,7 +382,6 @@ export default function AdminCalendarPage() {
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs mt-6">
               <div className="px-5 py-4 border-b border-gray-200 bg-gray-50/50">
                 <h3 className="font-semibold text-gray-950 text-sm sm:text-base">Monthly Timesheet Details</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Detailed breakdown of check-in, check-out, working hours, and daily salary earnings</p>
               </div>
               
               <div className="overflow-x-auto">

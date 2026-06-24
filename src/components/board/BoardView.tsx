@@ -962,11 +962,11 @@ useEffect(() => {
       <div style={{
         flexShrink:0,
         display:'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        alignItems: isMobile ? 'flex-start' : 'center',
+        flexDirection: 'row',
+        alignItems: 'center',
         justifyContent:'space-between',
-        padding: isMobile ? '12px 16px' : '12px 20px',
-        gap: isMobile ? 12 : 16,
+        padding: isMobile ? '8px 12px' : '12px 20px',
+        gap: isMobile ? 8 : 16,
         background:'#FFFFFF',
         borderBottom:`1px solid ${DS.headerBorder}`,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -975,13 +975,13 @@ useEffect(() => {
       }}>
 
         {/* LEFT - Back Button + Board Name */}
-        <div style={{ display:'flex', alignItems:'center', gap:12, width: '100%', minWidth: 0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 12, minWidth: 0, flex: 1 }}>
           
           {/* Hamburger menu for mobile */}
           <button
             onClick={() => useSidebarStore.getState().setOpen(true)}
-            className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer"
-            style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6, flexShrink: 0 }}
+            className="lg:hidden p-1.5 -ml-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer"
+            style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4, flexShrink: 0 }}
             aria-label="Open menu"
           >
             <Menu size={20} />
@@ -992,25 +992,25 @@ useEffect(() => {
             onClick={() => onBack ? onBack() : window.history.back()}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '6px 12px', borderRadius: 6,
-              background: 'transparent', border: `1px solid ${DS.bg3}`,
+              padding: isMobile ? '6px 4px' : '6px 12px', borderRadius: 6,
+              background: 'transparent', border: isMobile ? 'none' : `1px solid ${DS.bg3}`,
               color: DS.textPrimary, fontSize: 13, fontWeight: 500,
               cursor: 'pointer', transition: 'all .15s',
               flexShrink: 0,
             }}
             onMouseEnter={e => {
               e.currentTarget.style.background = DS.bg2
-              e.currentTarget.style.borderColor = DS.textMuted
+              if (!isMobile) e.currentTarget.style.borderColor = DS.textMuted
             }}
             onMouseLeave={e => {
               e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.borderColor = DS.bg3
+              if (!isMobile) e.currentTarget.style.borderColor = DS.bg3
             }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
-            Back
+            {!isMobile && <span style={{ marginLeft: 2 }}>Back</span>}
           </button>
 
           {/* Board Name with Dropdown Selector */}
@@ -1018,13 +1018,13 @@ useEffect(() => {
             align="left"
             trigger={
               <button style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '6px 12px', borderRadius: 6,
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: isMobile ? '6px 4px' : '6px 10px', borderRadius: 6,
                 background: 'transparent',
-                border: `1px solid ${DS.bg3}`,
-                color: '#111827', fontSize: 16, fontWeight: 700,
+                border: isMobile ? 'none' : `1px solid ${DS.bg3}`,
+                color: '#111827', fontSize: isMobile ? 14 : 16, fontWeight: 700,
                 cursor: 'pointer', transition: 'all .15s',
-                maxWidth: 300,
+                maxWidth: isMobile ? 120 : 300,
                 fontFamily: 'var(--font-plus-jakarta), sans-serif',
               }}
               onMouseEnter={e => {
@@ -1038,7 +1038,7 @@ useEffect(() => {
                 }}>
                   {selectedBoard?.name || 'Untitled Board'}
                 </span>
-                <ChevronDown size={16} />
+                <ChevronDown size={14} style={{ flexShrink: 0 }} />
               </button>
             }
             panel={close => (
@@ -1105,45 +1105,46 @@ useEffect(() => {
         <div style={{ 
           display:'flex', 
           alignItems:'center', 
-          gap:8, 
-          flexWrap: 'wrap', 
-          width: '100%', 
-          justifyContent: isMobile ? 'flex-start' : 'flex-end' 
+          gap: isMobile ? 4 : 8, 
+          flexShrink: 0,
+          justifyContent: 'flex-end' 
         }}>
 
           {/* Avatars — show ALL employees */}
-          <div style={{ display:'flex', alignItems:'center' }}>
-            {(allUsers.length > 0 ? allUsers : (boardData?.members||[])).slice(0,5).map((m:any,i:number)=>(
-              <div
-                key={i}
-                title={(m.user||m)?.name || (m.user||m)?.email}
-                style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  background: ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5'][i % 5],
-                  color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontWeight: 700, fontSize: 12, flexShrink: 0, cursor: 'pointer',
-                  border: '2px solid #FFFFFF',
-                  marginLeft: i > 0 ? -8 : 0,
-                  transition: 'transform .15s',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1) translateY(-2px)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-              >
-                {((m.user||m)?.name || (m.user||m)?.email || '?').charAt(0).toUpperCase()}
-              </div>
-            ))}
-            {(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length > 5 && (
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%', background: '#F3F4F6',
-                color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 700, border: '2px solid #FFFFFF', marginLeft: -8,
-                cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              }} title={`${(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length - 5} more members`}>
-                +{(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length - 5}
-              </div>
-            )}
-          </div>
+          {!isMobile && (
+            <div style={{ display:'flex', alignItems:'center' }}>
+              {(allUsers.length > 0 ? allUsers : (boardData?.members||[])).slice(0,5).map((m:any,i:number)=>(
+                <div
+                  key={i}
+                  title={(m.user||m)?.name || (m.user||m)?.email}
+                  style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5'][i % 5],
+                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 700, fontSize: 12, flexShrink: 0, cursor: 'pointer',
+                    border: '2px solid #FFFFFF',
+                    marginLeft: i > 0 ? -8 : 0,
+                    transition: 'transform .15s',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1) translateY(-2px)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                >
+                  {((m.user||m)?.name || (m.user||m)?.email || '?').charAt(0).toUpperCase()}
+                </div>
+              ))}
+              {(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length > 5 && (
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%', background: '#F3F4F6',
+                  color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 700, border: '2px solid #FFFFFF', marginLeft: -8,
+                  cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                }} title={`${(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length - 5} more members`}>
+                  +{(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length - 5}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Invite Members */}
           <Dropdown
@@ -1151,13 +1152,14 @@ useEffect(() => {
             trigger={
               <button {...H('inv')} style={{
                 display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 6,
+                padding: isMobile ? '6px 4px' : '6px 12px', borderRadius: 6,
                 background: hov['inv'] ? DS.bg2 : 'transparent',
-                border: `1px solid ${DS.bg3}`,
+                border: isMobile ? 'none' : `1px solid ${DS.bg3}`,
                 color: DS.textPrimary, fontSize: 13, fontWeight: 500,
                 cursor: 'pointer', transition: 'all .15s',
-              }}>
-                <Users size={14}/> Members
+              }} title="Members">
+                <Users size={14}/>
+                {!isMobile && <span style={{ marginLeft: 2 }}>Members</span>}
               </button>
             }
             panel={close=>(
@@ -1217,8 +1219,14 @@ useEffect(() => {
           <Dropdown
             align="right"
             trigger={
-              <button {...H('fil')} style={headerBtn(hov['fil']||false)}>
-                <Filter size={13}/> <span>Filter</span>
+              <button {...H('fil')} style={{
+                ...headerBtn(hov['fil']||false),
+                background: isMobile ? 'transparent' : (hov['fil'] ? DS.bg2 : 'transparent'),
+                padding: isMobile ? '6px 4px' : '5px 10px',
+                display: 'flex', alignItems: 'center', gap: 6
+              }} title="Filter">
+                <Filter size={13}/>
+                {!isMobile && <span style={{ marginLeft: 2 }}>Filter</span>}
               </button>
             }
             panel={close=>(
@@ -1312,14 +1320,15 @@ useEffect(() => {
             align="right"
             trigger={
               <button {...H('sh')} style={{
-                display:'flex', alignItems:'center', gap:6,
-                padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer',
-                background: hov['sh'] ? '#2D0F47' : '#4A1F6F',
-                color: '#FFFFFF', fontSize:13, fontWeight:600,
+                display:'flex', alignItems:'center', gap: 6,
+                padding: isMobile ? '6px 4px' : '6px 14px', borderRadius:6, border: 'none', cursor:'pointer',
+                background: isMobile ? (hov['sh'] ? DS.bg2 : 'transparent') : (hov['sh'] ? '#2D0F47' : '#4A1F6F'),
+                color: isMobile ? DS.textPrimary : '#FFFFFF', fontSize:13, fontWeight:600,
                 transition:'background .15s',
-                boxShadow: '0 2px 8px rgba(74,31,111,0.35)',
-              }}>
-                <Share2 size={14}/> Share
+                boxShadow: isMobile ? 'none' : '0 2px 8px rgba(74,31,111,0.35)',
+              }} title="Share Board">
+                <Share2 size={14}/>
+                {!isMobile && <span style={{ marginLeft: 2 }}>Share</span>}
               </button>
             }
             panel={close=>(

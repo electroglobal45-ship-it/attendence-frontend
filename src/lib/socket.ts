@@ -8,6 +8,17 @@ import {
   Channel,
 } from '@/types/messaging.types'
 
+export function getBackendUrl() {
+  let url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+  if (typeof window !== 'undefined' && url.includes('localhost')) {
+    const hostname = window.location.hostname
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      url = url.replace('localhost', hostname)
+    }
+  }
+  return url
+}
+
 class SocketManager {
   private socket: Socket | null = null
   private reconnectAttempts = 0
@@ -21,11 +32,11 @@ class SocketManager {
       return
     }
 
-    const SOCKET_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+    const SOCKET_URL = getBackendUrl()
 
     this.socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: this.reconnectDelay,

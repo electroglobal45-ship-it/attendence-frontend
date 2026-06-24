@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { X, Search, MessageSquare, Users, ArrowLeft, Check } from 'lucide-react'
 import { useMessagingStore } from '@/store/messaging.store'
+import { getBackendUrl } from '@/lib/socket'
+
+const BACKEND_URL = getBackendUrl()
 
 interface User {
   id: string
@@ -61,8 +64,6 @@ export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProp
       const token = localStorage.getItem('authToken')
       if (!token) throw new Error('Not authenticated')
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
-      
       const response = await fetch(`${BACKEND_URL}/api/v1/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -108,8 +109,6 @@ export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProp
       }
 
       // Create new conversation
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
-      
       const response = await fetch(`${BACKEND_URL}/api/v1/conversations`, {
         method: 'POST',
         headers: {
@@ -157,8 +156,6 @@ export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProp
       const token = localStorage.getItem('authToken')
       if (!token) throw new Error('Not authenticated')
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
-      
       const response = await fetch(`${BACKEND_URL}/api/v1/conversations`, {
         method: 'POST',
         headers: {

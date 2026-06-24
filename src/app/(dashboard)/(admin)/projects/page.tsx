@@ -134,35 +134,29 @@ export default function BoardsPage() {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh', background: '#F8F9FA', fontFamily: 'var(--font-inter), sans-serif' }}>
         {/* Header */}
-        <div style={{
-          background: '#FFFFFF', borderBottom: '1px solid #E5E7EB',
-          padding: '16px 28px', flexShrink: 0,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        }}>
+        <div className="bg-white border-b border-gray-200 px-3 py-3 sm:px-7 sm:py-4 flex-shrink-0 shadow-xs">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
               {/* Hamburger menu for mobile */}
               <button
                 onClick={() => useSidebarStore.getState().setOpen(true)}
-                className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer"
+                className="lg:hidden p-1.5 -ml-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer flex-shrink-0"
                 style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 aria-label="Open menu"
               >
-                <Menu size={24} />
+                <Menu size={20} />
               </button>
               <div style={{ minWidth: 0 }}>
-                <h1 style={{ color: '#111827', fontSize: 22, fontWeight: 800, margin: 0, fontFamily: 'var(--font-plus-jakarta), sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Boards</h1>
-                <p style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {boards.length} board{boards.length !== 1 ? 's' : ''} in your workspace
-                </p>
+                <h1 className="text-base sm:text-2xl font-extrabold tracking-tight" style={{ color: '#111827', margin: 0, fontFamily: 'var(--font-plus-jakarta), sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Boards</h1>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <button
                 onClick={() => fetchBoards(false)}
+                className="px-2 py-1.5 sm:px-3 sm:py-2"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', background: '#FFFFFF',
+                  background: '#FFFFFF',
                   border: '1px solid #E5E7EB', borderRadius: 8,
                   color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                   transition: 'all 0.15s'
@@ -179,14 +173,15 @@ export default function BoardsPage() {
                 }}
               >
                 <RefreshCw size={13} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
               </button>
               {user?.role === 'admin' && (
                 <button
                   onClick={() => setShowCreate(true)}
+                  className="px-2.5 py-1.5 sm:px-4 sm:py-2"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '8px 16px', background: 'linear-gradient(135deg, #4A1F6F 0%, #3B1859 100%)',
+                    background: 'linear-gradient(135deg, #4A1F6F 0%, #3B1859 100%)',
                     border: 'none', borderRadius: 8,
                     color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                     boxShadow: '0 2px 8px rgba(74,31,111,0.25)',
@@ -195,7 +190,7 @@ export default function BoardsPage() {
                   onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
                   onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                 >
-                  <Plus size={14} /> New Board
+                  <Plus size={14} /> Add
                 </button>
               )}
             </div>

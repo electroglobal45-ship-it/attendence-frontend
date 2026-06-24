@@ -120,11 +120,10 @@ export default function EmployeesPage() {
   return (
     <PageWrapper
       title="Employees"
-      subtitle={`${employees.length} total employees`}
       actions={
-        <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2">
+        <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm">
           <Plus size={16} />
-          Add Employee
+          Add
         </button>
       }
     >

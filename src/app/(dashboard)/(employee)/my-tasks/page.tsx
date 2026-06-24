@@ -52,8 +52,13 @@ function TaskRow({
   return (
     <div
       onClick={onTaskClick}
-      className="task-row"
-      style={{ display: 'grid', gridTemplateColumns: '40px 1fr 180px 180px', gap: 16, padding: '14px 20px', borderBottom: idx < totalTasks - 1 ? '1px solid #F3F4F6' : 'none', cursor: 'pointer', transition: 'background 0.15s', alignItems: 'center' }}
+      className="task-row task-row-grid"
+      style={{
+        borderBottom: idx < totalTasks - 1 ? '1px solid #F3F4F6' : 'none',
+        cursor: 'pointer',
+        transition: 'background 0.15s',
+        alignItems: 'center',
+      }}
     >
       {/* Complete Button */}
       <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -61,41 +66,88 @@ function TaskRow({
           <button
             onClick={onComplete}
             title="Mark as Done"
-            style={{ width: 24, height: 24, borderRadius: '50%', background: '#F0FDF4', border: '1.5px solid #22C55E', color: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, fontWeight: 700, transition: 'all 0.15s' }}
+            style={{ width: 24, height: 24, borderRadius: '50%', background: '#F0FDF4', border: '1.5px solid #22C55E', color: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, fontWeight: 700, transition: 'all 0.15s', minHeight: 'unset' }}
             onMouseEnter={e => { e.currentTarget.style.background = '#DCFCE7'; e.currentTarget.style.transform = 'scale(1.1)' }}
             onMouseLeave={e => { e.currentTarget.style.background = '#F0FDF4'; e.currentTarget.style.transform = 'none' }}
           >✓</button>
         )}
       </div>
 
-      {/* Name + Board Badge */}
+      {/* Name + Details Row */}
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
         </div>
-        {task.board?.name && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: PURPLE_5, color: PURPLE, border: `1px solid ${PURPLE}20`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
-              📋 {task.board.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {task.board?.name && (
+            <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: 'rgba(74,31,111,0.06)', color: PURPLE, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
+              {task.board.name}
             </span>
-            {task.labels && task.labels.slice(0, 2).map((lbl: any, i: number) => (
-              <span key={i} style={{ backgroundColor: lbl.color || GOLD, color: '#fff', padding: '2px 6px', borderRadius: 3, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>
-                {lbl.name || 'LABEL'}
+          )}
+
+          {/* Mobile Priority Pill */}
+          <span
+            className="lg:hidden"
+            style={{
+              display: 'inline-flex', alignItems: 'center',
+              padding: '2px 6px', borderRadius: 4,
+              fontSize: 10, fontWeight: 700,
+              background: `${p.bg}12`, color: p.bg,
+              textTransform: 'uppercase'
+            }}
+          >
+            {task.priority}
+          </span>
+
+          {/* Mobile Due Date Text */}
+          {task.due_date && (
+            <span
+              className="lg:hidden"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                fontSize: 10, fontWeight: 500,
+                color: isOverdue ? '#EF4444' : '#6B7280',
+                minHeight: 'unset'
+              }}
+            >
+              <span>•</span>
+              <span style={isOverdue ? { fontWeight: 600 } : undefined}>
+                {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </span>
-            ))}
-          </div>
-        )}
+              {isOverdue && (
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#EF4444', background: '#FEE2E2', padding: '1px 4px', borderRadius: 3 }}>
+                  OVERDUE
+                </span>
+              )}
+            </span>
+          )}
+
+          {/* Labels as tiny dots */}
+          {task.labels && task.labels.slice(0, 2).map((lbl: any, i: number) => (
+            <span
+              key={i}
+              title={lbl.name || 'LABEL'}
+              style={{
+                display: 'inline-block',
+                width: 6, height: 6,
+                borderRadius: '50%',
+                backgroundColor: lbl.color || GOLD,
+                marginLeft: i === 0 ? 2 : 0
+              }}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Priority Badge */}
-      <div>
+      {/* Desktop Column: Priority */}
+      <div className="task-desktop-col">
         <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: p.bg, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '.5px' }}>
           {p.label}
         </span>
       </div>
 
-      {/* Due Date */}
-      <div>
+      {/* Desktop Column: Due Date */}
+      <div className="task-desktop-col">
         {task.due_date ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Clock size={14} color={isOverdue ? '#EF4444' : '#6B7280'} />
@@ -214,48 +266,110 @@ export default function MyTasksPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         .task-row:hover { background: ${PURPLE_5} !important; }
-        .crm-tab-btn { padding: 7px 16px; border-radius: 10px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.15s; display: flex; align-items: center; gap: 7px; font-family: inherit; }
+        .crm-tab-btn {
+          padding: 6px 10px;
+          border-radius: 10px;
+          border: none;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+          transition: all 0.15s;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-family: inherit;
+          min-height: unset !important;
+        }
+        @media (min-width: 640px) {
+          .crm-tab-btn {
+            padding: 7px 16px;
+            gap: 7px;
+          }
+        }
         .crm-tab-btn:hover { background: ${PURPLE_5}; color: ${PURPLE}; }
+
+        /* Responsive Layout styles */
+        .tasks-content-container {
+          padding: 16px 14px;
+        }
+        .task-table-header {
+          display: none;
+        }
+        .task-row-grid {
+          display: grid;
+          grid-template-columns: 40px 1fr;
+          gap: 8px;
+          padding: 12px 14px;
+        }
+        .task-mobile-details {
+          display: flex;
+        }
+        .task-desktop-col {
+          display: none;
+        }
+
+        @media (min-width: 1024px) {
+          .tasks-content-container {
+            padding: 24px 28px;
+          }
+          .task-table-header {
+            display: grid;
+            grid-template-columns: 40px 1fr 180px 180px;
+          }
+          .task-row-grid {
+            grid-template-columns: 40px 1fr 180px 180px;
+            gap: 16px;
+            padding: 14px 20px;
+          }
+          .task-mobile-details {
+            display: none;
+          }
+          .task-desktop-col {
+            display: block;
+          }
+        }
       `}</style>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh', background: '#F8F9FA', fontFamily: 'var(--font-inter), sans-serif' }}>
 
         {/* ── Header ─────────────────────────────────────────────────────────── */}
-        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '18px 28px', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '10px 14px', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
               <button
                 onClick={() => useSidebarStore.getState().setOpen(true)}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6B7280', display: 'flex', alignItems: 'center', padding: 4, borderRadius: 6 }}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6B7280', display: 'flex', alignItems: 'center', padding: 6, borderRadius: 6 }}
               >
-                <Menu size={18} />
+                <Menu size={20} />
               </button>
-              <div>
-                <h1 style={{ color: PURPLE, fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-.3px', fontFamily: 'var(--font-plus-jakarta), sans-serif' }}>My Tasks</h1>
-                <p style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0' }}>Tasks assigned to you · {tasks.length} active</p>
+              <div style={{ minWidth: 0 }}>
+                <h1 className="text-base sm:text-2xl font-extrabold tracking-tight" style={{ color: PURPLE, margin: 0, fontFamily: 'var(--font-plus-jakarta), sans-serif' }}>My Tasks</h1>
+                <p className="hidden sm:block" style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0' }}>Tasks assigned to you · {tasks.length} active</p>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               {/* Refresh */}
               <button
                 onClick={refreshTasks}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 10, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                className="px-2 py-1.5 sm:px-4 sm:py-2"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 10, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = `${PURPLE}50`; e.currentTarget.style.color = PURPLE }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
               >
                 <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
               </button>
 
               {/* Filter */}
               <div style={{ position: 'relative' }}>
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: activeFiltersCount > 0 ? PURPLE_10 : '#FFFFFF', border: `1px solid ${activeFiltersCount > 0 ? PURPLE : '#E5E7EB'}`, borderRadius: 10, color: activeFiltersCount > 0 ? PURPLE : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', transition: 'all 0.15s' }}
+                  className="px-2 py-1.5 sm:px-4 sm:py-2"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: activeFiltersCount > 0 ? PURPLE_10 : '#FFFFFF', border: `1px solid ${activeFiltersCount > 0 ? PURPLE : '#E5E7EB'}`, borderRadius: 10, color: activeFiltersCount > 0 ? PURPLE : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', transition: 'all 0.15s' }}
                 >
                   <Filter size={13} />
-                  Filter
+                  <span className="hidden sm:inline">Filter</span>
                   {activeFiltersCount > 0 && (
                     <span style={{ position: 'absolute', top: -6, right: -6, background: PURPLE, color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
                       {activeFiltersCount}
@@ -315,9 +429,9 @@ export default function MyTasksPage() {
           {/* Tab Filters */}
           <div style={{ display: 'flex', gap: 4, marginTop: 14, background: '#F8F9FA', padding: '4px', borderRadius: 12, border: '1px solid #E5E7EB', width: 'fit-content' }}>
             {[
-              { key: 'all', label: 'All', count: tasks.length },
-              { key: 'todo', label: 'To Do', count: todoCount },
-              { key: 'in_progress', label: 'In Progress', count: inProgressCount },
+              { key: 'all', label: 'All', mobileLabel: 'All', count: tasks.length },
+              { key: 'todo', label: 'To Do', mobileLabel: 'To Do', count: todoCount },
+              { key: 'in_progress', label: 'In Progress', mobileLabel: 'Doing', count: inProgressCount },
             ].map(tab => {
               const active = activeFilter === tab.key
               return (
@@ -327,7 +441,8 @@ export default function MyTasksPage() {
                   onClick={() => setActiveFilter(tab.key as any)}
                   style={{ background: active ? PURPLE : 'transparent', color: active ? '#FFFFFF' : '#6B7280', fontWeight: active ? 700 : 500, boxShadow: active ? `0 2px 8px ${PURPLE}30` : 'none' }}
                 >
-                  {tab.label}
+                  <span className="sm:hidden">{tab.mobileLabel}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
                   <span style={{ padding: '1px 7px', borderRadius: 20, fontSize: 10, fontWeight: 700, background: active ? 'rgba(255,255,255,0.2)' : '#E5E7EB', color: active ? '#fff' : '#9CA3AF' }}>
                     {tab.count}
                   </span>
@@ -338,7 +453,7 @@ export default function MyTasksPage() {
         </div>
 
         {/* ── Content ────────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '24px 28px' }}>
+        <div className="tasks-content-container" style={{ flex: 1, overflow: 'auto' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 80, gap: 16 }}>
               <div style={{ width: 44, height: 44, borderRadius: '50%', border: `3px solid ${PURPLE_10}`, borderTopColor: PURPLE, animation: 'spin 0.8s linear infinite' }} />
@@ -355,7 +470,7 @@ export default function MyTasksPage() {
           ) : (
             <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
               {/* Table Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 180px 180px', gap: 16, padding: '12px 20px', background: PURPLE_5, borderBottom: `1px solid ${PURPLE}15`, fontSize: 11, fontWeight: 700, color: PURPLE, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+              <div className="task-table-header" style={{ gap: 16, padding: '12px 20px', background: PURPLE_5, borderBottom: `1px solid ${PURPLE}15`, fontSize: 11, fontWeight: 700, color: PURPLE, textTransform: 'uppercase', letterSpacing: '.5px' }}>
                 <div />
                 <div>Name</div>
                 <div>Priority</div>

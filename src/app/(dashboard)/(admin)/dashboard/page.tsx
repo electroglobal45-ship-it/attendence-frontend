@@ -304,12 +304,13 @@ export default function AdminDashboard() {
 
   return (
     <PageWrapper
-      title={<span className="font-jakarta font-extrabold text-gray-900 tracking-tight text-2xl">{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>}
+      title={<span className="font-jakarta font-extrabold text-gray-900 tracking-tight text-sm sm:text-base md:text-lg lg:text-2xl">{format(new Date(), 'EEEE, MMMM d, yyyy')}</span>}
       actions={
         <button onClick={handleSync} disabled={syncing || loading}
-          className="flex items-center gap-2 px-4 py-2 border border-[#4A1F6F]/20 text-[#4A1F6F] hover:bg-[#4A1F6F]/5 bg-white text-xs font-semibold rounded-xl active:scale-98 shadow-sm transition-all cursor-pointer font-sans">
+          className="flex items-center gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 border border-[#4A1F6F]/20 text-[#4A1F6F] hover:bg-[#4A1F6F]/5 bg-white text-xs font-semibold rounded-xl active:scale-98 shadow-sm transition-all cursor-pointer font-sans">
           <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-          {syncing ? 'Syncing...' : 'Sync Dashboard'}
+          <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync Dashboard'}</span>
+          <span className="sm:hidden">{syncing ? 'Syncing...' : 'Sync'}</span>
         </button>
       }
     >

@@ -11,8 +11,8 @@ import { useSocket } from '@/hooks/useSocket'
 import { Maximize2, PhoneOff, Video, Bell, ArrowLeft, Minimize2 } from 'lucide-react'
 import MeetingRecorder from './MeetingRecorder'
 
-// Dynamically load the Jitsi wrapper with SSR disabled
-const JitsiWrapper = dynamic(() => import('./JitsiWrapper'), {
+// Dynamically load the Daily.co wrapper with SSR disabled
+const DailyWrapper = dynamic(() => import('./DailyWrapper'), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full bg-[#1E0A2E] flex flex-col items-center justify-center text-purple-200 gap-3">
@@ -370,7 +370,7 @@ export default function ActiveMeetingWidget() {
 
           {/* Iframe Container */}
           <div className="flex-1 h-full min-h-0 w-full pointer-events-auto">
-            <JitsiWrapper roomName={activeMeeting.roomName} onLeave={leaveMeeting} onMuteChange={setIsMuted} />
+            <DailyWrapper meetingId={activeMeeting.id} roomName={activeMeeting.roomName} onLeave={leaveMeeting} onMuteChange={setIsMuted} />
           </div>
         </div>
       )}

@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { X, Hash, Lock, Globe, Search, Check } from 'lucide-react'
 import { useMessagingStore } from '@/store/messaging.store'
+import { getBackendUrl } from '@/lib/socket'
+
+const BACKEND_URL = getBackendUrl()
 
 interface User {
   id: string
@@ -64,7 +67,6 @@ export default function CreateChannelModal({ isOpen, onClose }: CreateChannelMod
       const currentUserId = localStorage.getItem('userId')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const response = await fetch(`${BACKEND_URL}/api/v1/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -113,8 +115,6 @@ export default function CreateChannelModal({ isOpen, onClose }: CreateChannelMod
       const token = localStorage.getItem('authToken')
       if (!token) throw new Error('Not authenticated')
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
-      
       const response = await fetch(`${BACKEND_URL}/api/v1/channels`, {
         method: 'POST',
         headers: {

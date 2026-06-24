@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { X, Pin, Trash2 } from 'lucide-react'
+import { getBackendUrl } from '@/lib/socket'
+
+const BACKEND_URL = getBackendUrl()
 
 interface PinnedMessage {
   id: string
@@ -50,7 +53,6 @@ export default function PinnedMessagesModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const endpoint = channelId
         ? `${BACKEND_URL}/api/v1/messages/channels/${channelId}/pinned`
         : `${BACKEND_URL}/api/v1/messages/conversations/${conversationId}/pinned`
@@ -75,7 +77,6 @@ export default function PinnedMessagesModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const response = await fetch(`${BACKEND_URL}/api/v1/messages/${messageId}/unpin`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },

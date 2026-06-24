@@ -8,7 +8,7 @@ import {
   Shield, Plus, Trash2, RefreshCw, Eye, EyeOff,
   Copy, Check, X, RotateCcw, KeyRound, ChevronDown,
   Users, AlertTriangle, Search, ArrowLeft, ExternalLink,
-  Edit,
+  Edit, MoreVertical,
 } from 'lucide-react'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
@@ -145,6 +145,7 @@ export default function AdminVaultPage() {
     storeVaultEntries && storeVaultEntries.length > 0 ? storeVaultEntries[0].id : null
   )
   const [showCredentials, setShowCredentials] = useState(false)
+  const [showActionsDropdown, setShowActionsDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showInfoToast, setShowInfoToast] = useState<string | null>(null)
   const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null)
@@ -152,6 +153,7 @@ export default function AdminVaultPage() {
 
   useEffect(() => {
     setShowCredentials(false)
+    setShowActionsDropdown(false)
   }, [selectedEntryId])
 
   // Form state
@@ -441,23 +443,23 @@ export default function AdminVaultPage() {
           <span>Password Manager</span>
         </div>
       }
-      subtitle="Securely store and assign credentials to employees"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button onClick={() => fetchData(false, false)} disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm border rounded-lg disabled:opacity-50 transition"
+            className="flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border rounded-lg disabled:opacity-50 transition"
             style={{ borderColor: 'rgba(74,31,111,0.3)', color: '#4A1F6F', background: 'rgba(74,31,111,0.04)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(74,31,111,0.08)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(74,31,111,0.04)')}>
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </button>
           <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-white rounded-lg transition font-medium"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-white rounded-lg transition font-medium"
             style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)', boxShadow: '0 4px 12px rgba(74,31,111,0.35)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'linear-gradient(135deg, #2D0F47 0%, #1a0930 100%)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)')}>
-            <Plus size={16} /> Add Credential
+            <Plus size={16} />
+            Add
           </button>
         </div>
       }
@@ -479,10 +481,10 @@ export default function AdminVaultPage() {
       )}
 
       {/* Two-Pane Password Manager Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden min-h-[600px]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[600px]">
         
         {/* LEFT PANEL: SEARCH & PASSWORD LIST */}
-        <div className={`col-span-1 border-r border-gray-200 flex flex-col ${selectedEntryId ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`col-span-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${selectedEntryId ? 'hidden lg:flex' : 'flex'}`}>
           <div className="p-4 border-b border-gray-100 space-y-3">
             {/* Search Bar */}
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
@@ -581,7 +583,7 @@ export default function AdminVaultPage() {
         </div>
 
         {/* RIGHT PANEL: SELECTED ENTRY DETAILS */}
-        <div className={`col-span-1 lg:col-span-2 flex flex-col ${!selectedEntryId ? 'hidden lg:flex items-center justify-center p-8 bg-gray-50/50' : 'flex p-6'}`}>
+        <div className={`col-span-1 lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${!selectedEntryId ? 'hidden lg:flex items-center justify-center p-8' : 'p-6'}`}>
           {!selectedEntry ? (
             <div className="text-center max-w-sm">
               <div className="w-16 h-16 bg-gray-150 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-450 border border-gray-200">
@@ -629,7 +631,7 @@ export default function AdminVaultPage() {
               </div>
 
               {/* CARD DETAILS */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   
                   {/* Left Column: Username, Password */}
@@ -706,7 +708,7 @@ export default function AdminVaultPage() {
                 </div>
 
                 {/* Unified Reveal Toggle & Actions */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-150">
+                <div className="flex gap-3 pt-4 border-t border-gray-150 relative">
                   <button
                     onClick={() => setShowCredentials(!showCredentials)}
                     className="flex-1 rounded-full text-white px-6 py-2.5 font-semibold text-sm transition flex items-center justify-center gap-2"
@@ -720,79 +722,110 @@ export default function AdminVaultPage() {
                       <><Eye size={14} /> Reveal Credentials</>
                     )}
                   </button>
-                  <button
-                    onClick={handleEditClick}
-                    className="rounded-full px-6 py-2.5 font-semibold text-sm transition flex items-center justify-center gap-1.5"
-                    style={{ border: '1.5px solid #4A1F6F', color: '#4A1F6F', background: 'transparent' }}
-                    onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.06)')}
-                    onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
-                  >
-                    <Edit size={14} />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(selectedEntry.id, selectedEntry.service_name)}
-                    disabled={deletingId === selectedEntry.id}
-                    className="rounded-full border border-red-500 text-red-500 px-6 py-2.5 hover:bg-red-50 font-semibold text-sm transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  >
-                    <Trash2 size={14} />
-                    {deletingId === selectedEntry.id ? 'Deleting…' : 'Delete'}
-                  </button>
+
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowActionsDropdown(!showActionsDropdown)}
+                      className="w-[42px] h-[42px] rounded-full border flex items-center justify-center hover:bg-gray-50 transition text-gray-600 focus:outline-none"
+                      style={{ border: '1.5px solid rgba(74,31,111,0.2)', color: '#4A1F6F' }}
+                    >
+                      <MoreVertical size={18} />
+                    </button>
+
+                    {showActionsDropdown && (
+                      <>
+                        <div className="fixed inset-0 z-20" onClick={() => setShowActionsDropdown(false)} />
+                        <div className="absolute bottom-full right-0 mb-2 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-30">
+                          <button
+                            onClick={() => {
+                              setShowActionsDropdown(false)
+                              handleEditClick()
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50 flex items-center gap-2 text-gray-700 transition"
+                          >
+                            <Edit size={14} className="text-gray-500" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowActionsDropdown(false)
+                              handleDelete(selectedEntry.id, selectedEntry.service_name)
+                            }}
+                            disabled={deletingId === selectedEntry.id}
+                            className="w-full px-4 py-2 text-left text-sm font-semibold hover:bg-red-50 flex items-center gap-2 text-red-600 transition disabled:opacity-50"
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* ASSIGNMENTS MANAGEMENT */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="border-t border-gray-100 pt-6 space-y-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Users size={16} style={{ color: '#4A1F6F' }} />
+                    <Users size={15} style={{ color: '#4A1F6F' }} />
                     <h3 className="font-bold text-sm" style={{ color: '#2D0F47' }}>Assigned Employees</h3>
+                    {selectedEntry.assignments && selectedEntry.assignments.length > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(74,31,111,0.10)', color: '#4A1F6F' }}>
+                        {selectedEntry.assignments.length}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => {
                       setAssigningEntry(selectedEntry)
                       setAssignSelectedEmployees([])
                     }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl transition"
-                    style={{ background: 'rgba(74,31,111,0.08)', color: '#4A1F6F', border: '1px solid rgba(74,31,111,0.2)' }}
-                    onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.15)')}
-                    onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.08)')}
+                    title="Assign Employee"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-base transition-all"
+                    style={{ background: 'rgba(74,31,111,0.10)', color: '#4A1F6F', border: '1px solid rgba(74,31,111,0.2)' }}
+                    onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.20)')}
+                    onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.10)')}
                   >
-                    <Plus size={12} /> Assign Employee
+                    <Plus size={15} />
                   </button>
                 </div>
 
                 {(!selectedEntry.assignments || selectedEntry.assignments.length === 0) ? (
-                  <div className="text-center py-6">
-                    <p className="text-sm text-gray-400 font-medium">No employees assigned to this credential yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Assigned employees get independent one-time reveals</p>
+                  <div className="rounded-xl py-6 text-center" style={{ background: 'rgba(74,31,111,0.03)', border: '1px dashed rgba(74,31,111,0.15)' }}>
+                    <Users size={22} className="mx-auto mb-2" style={{ color: 'rgba(74,31,111,0.3)' }} />
+                    <p className="text-sm text-gray-400 font-medium">No employees assigned yet</p>
+                    <p className="text-xs text-gray-400 mt-1">Click <span className="font-bold text-gray-500">+</span> to assign access</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-100 max-h-[220px] overflow-y-auto pr-1">
+                  <div className="space-y-1 max-h-[220px] overflow-y-auto pr-1">
                     {selectedEntry.assignments.map(assignment => {
                       const isResetting = resettingKey === `${selectedEntry.id}:${assignment.assigned_to}`
                       return (
-                        <div key={assignment.id} className="flex items-center justify-between py-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'rgba(74,31,111,0.10)', border: '1px solid rgba(74,31,111,0.2)', color: '#4A1F6F' }}>
+                        <div key={assignment.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl transition" style={{ background: 'rgba(74,31,111,0.04)' }}
+                          onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.08)')}
+                          onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.04)')}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'rgba(74,31,111,0.12)', border: '1.5px solid rgba(74,31,111,0.2)', color: '#4A1F6F' }}>
                               {assignment.assignee?.name?.[0]?.toUpperCase() || '?'}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-800 truncate">{assignment.assignee?.name}</p>
-                              <p className="text-xs text-gray-400 truncate mt-0.5">{assignment.assignee?.email}</p>
+                              <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{assignment.assignee?.name}</p>
+                              <p className="text-xs text-gray-400 truncate">{assignment.assignee?.email}</p>
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-3">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
                               assignment.is_revealed
                                 ? 'bg-red-50 text-red-600 border border-red-200'
                                 : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             }`}>
                               {assignment.is_revealed ? (
-                                <><EyeOff size={10} /> Revealed</>
+                                <><EyeOff size={9} /> Revealed</>
                               ) : (
-                                <><Eye size={10} /> Pending</>
+                                <><Eye size={9} /> Pending</>
                               )}
                             </span>
 
@@ -800,13 +833,13 @@ export default function AdminVaultPage() {
                               <button
                                 onClick={() => handleReset(selectedEntry.id, assignment.assigned_to)}
                                 disabled={isResetting}
-                                className="flex items-center gap-1 px-3 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-250 rounded-xl font-medium transition disabled:opacity-50"
-                                title="Reset — employee can reveal the password one more time"
+                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg font-medium transition disabled:opacity-50"
+                                title="Reset access"
                               >
                                 {isResetting ? (
-                                  <RefreshCw size={11} className="animate-spin" />
+                                  <RefreshCw size={10} className="animate-spin" />
                                 ) : (
-                                  <RotateCcw size={11} />
+                                  <RotateCcw size={10} />
                                 )}
                                 Reset
                               </button>
@@ -818,14 +851,13 @@ export default function AdminVaultPage() {
 
                     {/* Reset All helper */}
                     {selectedEntry.assignments.some(a => a.is_revealed) && selectedEntry.assignments.length > 1 && (
-                      <div className="pt-3 flex justify-end">
+                      <div className="pt-2 flex justify-end">
                         <button
                           onClick={() => handleReset(selectedEntry.id)}
                           disabled={!!resettingKey}
-                          className="flex items-center gap-1 px-3 py-1 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-250 rounded-xl font-semibold transition disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg font-semibold transition disabled:opacity-50"
                         >
-                          <RotateCcw size={11} />
-                          Reset All Assignments
+                          <RotateCcw size={10} /> Reset All
                         </button>
                       </div>
                     )}

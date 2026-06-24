@@ -61,12 +61,14 @@ const nextConfig = {
 
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://meet.jit.si https://*.jit.si",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://lxshgillxjohtideuugq.supabase.co https://coqpvdpkrthiwessgurq.supabase.co",
-      `connect-src ${connectSrc}`,
-      "frame-src 'self' https://meet.jit.si https://*.jit.si",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://meet.jit.si https://*.jit.si https://*.daily.co https://unpkg.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.daily.co",
+      "font-src 'self' https://fonts.gstatic.com https://*.daily.co",
+      "img-src 'self' data: blob: https://lxshgillxjohtideuugq.supabase.co https://coqpvdpkrthiwessgurq.supabase.co https://*.daily.co",
+      `connect-src ${connectSrc} https://*.daily.co wss://*.daily.co https://api.daily.co`,
+      "media-src 'self' blob: mediastream: https://*.daily.co",
+      "worker-src 'self' blob:",
+      "frame-src 'self' https://meet.jit.si https://*.jit.si https://*.daily.co",
       "frame-ancestors 'none'",   // replaces X-Frame-Options — stronger
       "base-uri 'self'",
       "form-action 'self'",
@@ -91,7 +93,8 @@ const nextConfig = {
 
           // Limit which browser features this origin can use
           // camera/mic allowed for self and Jitsi — geolocation allowed (needed for attendance check-in)
-          { key: 'Permissions-Policy', value: 'camera=(self "https://meet.jit.si"), microphone=(self "https://meet.jit.si"), display-capture=(self "https://meet.jit.si"), geolocation=(self)' },
+          // Allow camera/mic/display-capture for our origin AND Daily.co iframes (nested iframe permissions)
+          { key: 'Permissions-Policy', value: 'camera=*, microphone=*, display-capture=*, fullscreen=*, geolocation=(self)' },
 
           // Don't send the full Referer URL to third-party domains
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

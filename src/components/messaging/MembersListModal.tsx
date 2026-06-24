@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { X, Users, Crown, Shield, User as UserIcon, Trash2, UserPlus } from 'lucide-react'
 import { PresenceIndicator } from './PresenceIndicator'
+import { getBackendUrl } from '@/lib/socket'
+
+const BACKEND_URL = getBackendUrl()
 
 interface Member {
   id: string
@@ -52,7 +55,6 @@ export default function MembersListModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const endpoint = channelId
         ? `${BACKEND_URL}/api/v1/channels/${channelId}/members`
         : `${BACKEND_URL}/api/v1/conversations/${conversationId}/members`
@@ -86,7 +88,6 @@ export default function MembersListModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const endpoint = channelId
         ? `${BACKEND_URL}/api/v1/channels/${channelId}/members/${memberId}`
         : `${BACKEND_URL}/api/v1/conversations/${conversationId}/members/${memberId}`
@@ -109,7 +110,6 @@ export default function MembersListModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const response = await fetch(`${BACKEND_URL}/api/v1/users`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -140,7 +140,6 @@ export default function MembersListModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const endpoint = channelId
         ? `${BACKEND_URL}/api/v1/channels/${channelId}/members`
         : `${BACKEND_URL}/api/v1/conversations/${conversationId}/members`

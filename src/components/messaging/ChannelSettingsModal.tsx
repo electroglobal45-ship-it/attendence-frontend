@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { X, Settings, Hash, Lock, Trash2, Archive, Bell, BellOff } from 'lucide-react'
+import { getBackendUrl } from '@/lib/socket'
+
+const BACKEND_URL = getBackendUrl()
 
 interface ChannelSettingsModalProps {
   isOpen: boolean
@@ -50,7 +53,6 @@ export default function ChannelSettingsModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const endpoint = channelId
         ? `${BACKEND_URL}/api/v1/channels/${channelId}`
         : `${BACKEND_URL}/api/v1/conversations/${conversationId}`
@@ -90,7 +92,6 @@ export default function ChannelSettingsModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const response = await fetch(`${BACKEND_URL}/api/v1/channels/${channelId}/archive`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` },
@@ -115,7 +116,6 @@ export default function ChannelSettingsModal({
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const endpoint = channelId
         ? `${BACKEND_URL}/api/v1/channels/${channelId}`
         : `${BACKEND_URL}/api/v1/conversations/${conversationId}`
