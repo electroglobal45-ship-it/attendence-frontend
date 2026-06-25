@@ -5,6 +5,8 @@ import { useMessagingStore } from '@/store/messaging.store'
 import { MessageReactions } from './MessageReactions'
 import { UserAvatarWithPresence } from './PresenceIndicator'
 import { MessageAttachments } from './MessageAttachments'
+import { Trash2 } from 'lucide-react'
+import { socketManager } from '@/lib/socket'
 
 interface MessageListProps {
   channelId?: string
@@ -92,6 +94,12 @@ function MessageItem({ message }: { message: any }) {
   const currentUserId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null
   const isOwnMessage = currentUserId && currentUserId === String(message.sender_id)
 
+  const handleDelete = () => {
+    if (confirm('Are you sure you want to delete this message?')) {
+      socketManager.deleteMessage(message.id)
+    }
+  }
+
   return (
     <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} px-1`}>
       <div className={`flex gap-2.5 w-auto lg:w-full max-w-[85%] lg:max-w-full ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -109,7 +117,20 @@ function MessageItem({ message }: { message: any }) {
         )}
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 relative group">
+          {/* Actions on hover */}
+          {isOwnMessage && (
+            <div className="absolute right-full top-1/2 -translate-y-1/2 mr-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center bg-[#2D1152]/85 backdrop-blur rounded-lg border border-[#4A1F6F]/40 p-1">
+              <button
+                onClick={handleDelete}
+                className="p-1 hover:bg-[#4A1F6F]/60 rounded text-red-400 hover:text-red-300 transition-colors"
+                title="Delete message"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Bubble */}
           <div
             className={`rounded-2xl px-3.5 py-2.5 ${

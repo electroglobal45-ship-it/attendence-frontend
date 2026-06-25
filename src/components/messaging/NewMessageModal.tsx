@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { X, Search, MessageSquare, Users, ArrowLeft, Check } from 'lucide-react'
 import { useMessagingStore } from '@/store/messaging.store'
 import { getBackendUrl } from '@/lib/socket'
+import { useAuth } from '@/lib/auth-context'
 
 const BACKEND_URL = getBackendUrl()
 
@@ -20,6 +21,7 @@ interface NewMessageModalProps {
 }
 
 export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProps) {
+  const { user: currentUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [users, setUsers] = useState<User[]>([])
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
@@ -27,6 +29,7 @@ export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProp
   const [isCreatingGroup, setIsCreatingGroup] = useState(false)
   const [isGroupMode, setIsGroupMode] = useState(false)
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [groupName, setGroupName] = useState('')
   const [error, setError] = useState('')
 
   const conversations = useMessagingStore((state) => state.conversations)
@@ -37,6 +40,7 @@ export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProp
       fetchUsers()
       setIsGroupMode(false)
       setSelectedUsers([])
+      setGroupName('')
       setSearchQuery('')
     }
   }, [isOpen])
@@ -78,9 +82,10 @@ export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProp
 
       const usersList = Array.isArray(data.data?.users) ? data.data.users : []
       // Filter out current user from selection list
-      const currentUserId = localStorage.getItem('userId')
-      setUsers(usersList.filter((u: any) => u.id !== currentUserId))
-      setFilteredUsers(usersList.filter((u: any) => u.id !== currentUserId))
+      const currentUserId = currentUser?.id || localStorage.getItem('userId')
+      const filtered = usersList.filter((u: any) => String(u.id) !== String(currentUserId))
+      setUsers(filtered)
+      setFilteredUsers(filtered)
     } catch (err: any) {
       console.error('Fetch users error:', err)
       setError(err.message || 'Failed to load users')
@@ -165,6 +170,7 @@ export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProp
         body: JSON.stringify({
           type: 'group',
           participant_ids: selectedUsers,
+          name: groupName.trim() || undefined,
         }),
       })
 
@@ -218,6 +224,20 @@ export default function NewMessageModal({ isOpen, onClose }: NewMessageModalProp
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
+
+        {/* Group Name (Only in Group mode) */}
+        {isGroupMode && (
+          <div className="px-6 pt-4 pb-2 border-b border-gray-100 bg-gray-50/50">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Group Chat Name</label>
+            <input
+              type="text"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              placeholder="e.g. Sales Team, Developers (Optional)"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+            />
+          </div>
+        )}
 
         {/* Search */}
         <div className="p-4 border-b border-gray-200">

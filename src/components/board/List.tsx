@@ -51,6 +51,9 @@ interface ListProps {
   onDeleteTask?: (taskId: string) => void
   dragHandleProps?: any
   isDragging?: boolean
+  isSelectionMode?: boolean
+  selectedTaskIds?: Set<string>
+  onToggleSelectTask?: (taskId: string) => void
 }
 
 export function List({ 
@@ -66,6 +69,9 @@ export function List({
   onDeleteTask,
   dragHandleProps,
   isDragging,
+  isSelectionMode = false,
+  selectedTaskIds = new Set(),
+  onToggleSelectTask,
 }: ListProps) {
   const [isAddingCard, setIsAddingCard] = useState(false)
   const [newCardTitle, setNewCardTitle] = useState('')
@@ -250,6 +256,9 @@ export function List({
                         isDragging={snapshot.isDragging}
                         onRefresh={onRefresh}
                         onDeleteTask={onDeleteTask}
+                        isSelectionMode={isSelectionMode}
+                        isSelected={selectedTaskIds.has(task.id)}
+                        onToggleSelect={() => onToggleSelectTask?.(task.id)}
                       />
                     </div>
                   )}

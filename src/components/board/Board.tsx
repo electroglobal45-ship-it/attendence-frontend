@@ -78,6 +78,9 @@ interface BoardProps {
   onEditList?: (list: ListObj) => void
   onRefresh?: () => void
   onDeleteTask?: (taskId: string) => void
+  isSelectionMode?: boolean
+  selectedTaskIds?: Set<string>
+  onToggleSelectTask?: (taskId: string) => void
 }
 
 export function Board({
@@ -93,6 +96,9 @@ export function Board({
   onEditList,
   onRefresh,
   onDeleteTask,
+  isSelectionMode = false,
+  selectedTaskIds = new Set(),
+  onToggleSelectTask,
 }: BoardProps) {
   const [localLists, setLocalLists]   = useState(lists)
   const [localTasks, setLocalTasks]   = useState(tasks)
@@ -293,6 +299,9 @@ export function Board({
                             onDeleteList={onRefresh}
                             onRefresh={onRefresh}
                             onDeleteTask={onDeleteTask}
+                            isSelectionMode={isSelectionMode}
+                            selectedTaskIds={selectedTaskIds}
+                            onToggleSelectTask={onToggleSelectTask}
                             dragHandleProps={provided.dragHandleProps}
                             isDragging={snapshot.isDragging}
                           />

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useMessagingStore } from '@/store/messaging.store'
 import { useSocket } from '@/hooks/useSocket'
-import { Hash, Lock, Users, Star, Pin, Settings, Video, Menu, MoreVertical, Loader2 } from 'lucide-react'
+import { Hash, Lock, Users, Star, Pin, Settings, Video, Menu, MoreVertical, Loader2, Trash2 } from 'lucide-react'
 import { useSidebarStore } from '@/lib/store/sidebar-store'
 import { useMeetings } from '@/lib/meetings-context'
 import { meetingsAPI } from '@/lib/tasks-api'
@@ -188,6 +188,35 @@ export default function ChatArea() {
     }
   }
 
+  const handleDeleteConversation = async () => {
+    if (!confirm('Are you sure you want to delete this conversation? This will delete all messages and remove all participants.')) {
+      return
+    }
+    
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${activeConversationId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Remove conversation from state and reset active conversation
+        const conversationsList = useMessagingStore.getState().conversations
+        useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== activeConversationId))
+        useMessagingStore.getState().setActiveConversation(null)
+      } else {
+        alert(data.message || 'Failed to delete conversation')
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error)
+      alert('An error occurred while deleting the conversation')
+    }
+  }
+
   if (!activeChannel && !activeConversation) return null
 
   return (
@@ -228,7 +257,10 @@ export default function ChatArea() {
                 <h1 className="text-base font-bold text-white truncate">
                   {activeConversation.type === 'direct'
                     ? activeConversation.other_user?.name || 'Direct Message'
-                    : 'Group Chat'}
+                    : activeConversation.name || activeConversation.participants
+                        ?.filter((p: any) => p.id !== (currentUser?.id || (typeof window !== 'undefined' ? localStorage.getItem('userId') : null)))
+                        .map((p: any) => p.name?.split(' ')[0])
+                        .join(', ') || 'Group Chat'}
                 </h1>
                 {activeConversation.type === 'group' && (
                   <p className="text-xs text-purple-300">
@@ -240,68 +272,26 @@ export default function ChatArea() {
           ) : null}
         </div>
 
-        {/* Header Actions — 3-dot dropdown for all screens */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <div className="relative" ref={actionsDropdownRef}>
-            <button
-              onClick={() => setIsActionsDropdownOpen(v => !v)}
-              className={`p-2 rounded-lg transition-colors ${isActionsDropdownOpen ? 'bg-[#4A1F6F] text-white' : 'text-purple-300 hover:text-white hover:bg-[#2D1152]'}`}
-              title="More options"
-            >
-              <MoreVertical className="w-5 h-5" />
-            </button>
-
-            {isActionsDropdownOpen && (
-              <div className="absolute right-0 top-full mt-2 w-52 bg-[#2D1152] border border-[#4A1F6F]/40 rounded-xl shadow-2xl z-50 py-1 overflow-hidden">
-                {activeConversation?.type === 'direct' && (
-                  <button
-                    onClick={() => { handleVideoCall(); setIsActionsDropdownOpen(false) }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-100 hover:bg-[#4A1F6F]/50 transition-colors"
-                  >
-                    <Video className="w-4 h-4 text-[#D9A441]" /> Start Video Call
-                  </button>
-                )}
-                <button
-                  onClick={() => { handleStarToggle(); setIsActionsDropdownOpen(false) }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-100 hover:bg-[#4A1F6F]/50 transition-colors"
-                >
-                  <Star className={`w-4 h-4 ${isStarred ? 'fill-[#D9A441] text-[#D9A441]' : 'text-purple-300'}`} />
-                  {isStarred ? 'Remove Star' : 'Star'}
-                </button>
-                <button
-                  onClick={() => { setIsPinnedModalOpen(true); setIsActionsDropdownOpen(false) }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-100 hover:bg-[#4A1F6F]/50 transition-colors"
-                >
-                  <Pin className="w-4 h-4 text-purple-300" /> Pinned Messages
-                </button>
-                <button
-                  onClick={() => { setIsMembersModalOpen(true); setIsActionsDropdownOpen(false) }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-100 hover:bg-[#4A1F6F]/50 transition-colors"
-                >
-                  <Users className="w-4 h-4 text-purple-300" /> Members
-                </button>
-                <div className="border-t border-[#4A1F6F]/40 my-1" />
-                <button
-                  onClick={() => { setIsSettingsModalOpen(true); setIsActionsDropdownOpen(false) }}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-purple-100 hover:bg-[#4A1F6F]/50 transition-colors"
-                >
-                  <Settings className="w-4 h-4 text-purple-300" /> Settings
-                </button>
-              </div>
-            )}
-          </div>
+        {/* Header Actions — Members button directly in header */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={() => setIsMembersModalOpen(true)}
+            className="p-2 rounded-lg transition-colors text-purple-300 hover:text-white hover:bg-[#2D1152] flex items-center gap-1.5 text-sm font-semibold"
+            title="Members"
+          >
+            <Users className="w-5 h-5 text-purple-300" />
+            <span className="hidden sm:inline">Members</span>
+          </button>
         </div>
       </header>
 
       {/* Messages List */}
       <div className="flex-1 overflow-hidden flex flex-col bg-[#150825]">
-        <div className="flex-1 overflow-hidden">
-          <MessageList
-            channelId={activeChannelId || undefined}
-            conversationId={activeConversationId || undefined}
-            isLoading={isLoadingMessages}
-          />
-        </div>
+        <MessageList
+          channelId={activeChannelId || undefined}
+          conversationId={activeConversationId || undefined}
+          isLoading={isLoadingMessages}
+        />
         <TypingIndicator
           channelId={activeChannelId || undefined}
           conversationId={activeConversationId || undefined}

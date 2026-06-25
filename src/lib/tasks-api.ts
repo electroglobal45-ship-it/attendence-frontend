@@ -207,6 +207,16 @@ export const tasksAPI = {
     })
   },
 
+  // Bulk delete tasks
+  async bulkDeleteTasks(taskIds: string[]) {
+    return apiRequest<{
+      success: boolean
+    }>('/api/v1/tasks/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ taskIds }),
+    })
+  },
+
   // Get task comments
   async getTaskComments(taskId: string) {
     return apiRequest<{
@@ -800,6 +810,49 @@ export const vaultAPI = {
       method: 'POST',
       body: JSON.stringify({ assigned_to: employeeIds }),
     })
+  },
+
+  // Get change logs/history for a credential
+  async getHistory(vaultId: string) {
+    return apiRequest<{
+      success: boolean
+      data: { history: any[] }
+    }>(`/api/v1/vault/${vaultId}/history`)
+  },
+
+  // Restore/revive a past version
+  async reviveVersion(vaultId: string, historyId: string) {
+    return apiRequest<{
+      success: boolean
+      data: { entry: AdminVaultEntry }
+    }>(`/api/v1/vault/${vaultId}/revive`, {
+      method: 'POST',
+      body: JSON.stringify({ historyId }),
+    })
+  },
+
+  // Admin: Bulk delete vault entries
+  async bulkDelete(ids: string[]) {
+    return apiRequest<{ success: boolean }>('/api/v1/vault/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    })
+  },
+
+  // Admin: Bulk assign employees to multiple entries
+  async bulkAssign(ids: string[], employeeIds: string[]) {
+    return apiRequest<{ success: boolean }>('/api/v1/vault/bulk-assign', {
+      method: 'POST',
+      body: JSON.stringify({ ids, assigned_to: employeeIds }),
+    })
+  },
+
+  // Get global history logs for all passwords
+  async getAllHistory() {
+    return apiRequest<{
+      success: boolean
+      data: { history: any[] }
+    }>('/api/v1/vault/global/history')
   },
 }
 

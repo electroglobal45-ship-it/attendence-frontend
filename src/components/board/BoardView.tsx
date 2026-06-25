@@ -7,9 +7,10 @@ import {
   Globe, Building2, Eye, Pencil, Copy, Link,
   Check, Search, Trash2, LayoutGrid, Table as TableIcon,
   Calendar as CalendarIcon, Clock, BarChart3, Map as MapIcon,
-  Menu
+  Menu, CheckSquare
 } from 'lucide-react'
 import { boardsAPI, listsAPI } from '@/lib/kanban-api'
+import { tasksAPI } from '@/lib/tasks-api'
 import { Board } from './Board'
 import { TaskDetailModal } from './TaskDetailModal'
 import { CalendarView as CalendarViewComponent } from './CalendarView'
@@ -560,6 +561,51 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   const [boardBgImage, setBoardBgImage] = useState<string>('')
   const [bgImageInput, setBgImageInput] = useState<string>('')
 
+  const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false)
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
+
+  const handleToggleSelectTask = (taskId: string) => {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev)
+      if (next.has(taskId)) {
+        next.delete(taskId)
+      } else {
+        next.add(taskId)
+      }
+      return next
+    })
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedTaskIds.size === 0) return
+    if (!confirm(`Are you sure you want to delete the ${selectedTaskIds.size} selected card(s)? This will permanently remove them.`)) return
+
+    try {
+      const idsToDelete = Array.from(selectedTaskIds)
+      const res = await tasksAPI.bulkDeleteTasks(idsToDelete)
+      if (res.success) {
+        setBoardData(prev => {
+          if (!prev) return null
+          const updated = {
+            ...prev,
+            tasks: prev.tasks.filter(t => !selectedTaskIds.has(t.id))
+          }
+          if (selectedBoard) {
+            usePrefetchStore.getState().updateBoardDetailsCache(selectedBoard.id, updated)
+          }
+          return updated
+        })
+        setSelectedTaskIds(new Set())
+        setIsSelectionMode(false)
+      } else {
+        alert('Failed to delete cards')
+      }
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || 'Error deleting cards')
+    }
+  }
+
   useEffect(() => {
     if (selectedBoard) {
       // 1. Check if DB has values
@@ -794,9 +840,7 @@ useEffect(() => {
           }
         }
         
-        if (finalUsers.length > 0) {
-          freshData.members = finalUsers
-        }
+        // Keep the actual board members in freshData.members, do not overwrite with allUsers.
         
         if (labelsRes.status === 'fulfilled') {
           const lVal = labelsRes.value as any
@@ -913,8 +957,34 @@ useEffect(() => {
     setLinkCopied(true); setTimeout(()=>setLinkCopied(false),2000)
   }
 
-  const filtered = (allUsers.length > 0 ? allUsers : (boardData?.members||[])).filter((m:any)=>{
-    const u=m.user||m, q=memberSearch.toLowerCase()
+  const isUserAdminOrTL = role === 'admin' || role === 'team leader'
+
+  const handleToggleMember = async (targetUser: any) => {
+    if (!selectedBoard || !isUserAdminOrTL) return
+    const membershipRecord = boardData?.members?.find((m: any) => (m.user_id === targetUser.id || m.user?.id === targetUser.id))
+    try {
+      if (membershipRecord) {
+        const r = await boardsAPI.removeBoardMember(membershipRecord.id)
+        if (r.success) {
+          fetchBoardData(selectedBoard.id)
+        } else {
+          alert(r.error || 'Failed to remove member')
+        }
+      } else {
+        const r = await boardsAPI.addBoardMember(selectedBoard.id, { user_id: targetUser.id })
+        if (r.success) {
+          fetchBoardData(selectedBoard.id)
+        } else {
+          alert(r.error || 'Failed to assign member')
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating membership')
+    }
+  }
+
+  const filtered = (isUserAdminOrTL ? allUsers : (boardData?.members||[]).map((m: any) => m.user || m)).filter((u:any)=>{
+    const q=memberSearch.toLowerCase()
     return (u.name||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q)
   })
 
@@ -1109,44 +1179,46 @@ useEffect(() => {
           flexShrink: 0,
           justifyContent: 'flex-end' 
         }}>
-
-          {/* Avatars — show ALL employees */}
+          {/* Avatars — show actual board members */}
           {!isMobile && (
             <div style={{ display:'flex', alignItems:'center' }}>
-              {(allUsers.length > 0 ? allUsers : (boardData?.members||[])).slice(0,5).map((m:any,i:number)=>(
-                <div
-                  key={i}
-                  title={(m.user||m)?.name || (m.user||m)?.email}
-                  style={{
-                    width: 32, height: 32, borderRadius: '50%',
-                    background: ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5'][i % 5],
-                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 700, fontSize: 12, flexShrink: 0, cursor: 'pointer',
-                    border: '2px solid #FFFFFF',
-                    marginLeft: i > 0 ? -8 : 0,
-                    transition: 'transform .15s',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1) translateY(-2px)')}
-                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                >
-                  {((m.user||m)?.name || (m.user||m)?.email || '?').charAt(0).toUpperCase()}
-                </div>
-              ))}
-              {(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length > 5 && (
+              {(boardData?.members||[]).slice(0,5).map((m:any,i:number)=>{
+                const u = m.user || m
+                return (
+                  <div
+                    key={i}
+                    title={u?.name || u?.email}
+                    style={{
+                      width: 32, height: 32, borderRadius: '50%',
+                      background: ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5'][i % 5],
+                      color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 700, fontSize: 12, flexShrink: 0, cursor: 'pointer',
+                      border: '2px solid #FFFFFF',
+                      marginLeft: i > 0 ? -8 : 0,
+                      transition: 'transform .15s',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.12)',
+                    }} 
+                    onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1) translateY(-2px)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                  >
+                    {((u?.name || u?.email || '?').charAt(0)).toUpperCase()}
+                  </div>
+                )
+              })}
+              {(boardData?.members||[]).length > 5 && (
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%', background: '#F3F4F6',
                   color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 700, border: '2px solid #FFFFFF', marginLeft: -8,
                   cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                }} title={`${(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length - 5} more members`}>
-                  +{(allUsers.length > 0 ? allUsers : (boardData?.members||[])).length - 5}
+                }} title={`${(boardData?.members||[]).length - 5} more members`}>
+                  +{(boardData?.members||[]).length - 5}
                 </div>
               )}
             </div>
           )}
 
-          {/* Invite Members */}
+          {/* Board Members Management */}
           <Dropdown
             align="right"
             trigger={
@@ -1162,16 +1234,16 @@ useEffect(() => {
                 {!isMobile && <span style={{ marginLeft: 2 }}>Members</span>}
               </button>
             }
-            panel={close=>(
+            panel={close => (
               <Panel width={300}>
                 <PanelHeader title="Board Members" onClose={close}/>
                 <div style={{ padding:'12px 14px' }}>
                   <p style={{ fontSize:12, color:DS.textMuted, margin:'0 0 8px', fontWeight:600 }}>
-                    All Members ({boardData?.members?.length||0})
+                    {isUserAdminOrTL ? 'Assign/Manage Board Members' : `Assigned Members (${boardData?.members?.length||0})`}
                   </p>
                   <div style={{ position:'relative', marginBottom:10 }}>
                     <Search size={12} style={{ position:'absolute', left:8, top:'50%', transform:'translateY(-50%)', color:DS.textMuted, pointerEvents:'none' }}/>
-                    <input placeholder="Search members…" value={memberSearch}
+                    <input placeholder="Search users…" value={memberSearch}
                       onChange={e=>setMemberSearch(e.target.value)}
                       style={{ ...inputStyle, paddingLeft:26 }}
                       onFocus={e=>(e.target.style.borderColor='#111827')}
@@ -1179,15 +1251,25 @@ useEffect(() => {
                   </div>
                   <div style={{ maxHeight:220, overflowY:'auto' }}>
                     {filtered.length===0
-                      ? <p style={{ color:DS.textMuted, textAlign:'center', padding:'16px 0', fontSize:12 }}>No members found</p>
-                      : filtered.map((m:any,i:number)=>{
-                          const u=m.user||m
+                      ? <p style={{ color:DS.textMuted, textAlign:'center', padding:'16px 0', fontSize:12 }}>No users found</p>
+                      : filtered.map((u:any,i:number)=>{
+                          const membershipRecord = boardData?.members?.find((m: any) => (m.user_id === u.id || m.user?.id === u.id))
+                          const isAssigned = !!membershipRecord
                           const colors = ['#4A1F6F','#6B2D8E','#2D0F47','#D9A441','#8B3DB5','#5E2780','#7C3AA7','#3A1660']
                           return (
                             <div key={u.id||i} style={{ display:'flex', alignItems:'center', gap:10,
-                              padding:'7px 4px', borderRadius:6, cursor:'default', transition:'background .12s' }}
+                              padding:'7px 4px', borderRadius:6, cursor:isUserAdminOrTL ? 'pointer' : 'default', transition:'background .12s' }}
+                              onClick={() => isUserAdminOrTL && handleToggleMember(u)}
                               onMouseEnter={e=>(e.currentTarget.style.background='#F3F4F6')}
                               onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                              {isUserAdminOrTL && (
+                                <input 
+                                  type="checkbox" 
+                                  checked={isAssigned} 
+                                  onChange={() => {}} 
+                                  style={{ accentColor:'#4A1F6F', cursor:'pointer' }} 
+                                />
+                              )}
                               <div style={{
                                 width:32, height:32, borderRadius:'50%',
                                 background: colors[i % colors.length],
@@ -1314,6 +1396,27 @@ useEffect(() => {
               </Panel>
             )}
           />
+
+          {/* Bulk Action */}
+          <button
+            onClick={() => {
+              setIsSelectionMode(!isSelectionMode)
+              setSelectedTaskIds(new Set())
+            }}
+            style={{
+              display:'flex', alignItems:'center', gap: 6,
+              padding: isMobile ? '6px 4px' : '5px 10px', borderRadius:6, border: isSelectionMode ? 'none' : `1px solid ${DS.bg3}`, cursor:'pointer',
+              background: isSelectionMode ? '#4A1F6F' : (isMobile ? (hov['bulk'] ? DS.bg2 : 'transparent') : (hov['bulk'] ? DS.bg2 : 'transparent')),
+              color: isSelectionMode ? '#FFFFFF' : DS.textPrimary, fontSize:13, fontWeight:600,
+              transition:'background .15s',
+              boxShadow: isSelectionMode ? '0 2px 8px rgba(74,31,111,0.35)' : 'none'
+            }}
+            {...H('bulk')}
+            title="Bulk Action"
+          >
+            <CheckSquare size={13} style={{ color: isSelectionMode ? '#FFFFFF' : DS.accent }} />
+            {!isMobile && <span style={{ marginLeft: 2 }}>Bulk Action</span>}
+          </button>
 
           {/* Share */}
           <Dropdown
@@ -1695,6 +1798,9 @@ useEffect(() => {
                   : boardBgColor
                 }
                 canManageBoard={canManageBoard}
+                isSelectionMode={isSelectionMode}
+                selectedTaskIds={selectedTaskIds}
+                onToggleSelectTask={handleToggleSelectTask}
                 onRefresh={()=>selectedBoard&&fetchBoardData(selectedBoard.id)}
                 onAddTask={(listId, title) => {
                   if (!selectedBoard) return ''
@@ -1817,6 +1923,65 @@ useEffect(() => {
             )}
             {currentView==='dashboard' && <DashboardView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
             {currentView==='map' && <MapView boardData={boardData} onTaskClick={task=>setSelectedTask(task)}/>}
+
+            {isSelectionMode && (
+              <div style={{
+                position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+                background: '#FFFFFF', border: `1px solid ${DS.bg3}`,
+                borderRadius: 12, padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.15)', zIndex: 1000,
+                borderLeft: `4px solid ${DS.accent}`
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: DS.textPrimary }}>
+                  {selectedTaskIds.size} card(s) selected
+                </span>
+                <button
+                  onClick={() => {
+                    const allIds = filteredTasks.map(t => t.id)
+                    setSelectedTaskIds(new Set(allIds))
+                  }}
+                  style={{
+                    padding: '6px 12px', background: 'transparent', color: DS.accent,
+                    border: `1px solid ${DS.accent}`, borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600
+                  }}
+                >
+                  Select All
+                </button>
+                {selectedTaskIds.size > 0 && (
+                  <button
+                    onClick={() => setSelectedTaskIds(new Set())}
+                    style={{
+                      padding: '6px 12px', background: 'transparent', color: DS.textMuted,
+                      border: `1px solid ${DS.bg3}`, borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600
+                    }}
+                  >
+                    Clear Selection
+                  </button>
+                )}
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={selectedTaskIds.size === 0}
+                  style={{
+                    padding: '6px 16px', background: selectedTaskIds.size === 0 ? '#FCA5A5' : DS.danger, color: '#FFFFFF',
+                    border: 'none', borderRadius: 6, cursor: selectedTaskIds.size === 0 ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600
+                  }}
+                >
+                  Delete Selected
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedTaskIds(new Set())
+                    setIsSelectionMode(false)
+                  }}
+                  style={{
+                    padding: '6px 12px', background: DS.bg2, color: DS.textPrimary,
+                    border: `1px solid ${DS.bg3}`, borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%' }}>

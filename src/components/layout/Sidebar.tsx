@@ -35,6 +35,7 @@ import {
   MoreVertical,
   Plus,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react'
 
 import CreateChannelModal from '@/components/messaging/CreateChannelModal'
@@ -310,6 +311,38 @@ export const Sidebar = memo(function Sidebar() {
       router.push('/messages')
     }
   }, [router, pathname, setOpen, setActiveConversation])
+
+  const handleDeleteConversation = useCallback(async (conversationId: string) => {
+    if (!confirm('Are you sure you want to delete this conversation? This will delete all messages and remove all participants.')) {
+      return
+    }
+    
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+
+      const BACKEND_URL = getBackendUrl()
+      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Remove conversation from state and reset active conversation if it was deleted
+        const conversationsList = useMessagingStore.getState().conversations
+        useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== conversationId))
+        if (activeConversationId === conversationId) {
+          useMessagingStore.getState().setActiveConversation(null)
+        }
+      } else {
+        alert(data.message || 'Failed to delete conversation')
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error)
+      alert('An error occurred while deleting the conversation')
+    }
+  }, [activeConversationId])
 
   const startResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -672,7 +705,7 @@ export const Sidebar = memo(function Sidebar() {
                           const isConvActive = activeConversationId === conv.id
                           const name = conv.type === 'direct'
                             ? conv.other_user?.name || 'Direct Message'
-                            : conv.participants
+                            : conv.name || conv.participants
                                 ?.filter((p: any) => p.id !== user?.id)
                                 .map((p: any) => p.name?.split(' ')[0])
                                 .join(', ') || 'Group Chat'
@@ -681,30 +714,42 @@ export const Sidebar = memo(function Sidebar() {
                           const hasUnread = unreadCount > 0
                           
                           return (
-                            <button
-                              key={conv.id}
-                              onClick={() => handleConversationClick(conv.id)}
-                              className={`flex items-center w-full rounded-lg text-xs font-medium transition-all px-2 py-1.5 cursor-pointer gap-2 ${
-                                isConvActive
-                                  ? 'bg-white/15 text-white font-semibold'
-                                  : 'text-purple-200/60 hover:bg-white/10 hover:text-white'
-                              }`}
-                            >
-                              <div className="relative flex-shrink-0">
-                                <div className="w-5 h-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[9px] font-bold text-purple-200">
-                                  {initials}
+                            <div key={conv.id} className="relative group w-full">
+                              <button
+                                onClick={() => handleConversationClick(conv.id)}
+                                className={`flex items-center w-full rounded-lg text-xs font-medium transition-all pl-2 pr-8 py-1.5 cursor-pointer gap-2 ${
+                                  isConvActive
+                                    ? 'bg-white/15 text-white font-semibold'
+                                    : 'text-purple-200/60 hover:bg-white/10 hover:text-white'
+                                }`}
+                              >
+                                <div className="relative flex-shrink-0">
+                                  <div className="w-5 h-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[9px] font-bold text-purple-200">
+                                    {initials}
+                                  </div>
+                                  {hasUnread && (
+                                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-400 rounded-full border border-[#1E0A2E]" />
+                                  )}
                                 </div>
+                                <span className={`truncate flex-1 text-left ${hasUnread ? 'font-semibold text-white' : ''}`}>{name}</span>
                                 {hasUnread && (
-                                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-400 rounded-full border border-[#1E0A2E]" />
+                                  <span className="bg-red-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[1rem] text-center ml-auto">
+                                    {unreadCount}
+                                  </span>
                                 )}
-                              </div>
-                              <span className={`truncate flex-1 text-left ${hasUnread ? 'font-semibold text-white' : ''}`}>{name}</span>
-                              {hasUnread && (
-                                <span className="bg-red-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[1rem] text-center ml-auto">
-                                  {unreadCount}
-                                </span>
-                              )}
-                            </button>
+                              </button>
+                              
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteConversation(conv.id)
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded text-purple-300/50 hover:text-red-400 opacity-60 hover:opacity-100 transition-opacity z-10 cursor-pointer"
+                                title="Delete Conversation"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           )
                         })}
                       </div>

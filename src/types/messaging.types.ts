@@ -38,6 +38,7 @@ export interface ChannelMember {
 export interface Conversation {
   id: string
   type: 'direct' | 'group'
+  name?: string
   created_at: string
   updated_at: string
   participants?: ConversationParticipant[]

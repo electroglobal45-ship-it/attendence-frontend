@@ -190,9 +190,12 @@ export default function MembersListModal({
 
   if (!isOpen) return null
 
-  const currentMember = members.find((m) => m.id === currentUserId)
-  const isChannelAdmin = currentMember?.role === 'owner' || currentMember?.role === 'admin'
-  const canManageMembers = isChannelAdmin || currentUserRole === 'admin' || currentUserRole === 'hr'
+  const currentUserMember = members.find((m) => m.id === currentUserId)
+  const isChannelAdmin = currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin'
+
+  const canManageMembers = conversationId
+    ? true
+    : (isChannelAdmin || currentUserRole === 'admin' || currentUserRole === 'hr')
   
   const filteredUsers = availableUsers.filter((user) =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

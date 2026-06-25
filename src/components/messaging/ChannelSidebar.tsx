@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useMessagingStore } from '@/store/messaging.store'
-import { Hash, Lock, Plus, ChevronDown, ChevronRight, MessageSquare, Search } from 'lucide-react'
+import { Hash, Lock, Plus, ChevronDown, ChevronRight, MessageSquare, Search, Trash2 } from 'lucide-react'
 import { PresenceIndicator } from './PresenceIndicator'
 import CreateChannelModal from './CreateChannelModal'
 import NewMessageModal from './NewMessageModal'
+import { getBackendUrl } from '@/lib/socket'
+
+const BACKEND_URL = getBackendUrl()
 
 export default function ChannelSidebar() {
   const channels = useMessagingStore((state) => state.channels)
@@ -16,6 +19,36 @@ export default function ChannelSidebar() {
   const unreadConversations = useMessagingStore((state) => state.unreadConversations)
   const setActiveChannel = useMessagingStore((state) => state.setActiveChannel)
   const setActiveConversation = useMessagingStore((state) => state.setActiveConversation)
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (!confirm('Are you sure you want to delete this conversation? This will delete all messages and remove all participants.')) {
+      return
+    }
+    
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Remove conversation from state and reset active conversation if it was deleted
+        const conversationsList = useMessagingStore.getState().conversations
+        useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== conversationId))
+        if (activeConversationId === conversationId) {
+          useMessagingStore.getState().setActiveConversation(null)
+        }
+      } else {
+        alert(data.message || 'Failed to delete conversation')
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error)
+      alert('An error occurred while deleting the conversation')
+    }
+  }
 
   const [channelsExpanded, setChannelsExpanded] = useState(true)
   const [dmsExpanded, setDmsExpanded] = useState(true)
@@ -32,9 +65,15 @@ export default function ChannelSidebar() {
   const filteredPrivateChannels = privateChannels.filter(ch =>
     ch.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
-  const filteredConversations = conversations.filter(conv =>
-    conv.other_user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredConversations = conversations.filter(conv => {
+    const name = conv.type === 'direct'
+      ? conv.other_user?.name
+      : conv.name || conv.participants
+          ?.filter((p: any) => p.id !== (typeof window !== 'undefined' ? localStorage.getItem('userId') : null))
+          .map((p: any) => p.name)
+          .join(', ')
+    return name?.toLowerCase().includes(searchQuery.toLowerCase())
+  })
 
   return (
     <div className="flex flex-col h-full bg-[#1E0A2E] border-r border-[#4A1F6F]/30">
@@ -144,7 +183,7 @@ export default function ChannelSidebar() {
                     name={
                       conversation.type === 'direct'
                         ? conversation.other_user?.name || 'Direct Message'
-                        : conversation.participants
+                        : conversation.name || conversation.participants
                             ?.filter((p: any) => p.id !== (typeof window !== 'undefined' ? localStorage.getItem('userId') : null))
                             .map((p: any) => p.name?.split(' ')[0])
                             .join(', ') || 'Group Chat'
@@ -153,6 +192,7 @@ export default function ChannelSidebar() {
                     unreadCount={unreadConversations[conversation.id] || 0}
                     onClick={() => setActiveConversation(conversation.id)}
                     userId={conversation.type === 'direct' ? otherUserId : undefined}
+                    onDelete={() => handleDeleteConversation(conversation.id)}
                   />
                 )
               })}
@@ -181,39 +221,55 @@ interface ChannelItemProps {
   unreadCount: number
   onClick: () => void
   userId?: string
+  onDelete?: () => void
 }
 
-function ChannelItem({ icon, name, isActive, unreadCount, onClick, userId }: ChannelItemProps) {
+function ChannelItem({ icon, name, isActive, unreadCount, onClick, userId, onDelete }: ChannelItemProps) {
   return (
-    <button
-      onClick={onClick}
-      className={`
-        w-full flex items-center gap-2 px-4 py-1.5 text-sm group transition-colors relative
-        ${isActive
-          ? 'bg-[#4A1F6F] text-white'
-          : 'text-purple-300 hover:bg-[#2D1152] hover:text-white'
-        }
-      `}
-    >
-      {isActive && (
-        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#D9A441] rounded-r" />
-      )}
-      <span className={`flex-shrink-0 ${isActive ? 'text-[#D9A441]' : 'text-purple-400 group-hover:text-purple-200'}`}>
-        {icon}
-      </span>
-      <span className="flex-1 text-left truncate text-xs font-medium">{name}</span>
-
-      {userId && (
-        <div className="flex-shrink-0">
-          <PresenceIndicator userId={userId} size="sm" />
-        </div>
-      )}
-
-      {unreadCount > 0 && (
-        <span className="flex-shrink-0 bg-[#D9A441] text-[#1E0A2E] text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-          {unreadCount > 99 ? '99+' : unreadCount}
+    <div className="relative group w-full">
+      <button
+        onClick={onClick}
+        className={`
+          w-full flex items-center gap-2 px-4 py-1.5 text-sm transition-colors relative
+          ${isActive
+            ? 'bg-[#4A1F6F] text-white'
+            : 'text-purple-300 hover:bg-[#2D1152] hover:text-white'
+          }
+        `}
+      >
+        {isActive && (
+          <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#D9A441] rounded-r" />
+        )}
+        <span className={`flex-shrink-0 ${isActive ? 'text-[#D9A441]' : 'text-purple-400 group-hover:text-purple-200'}`}>
+          {icon}
         </span>
+        <span className="flex-1 text-left truncate text-xs font-medium pr-6">{name}</span>
+
+        {userId && (
+          <div className="flex-shrink-0 pr-1">
+            <PresenceIndicator userId={userId} size="sm" />
+          </div>
+        )}
+
+        {unreadCount > 0 && (
+          <span className="flex-shrink-0 bg-[#D9A441] text-[#1E0A2E] text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center pr-1">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {onDelete && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-[#4A1F6F]/60 rounded text-purple-400 hover:text-red-400 opacity-60 hover:opacity-100 transition-opacity z-10"
+          title="Delete chat"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       )}
-    </button>
+    </div>
   )
 }

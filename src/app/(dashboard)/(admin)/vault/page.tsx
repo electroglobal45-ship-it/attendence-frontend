@@ -8,7 +8,7 @@ import {
   Shield, Plus, Trash2, RefreshCw, Eye, EyeOff,
   Copy, Check, X, RotateCcw, KeyRound, ChevronDown,
   Users, AlertTriangle, Search, ArrowLeft, ExternalLink,
-  Edit, MoreVertical,
+  Edit, MoreVertical, History, CheckSquare, Square, ListFilter,
 } from 'lucide-react'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
@@ -150,6 +150,19 @@ export default function AdminVaultPage() {
   const [showInfoToast, setShowInfoToast] = useState<string | null>(null)
   const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null)
   const [filterEmployees, setFilterEmployees] = useState<string[]>([])
+
+  // Bulk selection states
+  const [bulkMode, setBulkMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false)
+  const [bulkAssignEmployees, setBulkAssignEmployees] = useState<string[]>([])
+
+  // History version states
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [showGlobalHistoryModal, setShowGlobalHistoryModal] = useState(false)
+  const [historyList, setHistoryList] = useState<any[]>([])
+  const [globalHistoryList, setGlobalHistoryList] = useState<any[]>([])
+  const [fetchingHistory, setFetchingHistory] = useState(false)
 
   useEffect(() => {
     setShowCredentials(false)
@@ -393,8 +406,8 @@ export default function AdminVaultPage() {
           ...e,
           assignments: e.assignments.map(a =>
             !employeeId || a.assigned_to === employeeId
-              ? { ...a, is_revealed: false }
-              : a
+               ? { ...a, is_revealed: false }
+               : a
           ),
         }
       })
@@ -406,6 +419,100 @@ export default function AdminVaultPage() {
       setError(e.message)
     } finally {
       setResettingKey(null)
+    }
+  }
+
+  // Bulk Actions
+  const toggleBulkSelect = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Are you sure you want to delete the ${selectedIds.length} selected credentials?`)) return
+    setLoading(true)
+    try {
+      await vaultAPI.bulkDelete(selectedIds)
+      const remaining = entries.filter(e => !selectedIds.includes(e.id))
+      setEntries(remaining)
+      usePrefetchStore.setState({ vaultEntries: remaining })
+      setSelectedIds([])
+      setSelectedEntryId(remaining.length > 0 ? remaining[0].id : null)
+      triggerToast('Credentials deleted successfully')
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBulkAssignSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedIds.length === 0 || bulkAssignEmployees.length === 0) return
+    setSubmitting(true)
+    try {
+      await vaultAPI.bulkAssign(selectedIds, bulkAssignEmployees)
+      setShowBulkAssignModal(false)
+      setBulkAssignEmployees([])
+      setSelectedIds([])
+      setBulkMode(false)
+      triggerToast('Employees assigned successfully')
+      fetchData(false, true)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // History version recovery (Single Item)
+  const handleOpenHistory = async () => {
+    if (!selectedEntryId) return
+    setFetchingHistory(true)
+    setShowHistoryModal(true)
+    try {
+      const res = await vaultAPI.getHistory(selectedEntryId)
+      setHistoryList(res.data.history)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setFetchingHistory(false)
+    }
+  }
+
+  // Global History Versions (All Items)
+  const handleOpenGlobalHistory = async () => {
+    setFetchingHistory(true)
+    setShowGlobalHistoryModal(true)
+    try {
+      const res = await (vaultAPI as any).getAllHistory()
+      setGlobalHistoryList(res.data.history)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setFetchingHistory(false)
+    }
+  }
+
+  const handleReviveVersion = async (vaultId: string, historyId: string) => {
+    if (!confirm('Are you sure you want to restore this password version? Current active password will be archived to history.')) return
+    setSubmitting(true)
+    try {
+      const res = await vaultAPI.reviveVersion(vaultId, historyId)
+      const updatedEntry = res.data.entry
+      setEntries(prev => prev.map(item => item.id === vaultId ? updatedEntry : item))
+      usePrefetchStore.setState({
+        vaultEntries: usePrefetchStore.getState().vaultEntries.map(item => item.id === vaultId ? updatedEntry : item)
+      })
+      setShowHistoryModal(false)
+      setShowGlobalHistoryModal(false)
+      triggerToast('Password version restored successfully')
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -445,6 +552,25 @@ export default function AdminVaultPage() {
       }
       actions={
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Mobile search indicator button or toggle */}
+          <div className="lg:hidden flex items-center bg-gray-50 border rounded-lg px-2 py-1.5 border-gray-300">
+            <Search size={14} className="text-gray-400 mr-1" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search..."
+              className="bg-transparent border-none outline-none text-xs w-20"
+            />
+          </div>
+
+          <button onClick={handleOpenGlobalHistory}
+            className="flex items-center gap-1 px-3 py-2 border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg text-xs font-semibold transition"
+          >
+            <History size={13} />
+            <span>All Password Versions</span>
+          </button>
+
           <button onClick={() => fetchData(false, false)} disabled={loading}
             className="flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border rounded-lg disabled:opacity-50 transition"
             style={{ borderColor: 'rgba(74,31,111,0.3)', color: '#4A1F6F', background: 'rgba(74,31,111,0.04)' }}
@@ -453,6 +579,7 @@ export default function AdminVaultPage() {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
+          
           <button onClick={() => setShowForm(true)}
             className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-white rounded-lg transition font-medium"
             style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)', boxShadow: '0 4px 12px rgba(74,31,111,0.35)' }}
@@ -480,11 +607,32 @@ export default function AdminVaultPage() {
         </div>
       )}
 
+      {/* Bulk actions bar */}
+      {bulkMode && selectedIds.length > 0 && (
+        <div className="flex items-center justify-between p-3 mb-4 bg-purple-50 border border-purple-200 rounded-xl animate-fade-in">
+          <span className="text-sm font-semibold text-purple-900">{selectedIds.length} items selected</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowBulkAssignModal(true)}
+              className="px-3 py-1.5 text-xs font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition"
+            >
+              Bulk Assign
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+            >
+              Bulk Delete
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Two-Pane Password Manager Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[600px]">
         
         {/* LEFT PANEL: SEARCH & PASSWORD LIST */}
-        <div className={`col-span-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${selectedEntryId ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`col-span-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${selectedEntryId && !bulkMode ? 'hidden lg:flex' : 'flex'}`}>
           <div className="p-4 border-b border-gray-100 space-y-3">
             {/* Search Bar */}
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
@@ -541,16 +689,30 @@ export default function AdminVaultPage() {
               filteredEntries.map(entry => {
                 const isSelected = selectedEntryId === entry.id
                 const domain = entry.site_url ? getDomain(entry.site_url) : getDomain(entry.service_name)
+                const isBulkChecked = selectedIds.includes(entry.id)
                 
                 return (
                   <div
                     key={entry.id}
-                    onClick={() => setSelectedEntryId(entry.id)}
+                    onClick={() => {
+                      if (bulkMode) {
+                        toggleBulkSelect(entry.id)
+                      } else {
+                        setSelectedEntryId(entry.id)
+                      }
+                    }}
                     className={`p-4 flex items-center gap-3 cursor-pointer transition-colors ${
-                      isSelected ? 'border-l-4' : 'hover:bg-gray-50'
+                      isSelected && !bulkMode ? 'border-l-4' : 'hover:bg-gray-50'
                     }`}
-                    style={isSelected ? { background: 'rgba(74,31,111,0.06)', borderLeftColor: '#4A1F6F' } : {}}
+                    style={isSelected && !bulkMode ? { background: 'rgba(74,31,111,0.06)', borderLeftColor: '#4A1F6F' } : {}}
                   >
+                    {/* Bulk select checkbox */}
+                    {bulkMode && (
+                      <div className="text-purple-700 flex-shrink-0 mr-1">
+                        {isBulkChecked ? <CheckSquare size={18} /> : <Square size={18} className="text-gray-300" />}
+                      </div>
+                    )}
+
                     {/* Site favicon with third-party service */}
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border overflow-hidden" style={{ background: 'rgba(74,31,111,0.08)', borderColor: 'rgba(74,31,111,0.15)' }}>
                       <img
@@ -558,7 +720,6 @@ export default function AdminVaultPage() {
                         alt={entry.service_name}
                         className="w-5 h-5 object-contain"
                         onError={(e) => {
-                          // Fallback to initial
                           ;(e.target as HTMLElement).style.display = 'none'
                         }}
                       />
@@ -568,7 +729,7 @@ export default function AdminVaultPage() {
                     </div>
                     
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate" style={{ color: isSelected ? '#2D0F47' : '#1F2937' }}>
+                      <p className="text-sm font-semibold truncate" style={{ color: isSelected && !bulkMode ? '#2D0F47' : '#1F2937' }}>
                         {entry.service_name}
                       </p>
                       <p className="text-xs text-gray-400 truncate mt-0.5">
@@ -580,10 +741,21 @@ export default function AdminVaultPage() {
               })
             )}
           </div>
+
+          {/* Bulk select option at the bottom side panel */}
+          <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+            <button onClick={() => { setBulkMode(!bulkMode); setSelectedIds([]) }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg border text-center transition ${
+                bulkMode ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              {bulkMode ? 'Cancel Bulk Selection' : 'Toggle Bulk Selection'}
+            </button>
+          </div>
         </div>
 
         {/* RIGHT PANEL: SELECTED ENTRY DETAILS */}
-        <div className={`col-span-1 lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${!selectedEntryId ? 'hidden lg:flex items-center justify-center p-8' : 'p-6'}`}>
+        <div className={`col-span-1 lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${(!selectedEntryId || bulkMode) ? 'hidden lg:flex items-center justify-center p-8' : 'p-6'}`}>
           {!selectedEntry ? (
             <div className="text-center max-w-sm">
               <div className="w-16 h-16 bg-gray-150 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-450 border border-gray-200">
@@ -597,37 +769,47 @@ export default function AdminVaultPage() {
           ) : (
             <div className="space-y-6 animate-fade-in">
               {/* Back Button (mobile) + Favicon + Site Name */}
-              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
-                <button
-                  onClick={() => setSelectedEntryId(null)}
-                  className="lg:hidden p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition flex items-center justify-center"
-                >
-                  <ArrowLeft size={18} />
-                </button>
+              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedEntryId(null)}
+                    className="lg:hidden p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition flex items-center justify-center"
+                  >
+                    <ArrowLeft size={18} />
+                  </button>
 
-                <div className="w-10 h-10 rounded-xl bg-yellow-400/10 flex items-center justify-center text-yellow-600 border border-yellow-500/20">
-                  {/* Mockup shows apollo's yellow icon or default flower/star */}
-                  <img
-                    src={`https://www.google.com/icons/thirdparty/images/png?size=64&domain=${selectedEntry.site_url ? getDomain(selectedEntry.site_url) : getDomain(selectedEntry.service_name)}`}
-                    alt=""
-                    className="w-6 h-6 object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none'
-                    }}
-                  />
-                  <span className="text-sm font-bold uppercase select-none">
-                    {selectedEntry.service_name[0]}
-                  </span>
+                  <div className="w-10 h-10 rounded-xl bg-yellow-400/10 flex items-center justify-center text-yellow-600 border border-yellow-500/20">
+                    <img
+                      src={`https://www.google.com/icons/thirdparty/images/png?size=64&domain=${selectedEntry.site_url ? getDomain(selectedEntry.site_url) : getDomain(selectedEntry.service_name)}`}
+                      alt=""
+                      className="w-6 h-6 object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none'
+                      }}
+                    />
+                    <span className="text-sm font-bold uppercase select-none">
+                      {selectedEntry.service_name[0]}
+                    </span>
+                  </div>
+
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-1.5">
+                    {selectedEntry.service_name}
+                    {selectedEntry.id.startsWith('temp-') && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full animate-pulse" style={{ color: '#4A1F6F', background: 'rgba(74,31,111,0.08)', border: '1px solid rgba(74,31,111,0.2)' }}>
+                        Saving…
+                      </span>
+                    )}
+                  </h2>
                 </div>
 
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-1.5">
-                  {selectedEntry.service_name}
-                  {selectedEntry.id.startsWith('temp-') && (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full animate-pulse" style={{ color: '#4A1F6F', background: 'rgba(74,31,111,0.08)', border: '1px solid rgba(74,31,111,0.2)' }}>
-                      Saving…
-                    </span>
-                  )}
-                </h2>
+                {/* History (Versions) Trigger */}
+                <button
+                  onClick={handleOpenHistory}
+                  className="flex items-center gap-1 px-3 py-1.5 border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg text-xs font-semibold transition"
+                >
+                  <History size={13} />
+                  <span>Versions</span>
+                </button>
               </div>
 
               {/* CARD DETAILS */}
@@ -706,6 +888,13 @@ export default function AdminVaultPage() {
                   </div>
 
                 </div>
+
+                {/* Editor info track footer */}
+                {(selectedEntry as any).editor && (
+                  <div className="text-xs text-gray-400 mt-2 font-medium">
+                    Last updated by <span className="font-semibold text-gray-600">{(selectedEntry as any).editor?.name}</span> ({(selectedEntry as any).editor?.email})
+                  </div>
+                )}
 
                 {/* Unified Reveal Toggle & Actions */}
                 <div className="flex gap-3 pt-4 border-t border-gray-150 relative">
@@ -869,6 +1058,197 @@ export default function AdminVaultPage() {
         </div>
 
       </div>
+
+      {/* ── Single Credential History Modal ── */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-purple-100 text-purple-700">
+                  <History size={16} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Credential History</h3>
+                  <p className="text-xs text-gray-400">Restore older versions for "{selectedEntry?.service_name}"</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowHistoryModal(false); setHistoryList([]) }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {fetchingHistory ? (
+                <div className="py-8 text-center text-gray-500 text-sm">
+                  <RefreshCw size={20} className="animate-spin mx-auto mb-2 text-purple-600" />
+                  Fetching history versions...
+                </div>
+              ) : historyList.length === 0 ? (
+                <div className="py-10 text-center">
+                  <History size={32} className="mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm font-semibold text-gray-600">No versions found</p>
+                  <p className="text-xs text-gray-400 mt-1">First edit will create a version log.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                  {historyList.map(h => (
+                    <div key={h.id} className="p-4 border rounded-xl border-gray-200 bg-gray-50 flex items-start justify-between gap-3 hover:bg-purple-50/30 transition">
+                      <div className="space-y-1.5 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-gray-500">Username:</span>
+                          <span className="text-xs font-medium text-gray-700 font-mono truncate max-w-[200px]">{h.username}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-gray-500">Password:</span>
+                          <span className="text-xs font-medium text-gray-700 font-mono">••••••••</span>
+                        </div>
+                        {h.notes && (
+                          <p className="text-xs text-gray-400 italic truncate max-w-[300px]">Note: {h.notes}</p>
+                        )}
+                        <div className="text-[10px] text-gray-400 font-medium pt-1">
+                          Edited by {h.editor?.name || 'Unknown'} on {new Date(h.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleReviveVersion(selectedEntryId!, h.id)}
+                        disabled={submitting}
+                        className="px-3 py-1.5 text-xs text-white bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition disabled:opacity-50 flex-shrink-0"
+                      >
+                        Restore
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Global Password Version History Modal ── */}
+      {showGlobalHistoryModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-purple-600 text-white shadow-md">
+                  <History size={16} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">All Password Versions History</h3>
+                  <p className="text-xs text-gray-400">Total {globalHistoryList.length} archived password versions tracked</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowGlobalHistoryModal(false); setGlobalHistoryList([]) }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {fetchingHistory ? (
+                <div className="py-8 text-center text-gray-500 text-sm">
+                  <RefreshCw size={20} className="animate-spin mx-auto mb-2 text-purple-600" />
+                  Fetching global version history...
+                </div>
+              ) : globalHistoryList.length === 0 ? (
+                <div className="py-10 text-center">
+                  <History size={32} className="mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm font-semibold text-gray-600">No versions tracked yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Changes made to any password will create version items here.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {globalHistoryList.map(h => (
+                    <div key={h.id} className="p-4 border rounded-xl border-gray-250 bg-gray-50 flex items-start justify-between gap-4 hover:bg-purple-50/20 transition">
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700 uppercase tracking-wide">
+                            {h.service_name}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-gray-500">Username:</span>
+                            <span className="text-xs font-medium text-gray-700 font-mono truncate max-w-[200px]">{h.username}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-gray-500">Password:</span>
+                            <span className="text-xs font-medium text-gray-700 font-mono">••••••••</span>
+                          </div>
+                        </div>
+                        {h.notes && (
+                          <p className="text-xs text-gray-400 italic truncate max-w-[400px]">Notes: {h.notes}</p>
+                        )}
+                        <div className="text-[10px] text-gray-400 font-medium pt-1">
+                          Edited by {h.editor?.name || 'Unknown'} ({(h.editor?.email || 'N/A')}) on {new Date(h.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleReviveVersion(h.vault_id, h.id)}
+                        disabled={submitting}
+                        className="px-3.5 py-2 text-xs text-white bg-purple-600 hover:bg-purple-700 rounded-lg font-bold transition disabled:opacity-50 flex-shrink-0"
+                      >
+                        Restore Version
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Assign Modal ── */}
+      {showBulkAssignModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-purple-100 text-purple-700">
+                  <Users size={16} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Bulk Assign Access</h3>
+                  <p className="text-xs text-gray-400">Assign {selectedIds.length} passwords to employees</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowBulkAssignModal(false); setBulkAssignEmployees([]) }}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkAssignSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5 font-semibold">
+                  Select Employees *
+                </label>
+                <EmployeeMultiSelect
+                  employees={employees}
+                  selected={bulkAssignEmployees}
+                  onChange={setBulkAssignEmployees}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => { setShowBulkAssignModal(false); setBulkAssignEmployees([]) }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 text-sm font-medium transition">
+                  Cancel
+                </button>
+                <button type="submit" disabled={submitting || bulkAssignEmployees.length === 0}
+                  className="flex-1 px-4 py-2.5 text-white rounded-xl text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: (submitting || bulkAssignEmployees.length === 0) ? '#9CA3AF' : 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)' }}>
+                  Assign Now
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Add/Edit Credential Modal ── */}
       {showForm && (
@@ -1038,11 +1418,6 @@ export default function AdminVaultPage() {
                   selected={assignSelectedEmployees}
                   onChange={setAssignSelectedEmployees}
                 />
-                {assignSelectedEmployees.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1.5">
-                    {assignSelectedEmployees.length} employee{assignSelectedEmployees.length > 1 ? 's' : ''} selected
-                  </p>
-                )}
               </div>
 
               {/* Security notice */}

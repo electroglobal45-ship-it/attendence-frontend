@@ -60,10 +60,9 @@ const PRIORITY_CONFIG: Record<string, { bg: string; label: string }> = {
 }
 
 const STATUS_CFG: Record<string, { text: string; dot: string; rowBg: string; rowBorder: string; rowText: string }> = {
-  todo:        { text: 'To Do',       dot: PURPLE,    rowBg: PURPLE_5,             rowBorder: `${PURPLE}30`, rowText: PURPLE      },
   in_progress: { text: 'In Progress', dot: GOLD,      rowBg: 'rgba(217,164,65,.05)', rowBorder: `${GOLD}40`,  rowText: '#92650a'   },
+  todo:        { text: 'To Do',       dot: PURPLE,    rowBg: PURPLE_5,             rowBorder: `${PURPLE}30`, rowText: PURPLE      },
   done:        { text: 'Done',        dot: '#22C55E', rowBg: '#F0FDF4',             rowBorder: '#BBF7D0',     rowText: '#15803D'   },
-  blocked:     { text: 'Blocked',     dot: '#EF4444', rowBg: '#FEF2F2',             rowBorder: '#FECACA',     rowText: '#B91C1C'   },
 }
 
 /* ─── Sortable Task Row ─── */
@@ -222,7 +221,7 @@ function SortableTaskRow({
   )
 }
 
-type FilterKey = 'all' | 'todo' | 'in_progress' | 'done' | 'blocked'
+type FilterKey = 'all' | 'todo' | 'in_progress' | 'done'
 
 /* ─── Page ─── */
 export default function TasksPage() {
@@ -379,18 +378,16 @@ export default function TasksPage() {
   })
 
   const taskGroups = {
-    todo:        filteredTasks.filter(t => t.status === 'todo'),
     in_progress: filteredTasks.filter(t => t.status === 'in_progress'),
-    blocked:     filteredTasks.filter(t => t.status === 'blocked'),
+    todo:        filteredTasks.filter(t => t.status === 'todo'),
     done:        filteredTasks.filter(t => t.status === 'done'),
   }
 
   const counts: Record<FilterKey, number> = {
     all:         filteredTasks.length,
-    todo:        taskGroups.todo.length,
     in_progress: taskGroups.in_progress.length,
+    todo:        taskGroups.todo.length,
     done:        taskGroups.done.length,
-    blocked:     taskGroups.blocked.length,
   }
 
   const activeFiltersCount = filterBoards.size + filterMembers.size + filterDueDate.size
@@ -398,10 +395,9 @@ export default function TasksPage() {
 
   const TABS: { key: FilterKey; label: string; mobileLabel: string }[] = [
     { key: 'all',         label: 'All Tasks',   mobileLabel: 'All' },
-    { key: 'todo',        label: 'To Do',       mobileLabel: 'To Do' },
     { key: 'in_progress', label: 'In Progress', mobileLabel: 'Doing' },
+    { key: 'todo',        label: 'To Do',       mobileLabel: 'To Do' },
     { key: 'done',        label: 'Done',        mobileLabel: 'Done' },
-    { key: 'blocked',     label: 'Blocked',     mobileLabel: 'Blocked' },
   ]
 
   if (showKanban) {
@@ -746,9 +742,9 @@ export default function TasksPage() {
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                   <div>
-                    {(['todo', 'in_progress', 'blocked', 'done'] as const).map(statusKey => {
+                    {(['in_progress', 'todo', 'done'] as const).map(statusKey => {
                       const group = taskGroups[statusKey]
-                      if (group.length === 0) return null
+                      if (!group || group.length === 0) return null
                       const cfg = STATUS_CFG[statusKey]
                       return (
                         <div key={statusKey}>

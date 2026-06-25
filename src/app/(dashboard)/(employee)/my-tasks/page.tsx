@@ -478,23 +478,6 @@ export default function MyTasksPage() {
               </div>
 
               <div>
-                {/* To Do Section */}
-                {filtered.filter(t => t.status === 'todo').length > 0 && (() => {
-                  const cfg = STATUS_CFG['todo']
-                  const group = filtered.filter(t => t.status === 'todo')
-                  return (
-                    <>
-                      <div style={{ background: cfg.rowBg, color: cfg.rowText, fontWeight: 700, fontSize: 12, padding: '10px 20px', borderBottom: `1px solid ${cfg.rowBorder}`, textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.dot, display: 'inline-block' }} />
-                        To Do ({group.length})
-                      </div>
-                      {group.map((task, idx, arr) => (
-                        <TaskRow key={task.id} task={task} idx={idx} totalTasks={arr.length} onTaskClick={() => setSelectedTask(task)} onComplete={() => completeTask(task.id)} />
-                      ))}
-                    </>
-                  )
-                })()}
-
                 {/* In Progress Section */}
                 {filtered.filter(t => t.status === 'in_progress').length > 0 && (() => {
                   const cfg = STATUS_CFG['in_progress']
@@ -504,6 +487,23 @@ export default function MyTasksPage() {
                       <div style={{ background: cfg.rowBg, color: cfg.rowText, fontWeight: 700, fontSize: 12, padding: '10px 20px', borderBottom: `1px solid ${cfg.rowBorder}`, textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.dot, display: 'inline-block' }} />
                         In Progress ({group.length})
+                      </div>
+                      {group.map((task, idx, arr) => (
+                        <TaskRow key={task.id} task={task} idx={idx} totalTasks={arr.length} onTaskClick={() => setSelectedTask(task)} onComplete={() => completeTask(task.id)} />
+                      ))}
+                    </>
+                  )
+                })()}
+
+                {/* To Do Section */}
+                {filtered.filter(t => t.status === 'todo').length > 0 && (() => {
+                  const cfg = STATUS_CFG['todo']
+                  const group = filtered.filter(t => t.status === 'todo')
+                  return (
+                    <>
+                      <div style={{ background: cfg.rowBg, color: cfg.rowText, fontWeight: 700, fontSize: 12, padding: '10px 20px', borderBottom: `1px solid ${cfg.rowBorder}`, textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.dot, display: 'inline-block' }} />
+                        To Do ({group.length})
                       </div>
                       {group.map((task, idx, arr) => (
                         <TaskRow key={task.id} task={task} idx={idx} totalTasks={arr.length} onTaskClick={() => setSelectedTask(task)} onComplete={() => completeTask(task.id)} />

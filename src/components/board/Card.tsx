@@ -41,11 +41,23 @@ interface CardProps {
   isDragging?: boolean
   onRefresh?: () => void
   onDeleteTask?: (taskId: string) => void
+  isSelectionMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: () => void
 }
 
 // No more predefined priority labels - all labels are now dynamic per board
 
-export function Card({ task, onClick, isDragging = false, onRefresh, onDeleteTask }: CardProps) {
+export function Card({
+  task,
+  onClick,
+  isDragging = false,
+  onRefresh,
+  onDeleteTask,
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+}: CardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [menuCoords, setMenuCoords] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 })
@@ -87,6 +99,10 @@ export function Card({ task, onClick, isDragging = false, onRefresh, onDeleteTas
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (Date.now() - lastTouchTimeRef.current < 1000) {
+      return
+    }
+    if (isSelectionMode) {
+      onToggleSelect?.()
       return
     }
     onClick?.()
@@ -367,7 +383,8 @@ export function Card({ task, onClick, isDragging = false, onRefresh, onDeleteTas
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={`
-        bg-white border border-gray-200 rounded-lg cursor-pointer transition-all duration-200 group
+        bg-white border rounded-lg cursor-pointer transition-all duration-200 group
+        ${isSelected ? 'border-[#4A1F6F] ring-1 ring-[#4A1F6F]' : 'border-gray-200'}
         ${isDragging ? 'rotate-2 opacity-70' : 'hover:border-blue-400'}
         ${isOptimistic ? 'opacity-60' : ''}
       `}
@@ -388,6 +405,22 @@ export function Card({ task, onClick, isDragging = false, onRefresh, onDeleteTas
       )}
 
       <div className="p-3 space-y-2">
+        {/* Selection Checkbox */}
+        {isSelectionMode && (
+          <div className="flex items-center justify-between mb-2">
+            <input 
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation()
+                onToggleSelect?.()
+              }}
+              style={{ accentColor: '#4A1F6F' }}
+              className="w-4 h-4 rounded text-[#4A1F6F] focus:ring-[#4A1F6F] border-gray-300 cursor-pointer"
+            />
+            <span className="text-[10px] text-purple-400 font-semibold uppercase">Select Card</span>
+          </div>
+        )}
         {/* Single Label Display */}
         <div className="flex items-center gap-1.5 mb-1">
           {displayLabel && (
