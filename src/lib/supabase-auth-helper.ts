@@ -1,15 +1,23 @@
 /**
  * Supabase Auth Helper for Next.js API Routes
  *
- * Validates tokens by calling the Express backend (/api/v1/auth/me).
- * This keeps auth consistent with the rest of the app — the backend
- * handles Supabase token refresh automatically, so we never get
- * "token is expired" errors from hitting Supabase Auth directly.
+ * Validates tokens directly via Supabase Admin client (getUser).
+ * No dependency on the Express backend — works in both local and production.
  */
 
 import { NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+// Admin client — bypasses RLS, used only server-side
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+})
 
 /**
  * Extract the Bearer token from the request.
@@ -25,7 +33,7 @@ function extractToken(req: NextRequest): string | null {
 
 /**
  * Get authenticated user from request.
- * Validates the token by calling the backend /auth/me endpoint.
+ * Validates the Supabase JWT directly — no backend call needed.
  * Returns user profile or null if invalid / expired.
  */
 export async function getAuthenticatedUser(req: NextRequest) {
@@ -37,26 +45,23 @@ export async function getAuthenticatedUser(req: NextRequest) {
       return null
     }
 
-    // Validate via Express backend — it handles Supabase refresh internally
-    const response = await fetch(`${BACKEND_URL}/api/v1/auth/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      // Short timeout so we don't block the route handler for too long
-      signal: AbortSignal.timeout(8000),
-    })
+    // Verify JWT directly with Supabase Admin
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
 
-    if (!response.ok) {
-      console.log('❌ Invalid token:', response.status, response.statusText)
+    if (error || !user) {
+      console.log('❌ Invalid token:', error?.message)
       return null
     }
 
-    const json = await response.json()
-    const profile = json?.data
+    // Fetch user profile from our users table
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('users')
+      .select('id, email, name, role, category, is_active')
+      .eq('email', user.email!)
+      .maybeSingle()
 
-    if (!profile) {
-      console.log('❌ No profile in backend response')
+    if (profileError || !profile) {
+      console.log('❌ No profile found for user:', user.email)
       return null
     }
 
@@ -65,7 +70,7 @@ export async function getAuthenticatedUser(req: NextRequest) {
       return null
     }
 
-    console.log('✅ Token verified via backend for user:', profile.email, 'role:', profile.role)
+    console.log('✅ Token verified for user:', profile.email, 'role:', profile.role)
 
     return {
       userId: profile.id,
@@ -106,4 +111,3 @@ export async function requireAdmin(req: NextRequest) {
   console.log('✅ Admin access granted')
   return user
 }
-
