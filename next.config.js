@@ -56,8 +56,8 @@ const nextConfig = {
     // 'unsafe-eval' + 'unsafe-inline' on script-src are required by Next.js itself.
     // In dev we also need to allow next-dev-overlay WebSocket connections.
     const connectSrc = isDev
-      ? "'self' http://localhost:5000 https://attendence-backend-k951.onrender.com https://*.supabase.co wss://*.supabase.co ws://localhost:* http://localhost:*"
-      : "'self' https://attendence-backend-k951.onrender.com https://*.supabase.co wss://*.supabase.co"
+      ? "'self' http://localhost:5000 https://attendence-backend-k951.onrender.com wss://attendence-backend-k951.onrender.com https://*.supabase.co wss://*.supabase.co ws://localhost:* http://localhost:*"
+      : "'self' https://attendence-backend-k951.onrender.com wss://attendence-backend-k951.onrender.com https://*.supabase.co wss://*.supabase.co"
 
     const csp = [
       "default-src 'self'",
