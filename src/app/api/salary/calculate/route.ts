@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
     const user = await requireAuth(req)
     const userId = user.userId
 
-    const body = await req.json()
+    const text = await req.text()
+    const body = text ? JSON.parse(text) : {}
     const { month, year } = body
 
     // Admins can calculate for any employee; employees only see their own

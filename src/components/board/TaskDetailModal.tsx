@@ -475,14 +475,16 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
         if (!res1.ok) {
           console.error('Failed to add member:', await res1.json())
         }
-        const res2 = await fetch(`${BACKEND_URL}/api/v1/tasks/${task.id}`,
-          {
-            method: 'PUT',
-            headers: jsonHeaders,
-            body: JSON.stringify({ assigned_to: userId }),
-          })
-        if (!res2.ok) {
-          console.error('Failed to set assigned_to:', await res2.json())
+        if (!task.assigned_to) {
+          const res2 = await fetch(`${BACKEND_URL}/api/v1/tasks/${task.id}`,
+            {
+              method: 'PUT',
+              headers: jsonHeaders,
+              body: JSON.stringify({ assigned_to: userId }),
+            })
+          if (!res2.ok) {
+            console.error('Failed to set assigned_to:', await res2.json())
+          }
         }
         await fetchActivities()
         onUpdate()
@@ -945,20 +947,37 @@ export function TaskDetailModal({ task, onClose, onUpdate, boardId, projectId, c
             {/* ── Meta row (Read-only display) ── */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
 
-              {/* Members - Display only */}
+              {/* Members - Manage & Display */}
               <div>
                 <div className="flex items-center gap-1 mb-2">
                   <Users size={14} className="text-gray-400" />
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Members</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {assignedMembers.length > 0 ? (
-                    assignedMembers.map(m => (
-                      <div key={m.id} title={m.name} className="cursor-default">
-                        <Avatar name={m.name} px={30} />
-                      </div>
-                    ))
-                  ) : (
+                  {assignedMembers.map(m => (
+                    <div key={m.id} title={m.name} className="relative group flex items-center">
+                      <Avatar name={m.name} px={30} />
+                      {canManageBoard && (
+                        <button
+                          onClick={() => toggleMember(m.id)}
+                          className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold shadow-md cursor-pointer border border-white"
+                          title={`Remove ${m.name}`}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {canManageBoard && (
+                    <button
+                      onClick={() => setShowMembersMenu(v => !v)}
+                      className="w-[30px] h-[30px] rounded-full border border-dashed border-gray-300 hover:border-purple-500 hover:bg-purple-50 text-gray-400 hover:text-purple-500 flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-sm"
+                      title="Assign/Manage members"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  )}
+                  {assignedMembers.length === 0 && !canManageBoard && (
                     <span className="text-xs text-gray-400 italic">No members</span>
                   )}
                 </div>

@@ -606,6 +606,35 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
     }
   }
 
+  const handleBulkAssign = async (userId: string) => {
+    if (selectedTaskIds.size === 0) return
+    try {
+      const ids = Array.from(selectedTaskIds)
+      const promises = ids.map(async taskId => {
+        const res = await tasksAPI.addTaskMember(taskId, userId)
+        if (!res.success) {
+          console.error(`Failed to add task member for task ${taskId}:`, res)
+        }
+        const taskObj = boardData?.tasks.find(t => t.id === taskId)
+        if (taskObj && !taskObj.assigned_to) {
+          const updateRes = await tasksAPI.updateTask(taskId, { assigned_to: userId })
+          if (!updateRes.success) {
+            console.error(`Failed to set primary assignee for task ${taskId}:`, updateRes)
+          }
+        }
+      })
+      await Promise.all(promises)
+      if (selectedBoard) {
+        await fetchBoardData(selectedBoard.id)
+      }
+      setSelectedTaskIds(new Set())
+      setIsSelectionMode(false)
+    } catch (err: any) {
+      console.error('Error in bulk assignment:', err)
+      alert(err.message || 'Failed to assign members')
+    }
+  }
+
   useEffect(() => {
     if (selectedBoard) {
       // 1. Check if DB has values
@@ -1691,8 +1720,6 @@ useEffect(() => {
                 <PanelDivider/>
                 <PanelRow icon={<Copy size={13}/>}   label="Copy board"   onClick={close}/>
                 <PanelRow icon={<Eye size={13}/>}    label="Watch"        onClick={close}/>
-                <PanelDivider/>
-                <PanelRow icon={<Trash2 size={13}/>} label="Close board" danger onClick={close}/>
               </Panel>
             )}
           />
@@ -1958,6 +1985,54 @@ useEffect(() => {
                     Clear Selection
                   </button>
                 )}
+                <Dropdown
+                  align="right"
+                  trigger={
+                    <button
+                      disabled={selectedTaskIds.size === 0}
+                      style={{
+                        padding: '6px 16px',
+                        background: selectedTaskIds.size === 0 ? '#D4CCE2' : DS.accent,
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: 6,
+                        cursor: selectedTaskIds.size === 0 ? 'not-allowed' : 'pointer',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}
+                    >
+                      Assign Selected <ChevronDown size={12} />
+                    </button>
+                  }
+                  panel={close => (
+                    <Panel width={240}>
+                      <PanelSection label="Assign to member" />
+                      <div style={{ maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
+                        {allUsers.map((user, uIdx) => {
+                          return (
+                            <PanelRow
+                              key={user.id}
+                              icon={<Avatar user={user} idx={uIdx} size="sm" />}
+                              label={user.name || user.email}
+                              onClick={() => {
+                                handleBulkAssign(user.id)
+                                close()
+                              }}
+                            />
+                          )
+                        })}
+                        {allUsers.length === 0 && (
+                          <div style={{ padding: '8px 14px', fontSize: 12, color: DS.textMuted, fontStyle: 'italic' }}>
+                            No users found
+                          </div>
+                        )}
+                      </div>
+                    </Panel>
+                  )}
+                />
                 <button
                   onClick={handleBulkDelete}
                   disabled={selectedTaskIds.size === 0}

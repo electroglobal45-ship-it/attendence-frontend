@@ -63,6 +63,13 @@ export function Card({
   const [menuCoords, setMenuCoords] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 })
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const lastTouchTimeRef = useRef<number>(0)
@@ -483,58 +490,124 @@ export function Card({
                 </button>
                 
                 {showMenu && (
-                  <div 
-                    style={{
-                      position: 'fixed',
-                      top: menuCoords.top !== undefined ? `${menuCoords.top}px` : 'auto',
-                      bottom: menuCoords.bottom !== undefined ? `${menuCoords.bottom}px` : 'auto',
-                      left: `${menuCoords.left}px`,
-                      width: '13rem', // w-52
-                      maxHeight: menuCoords.top !== undefined 
-                        ? `calc(100vh - ${menuCoords.top}px - 16px)` 
-                        : `calc(100vh - ${menuCoords.bottom}px - 16px)`,
-                      overflowY: 'auto',
-                      zIndex: 9999,
-                    }}
-                    className="bg-white border border-gray-200 rounded-xl shadow-2xl py-1.5 text-left"
-                  >
-                    <button onClick={handleLeave} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <LogOut size={14} className="text-gray-400" /> Leave
-                    </button>
-                    <button onClick={handleMove} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <Move size={14} className="text-gray-400" /> Move
-                    </button>
-                    <button onClick={handleCopy} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <Copy size={14} className="text-gray-400" /> Copy
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); alert('Mirroring is only available for premium boards.') }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <Layers size={14} className="text-gray-400" /> Mirror
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); alert('Template created successfully!') }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <FileText size={14} className="text-gray-400" /> Make template
-                    </button>
-                    <button onClick={handleWatch} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <Eye size={14} className="text-gray-400" /> Watch
-                    </button>
-                    <div className="my-1 border-t border-gray-100" />
-                    <button onClick={handleShare} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <Share2 size={14} className="text-gray-400" /> Share
-                    </button>
-                    <button onClick={handleArchive} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                      <Archive size={14} className="text-gray-400" /> Archive
-                    </button>
-                    <button onClick={handleDelete} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                      <Trash2 size={14} className="text-red-400" /> Delete card
-                    </button>
-                    {task.status !== 'done' && (
-                      <>
-                        <div className="my-1 border-t border-gray-100" />
-                        <button onClick={handleMarkAsDone} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
-                          <Check size={14} className="text-green-500" /> Mark as done
+                  isMobile ? (
+                    <div 
+                      style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                        backdropFilter: 'blur(2px)',
+                        zIndex: 9999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px',
+                      }}
+                      onClick={() => setShowMenu(false)}
+                    >
+                      <div 
+                        style={{
+                          width: '100%',
+                          maxWidth: '280px',
+                          maxHeight: '80vh',
+                          overflowY: 'auto',
+                          background: '#FFFFFF',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+                          padding: '12px 0',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between px-4 pb-2 border-b border-gray-100 mb-2">
+                          <span className="text-sm font-semibold text-gray-800">Card Options</span>
+                          <button onClick={() => setShowMenu(false)} className="text-gray-400 hover:text-gray-600 font-bold text-sm">✕</button>
+                        </div>
+                        <button onClick={handleLeave} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                          <LogOut size={14} className="text-gray-400" /> Leave
                         </button>
-                      </>
-                    )}
-                  </div>
+                        <button onClick={handleMove} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                          <Move size={14} className="text-gray-400" /> Move
+                        </button>
+                        <button onClick={handleCopy} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                          <Copy size={14} className="text-gray-400" /> Copy
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); alert('Mirroring is only available for premium boards.') }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                          <Layers size={14} className="text-gray-400" /> Mirror
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); alert('Template created successfully!') }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                          <FileText size={14} className="text-gray-400" /> Make template
+                        </button>
+                        <button onClick={handleWatch} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                          <Eye size={14} className="text-gray-400" /> Watch
+                        </button>
+                        <div className="my-1 border-t border-gray-100" />
+                        <button onClick={handleArchive} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                          <Archive size={14} className="text-gray-400" /> Archive
+                        </button>
+                        <button onClick={handleDelete} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                          <Trash2 size={14} className="text-red-400" /> Delete card
+                        </button>
+                        {task.status !== 'done' && (
+                          <>
+                            <div className="my-1 border-t border-gray-100" />
+                            <button onClick={handleMarkAsDone} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 transition-colors">
+                              <Check size={14} className="text-green-500" /> Mark as done
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      style={{
+                        position: 'fixed',
+                        top: menuCoords.top !== undefined ? `${menuCoords.top}px` : 'auto',
+                        bottom: menuCoords.bottom !== undefined ? `${menuCoords.bottom}px` : 'auto',
+                        left: `${menuCoords.left}px`,
+                        width: '13rem', // w-52
+                        maxHeight: menuCoords.top !== undefined 
+                          ? `calc(100vh - ${menuCoords.top}px - 16px)` 
+                          : `calc(100vh - ${menuCoords.bottom}px - 16px)`,
+                        overflowY: 'auto',
+                        zIndex: 9999,
+                      }}
+                      className="bg-white border border-gray-200 rounded-xl shadow-2xl py-1.5 text-left"
+                    >
+                      <button onClick={handleLeave} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        <LogOut size={14} className="text-gray-400" /> Leave
+                      </button>
+                      <button onClick={handleMove} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        <Move size={14} className="text-gray-400" /> Move
+                      </button>
+                      <button onClick={handleCopy} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        <Copy size={14} className="text-gray-400" /> Copy
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); alert('Mirroring is only available for premium boards.') }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        <Layers size={14} className="text-gray-400" /> Mirror
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setShowMenu(false); alert('Template created successfully!') }} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        <FileText size={14} className="text-gray-400" /> Make template
+                      </button>
+                      <button onClick={handleWatch} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        <Eye size={14} className="text-gray-400" /> Watch
+                      </button>
+                      <div className="my-1 border-t border-gray-100" />
+                      <button onClick={handleArchive} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                        <Archive size={14} className="text-gray-400" /> Archive
+                      </button>
+                      <button onClick={handleDelete} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                        <Trash2 size={14} className="text-red-400" /> Delete card
+                      </button>
+                      {task.status !== 'done' && (
+                        <>
+                          <div className="my-1 border-t border-gray-100" />
+                          <button onClick={handleMarkAsDone} className="w-full flex items-center gap-3 px-4 py-2 text-sm text-green-600 hover:bg-green-50 transition-colors">
+                            <Check size={14} className="text-green-500" /> Mark as done
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
                 )}
               </div>
             </div>

@@ -259,6 +259,26 @@ export const tasksAPI = {
       }
     }>(`/api/v1/tasks/${taskId}/activities`)
   },
+
+  // Add task member
+  async addTaskMember(taskId: string, userId: string) {
+    return apiRequest<{
+      success: boolean
+      data: { member: any }
+    }>(`/api/v1/tasks/${taskId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    })
+  },
+
+  // Remove task member
+  async removeTaskMember(taskId: string, userId: string) {
+    return apiRequest<{
+      success: boolean
+    }>(`/api/v1/tasks/${taskId}/members/${userId}`, {
+      method: 'DELETE',
+    })
+  },
 }
 
 // =====================================================
