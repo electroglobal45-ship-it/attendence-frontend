@@ -151,6 +151,7 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
         settings:   'loading',
         salary:     'loading',
         agents:     'loading',
+        messages:   'loading',
       }
     })
 
@@ -360,6 +361,9 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
         }
       }
 
+      // Messages - will be loaded by socket
+      newStatus.messages = 'done'
+
       return { ...updates, status: newStatus, isPrefetched: true }
     })
   },
@@ -549,6 +553,14 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
               status: { ...state.status, agents: 'done' },
             }))
           }
+          break
+        }
+        case 'messages': {
+          // Messages will be loaded by socket connection
+          // This is just a placeholder for now
+          set((state) => ({
+            status: { ...state.status, messages: 'done' },
+          }))
           break
         }
       }
