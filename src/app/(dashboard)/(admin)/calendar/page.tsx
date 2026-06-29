@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { ChevronLeft, ChevronRight, X, RefreshCw } from 'lucide-react'
 import { adminAPI } from '@/lib/tasks-api'
+import { authedFetch } from '@/lib/backend-api'
 import { formatTimeIST, calculateHours, calculateHoursNumeric } from '@/lib/time-utils'
 
 const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -143,10 +144,10 @@ export default function AdminCalendarPage() {
     setLoading(true); setSelected(null)
     try {
       const [calRes, salRes] = await Promise.all([
-        fetch(`/api/calendar?month=${m}&year=${y}&employeeId=${empId}`, { headers: { Authorization: `Bearer ${token()}` } }),
-        fetch('/api/salary/calculate', {
+        authedFetch(`/api/calendar?month=${m}&year=${y}&employeeId=${empId}`),
+        authedFetch('/api/salary/calculate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ month: m, year: y, employeeId: empId }),
         }),
       ])

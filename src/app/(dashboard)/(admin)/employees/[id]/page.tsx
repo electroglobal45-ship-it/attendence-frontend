@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, DollarSign, Clock, X, RefreshCw } from 'lucide-rea
 import { format } from 'date-fns'
 import { formatTimeIST, calculateHours } from '@/lib/time-utils'
 import { adminAPI } from '@/lib/tasks-api'
+import { authedFetch } from '@/lib/backend-api'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
 
@@ -32,18 +33,12 @@ export default function EmployeeDetailPage() {
   const [marking, setMarking] = useState(false)
 
   const fetchCalendarAndSalary = async (m: number, y: number) => {
-    const token = localStorage.getItem('authToken')
     try {
       const [calRes, salRes] = await Promise.all([
-        fetch(`/api/calendar?month=${m}&year=${y}&employeeId=${employeeId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`/api/salary/calculate`, {
+        authedFetch(`/api/calendar?month=${m}&year=${y}&employeeId=${employeeId}`),
+        authedFetch(`/api/salary/calculate`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ month: m, year: y, employeeId }),
         })
       ])
@@ -130,14 +125,8 @@ export default function EmployeeDetailPage() {
 
   return (
     <PageWrapper
-      title=""
-      subtitle=""
-      actions={
-        <button onClick={() => router.back()} className="btn-secondary flex items-center gap-2">
-          <ArrowLeft size={16} />
-          Back
-        </button>
-      }
+      title="Employee Details"
+      onBack={() => router.back()}
     >
       <div className="space-y-6 max-w-7xl mx-auto pb-12 font-sans">
         {/* Employee Profile Header Banner */}

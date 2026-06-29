@@ -586,7 +586,7 @@ export default function AdminVaultPage() {
             onMouseEnter={e => (e.currentTarget.style.background = 'linear-gradient(135deg, #2D0F47 0%, #1a0930 100%)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)')}>
             <Plus size={16} />
-            Add
+            <span className="hidden sm:inline">Add</span>
           </button>
         </div>
       }
@@ -755,7 +755,7 @@ export default function AdminVaultPage() {
         </div>
 
         {/* RIGHT PANEL: SELECTED ENTRY DETAILS */}
-        <div className={`col-span-1 lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${(!selectedEntryId || bulkMode) ? 'hidden lg:flex items-center justify-center p-8' : 'p-6'}`}>
+        <div className={`col-span-1 lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${(!selectedEntryId || bulkMode) ? 'hidden lg:flex' : ''} ${!selectedEntryId ? 'items-center justify-center p-8' : 'p-6'}`}>
           {!selectedEntry ? (
             <div className="text-center max-w-sm">
               <div className="w-16 h-16 bg-gray-150 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-450 border border-gray-200">

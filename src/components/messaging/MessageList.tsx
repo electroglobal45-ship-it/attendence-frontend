@@ -5,7 +5,7 @@ import { useMessagingStore } from '@/store/messaging.store'
 import { MessageReactions } from './MessageReactions'
 import { UserAvatarWithPresence } from './PresenceIndicator'
 import { MessageAttachments } from './MessageAttachments'
-import { Trash2 } from 'lucide-react'
+import { Trash2, CheckCheck } from 'lucide-react'
 import { socketManager } from '@/lib/socket'
 
 interface MessageListProps {
@@ -91,8 +91,22 @@ function MessageItem({ message }: { message: any }) {
     )
   }
 
-  const currentUserId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null
-  const isOwnMessage = currentUserId && currentUserId === String(message.sender_id)
+  const getLoggedUserId = () => {
+    if (typeof window === 'undefined') return null
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser)
+        if (parsed?.id) return String(parsed.id)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    return localStorage.getItem('userId')
+  }
+
+  const currentUserId = getLoggedUserId()
+  const isOwnMessage = currentUserId && String(currentUserId) === String(message.sender_id)
 
   const handleDelete = () => {
     if (confirm('Are you sure you want to delete this message?')) {
@@ -168,6 +182,11 @@ function MessageItem({ message }: { message: any }) {
               </span>
               {message.edited_at && (
                 <span className="text-purple-400">(edited)</span>
+              )}
+              {isOwnMessage && (
+                <span className="flex-shrink-0 ml-0.5" title={message.is_read || message.read_at ? "Read" : "Delivered"}>
+                  <CheckCheck className={`w-3.5 h-3.5 ${message.is_read || message.read_at ? 'text-sky-400 stroke-[2.5]' : 'text-purple-300/80 stroke-[2]'}`} />
+                </span>
               )}
             </div>
           </div>

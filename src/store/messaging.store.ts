@@ -139,9 +139,19 @@ export const useMessagingStore = create<MessagingStore>((set, get) => ({
   setChannels: (channels) => set({ channels }),
   
   addChannel: (channel) =>
-    set((state) => ({
-      channels: [...state.channels, channel],
-    })),
+    set((state) => {
+      const exists = state.channels.some((ch) => ch.id === channel.id || (ch.name && channel.name && ch.name === channel.name))
+      if (exists) {
+        return {
+          channels: state.channels.map((ch) =>
+            ch.id === channel.id || (ch.name && channel.name && ch.name === channel.name)
+              ? { ...ch, ...channel }
+              : ch
+          ),
+        }
+      }
+      return { channels: [...state.channels, channel] }
+    }),
   
   updateChannel: (channelId, updates) =>
     set((state) => ({
@@ -216,12 +226,38 @@ export const useMessagingStore = create<MessagingStore>((set, get) => ({
     })),
 
   // Conversation Actions
-  setConversations: (conversations) => set({ conversations }),
+  setConversations: (conversations) =>
+    set(() => {
+      const uniqueMap = new Map<string, any>()
+      conversations.forEach((c: any) => {
+        const key = c.type === 'direct' && c.other_user?.id ? `direct_${c.other_user.id}` : c.id
+        if (!uniqueMap.has(key) || c.id === key) {
+          uniqueMap.set(key, c)
+        }
+      })
+      return { conversations: Array.from(uniqueMap.values()) }
+    }),
   
   addConversation: (conversation) =>
-    set((state) => ({
-      conversations: [...state.conversations, conversation],
-    })),
+    set((state) => {
+      const exists = state.conversations.some((c) => {
+        if (c.id === conversation.id) return true
+        if (c.type === 'direct' && conversation.type === 'direct') {
+          if (c.other_user?.id && conversation.other_user?.id && String(c.other_user.id) === String(conversation.other_user.id)) return true
+        }
+        return false
+      })
+
+      if (exists) {
+        return {
+          conversations: state.conversations.map((c) => {
+            const isMatch = c.id === conversation.id || (c.type === 'direct' && conversation.type === 'direct' && c.other_user?.id && conversation.other_user?.id && String(c.other_user.id) === String(conversation.other_user.id))
+            return isMatch ? { ...c, ...conversation } : c
+          }),
+        }
+      }
+      return { conversations: [...state.conversations, conversation] }
+    }),
   
   setActiveConversation: (conversationId) =>
     set((state) => ({

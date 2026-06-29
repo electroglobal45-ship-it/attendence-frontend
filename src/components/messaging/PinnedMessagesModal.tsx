@@ -41,7 +41,20 @@ export default function PinnedMessagesModal({
 
   useEffect(() => {
     if (isOpen) {
-      const userId = localStorage.getItem('userId')
+      const getLoggedUserId = () => {
+        if (typeof window === 'undefined') return null
+        const storedUser = localStorage.getItem('user')
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser)
+            if (parsed?.id) return String(parsed.id)
+          } catch (e) {
+            console.error(e)
+          }
+        }
+        return localStorage.getItem('userId')
+      }
+      const userId = getLoggedUserId()
       setCurrentUserId(userId)
       fetchPinnedMessages()
     }

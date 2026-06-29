@@ -23,6 +23,8 @@ export default function DrivePage() {
   const [showUpload, setShowUpload] = useState(false)
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [showShare, setShowShare] = useState<DriveFile | null>(null)
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [isFetching, setIsFetching] = useState(() => !(storeDriveFiles && storeDriveFiles.length > 0))
   const [unreadCount, setUnreadCount] = useState(0)
@@ -107,13 +109,17 @@ export default function DrivePage() {
   }
 
   const handleDisconnect = async () => {
-    if (!confirm('Disconnect Google Drive? You can reconnect anytime.')) return
+    setDisconnecting(true)
     try {
       await driveAPI.disconnect()
       setConnected(false)
       setConnectionEmail(null)
+      setShowDisconnectConfirm(false)
+      usePrefetchStore.setState({ driveConnected: false, driveEmail: null, driveFiles: [] })
     } catch (err: any) {
       alert(err.message)
+    } finally {
+      setDisconnecting(false)
     }
   }
 
@@ -333,7 +339,7 @@ export default function DrivePage() {
               </button>
             </>
           )}
-          <button onClick={handleDisconnect} className="btn-secondary text-red-600 flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
+          <button onClick={() => setShowDisconnectConfirm(true)} className="btn-secondary text-red-600 flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
             <LogOut size={16} />
             <span className="hidden sm:inline">Disconnect</span>
           </button>
@@ -770,6 +776,45 @@ export default function DrivePage() {
             loadSharedByMe()
           }}
         />
+      )}
+
+      {/* Disconnect Confirmation Modal */}
+      {showDisconnectConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl flex flex-col p-6 animate-fade-in text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-600">
+              <LogOut size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Disconnect Google Drive?</h3>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              Are you sure you want to disconnect? You can reconnect your Google account anytime.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDisconnectConfirm(false)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-xl text-gray-700 text-sm font-semibold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDisconnect}
+                disabled={disconnecting}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {disconnecting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Disconnecting…
+                  </>
+                ) : (
+                  'Disconnect'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </PageWrapper>
   )

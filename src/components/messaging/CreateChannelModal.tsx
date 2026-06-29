@@ -64,7 +64,20 @@ export default function CreateChannelModal({ isOpen, onClose }: CreateChannelMod
     setIsLoadingUsers(true)
     try {
       const token = localStorage.getItem('authToken')
-      const currentUserId = localStorage.getItem('userId')
+      const getLoggedUserId = () => {
+        if (typeof window === 'undefined') return null
+        const storedUser = localStorage.getItem('user')
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser)
+            if (parsed?.id) return String(parsed.id)
+          } catch (e) {
+            console.error(e)
+          }
+        }
+        return localStorage.getItem('userId')
+      }
+      const currentUserId = getLoggedUserId()
       if (!token) return
 
       const response = await fetch(`${BACKEND_URL}/api/v1/users`, {

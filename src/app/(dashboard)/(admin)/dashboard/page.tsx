@@ -8,12 +8,13 @@ import { StatsLoadingSkeleton, TableLoadingSkeleton } from '@/components/ui/Load
 import {
   Users, Clock, Calendar, CheckCircle, XCircle,
   AlertCircle, RefreshCw, UserPlus, Settings, FileText, Lock,
-  Search, Check, X, Eye, ClipboardList, ArrowRight, MapPin, ChevronRight, UserCheck
+  Search, Check, X, Eye, ClipboardList, ArrowRight, MapPin, ChevronRight, UserCheck, Bell
 } from 'lucide-react'
 import Link from 'next/link'
 import { adminAPI, leavesAPI, tasksAPI } from '@/lib/tasks-api'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
 import { useAuth } from '@/lib/auth-context'
+import CreateNotificationModal from '@/components/notifications/CreateNotificationModal'
 
 interface Stats {
   totalEmployees: number
@@ -114,6 +115,7 @@ export default function AdminDashboard() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'shortLeaves' | 'tasks'>('attendance')
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showNotificationModal, setShowNotificationModal] = useState(false)
   
   // Attendance Search and Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -396,6 +398,18 @@ export default function AdminDashboard() {
                 <p className="text-[10px] text-slate-400 font-medium font-sans">Office Boundaries</p>
               </div>
             </Link>
+          )}
+
+          {!isHR && (
+            <button onClick={() => setShowNotificationModal(true)} className="flex items-center text-left gap-3 p-4 bg-white border border-slate-100 rounded-2xl shadow-[0_4px_16px_rgba(0,0,0,0.04)] hover:shadow-[0_6px_20px_rgba(74,31,111,0.08)] hover:border-[#4A1F6F]/30 hover:bg-[#4A1F6F]/2 w-full transition-all duration-300 group cursor-pointer">
+              <div className="w-9 h-9 rounded-xl bg-[#4A1F6F]/5 flex items-center justify-center shrink-0 border border-[#4A1F6F]/10 group-hover:bg-[#4A1F6F]/10">
+                <Bell size={16} className="text-[#4A1F6F]" />
+              </div>
+              <div className="min-w-0 font-jakarta">
+                <p className="text-sm font-bold text-slate-800 tracking-tight group-hover:text-[#4A1F6F] transition-colors">Notify</p>
+                <p className="text-[10px] text-slate-400 font-medium font-sans">Create Notification</p>
+              </div>
+            </button>
           )}
 
           <button onClick={() => setShowPasswordModal(true)} className="flex items-center text-left gap-3 p-4 bg-white border border-slate-100 rounded-2xl shadow-[0_4px_16px_rgba(0,0,0,0.04)] hover:shadow-[0_6px_20px_rgba(74,31,111,0.08)] hover:border-[#4A1F6F]/30 hover:bg-[#4A1F6F]/2 w-full transition-all duration-300 group cursor-pointer">
@@ -1090,6 +1104,12 @@ export default function AdminDashboard() {
 
       {/* Change Password Modal */}
       <ChangePasswordModal isOpen={showPasswordModal} onClose={() => setShowPasswordModal(false)} />
+      
+      {/* Create Notification Modal */}
+      <CreateNotificationModal 
+        isOpen={showNotificationModal} 
+        onClose={() => setShowNotificationModal(false)} 
+      />
     </PageWrapper>
   )
 }

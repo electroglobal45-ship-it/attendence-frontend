@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Menu, User, Mail, Lock, Shield, Briefcase, Building2, DollarSign, Calendar, ChevronDown, UserPlus } from 'lucide-react'
+import { Loader2, User, Mail, Lock, Shield, Briefcase, Building2, DollarSign, Calendar, ChevronDown, UserPlus } from 'lucide-react'
 import { usersAPI } from '@/lib/tasks-api'
 import { useSidebarStore } from '@/lib/store/sidebar-store'
+import { PageWrapper } from '@/components/layout/PageWrapper'
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 const PURPLE      = '#4A1F6F'
@@ -149,41 +150,13 @@ export default function CreateUserPage() {
   const showEmployeeFields = formData.role === 'employee' || formData.role === 'team leader'
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#F8F9FA', fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
-
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-gray-200 px-3 py-3 sm:px-7 sm:py-4 flex-shrink-0 shadow-xs">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-            {/* Hamburger menu for mobile */}
-            <button
-              onClick={() => setOpen(true)}
-              className="lg:hidden p-1.5 -ml-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer flex-shrink-0"
-              style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              aria-label="Open menu"
-            >
-              <Menu size={20} />
-            </button>
-            <button
-              onClick={() => router.back()}
-              style={{ padding: '6px 8px', background: 'transparent', border: `1px solid #E5E7EB`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', transition: 'all 0.15s', color: '#6B7280', flexShrink: 0 }}
-              onMouseEnter={e => { e.currentTarget.style.background = PURPLE_5; e.currentTarget.style.borderColor = `${PURPLE}40`; e.currentTarget.style.color = PURPLE }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#6B7280' }}
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div style={{ minWidth: 0 }}>
-              <h1 className="text-base sm:text-2xl font-extrabold tracking-tight" style={{ color: PURPLE, margin: 0, letterSpacing: '-.3px' }}>Create New User</h1>
-              <p className="hidden sm:block" style={{ color: '#6B7280', fontSize: 13, margin: '2px 0 0' }}>Add a new admin or employee to the system</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Form ────────────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 24px' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <form onSubmit={handleSubmit}>
+    <PageWrapper
+      title="Create New User"
+      subtitle="Add a new admin or employee to the system"
+      onBack={() => router.back()}
+    >
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        <form onSubmit={handleSubmit}>
 
             {/* Card */}
             <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E5E7EB', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
@@ -400,9 +373,6 @@ export default function CreateUserPage() {
             </div>
           </form>
         </div>
-      </div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+    </PageWrapper>
   )
 }

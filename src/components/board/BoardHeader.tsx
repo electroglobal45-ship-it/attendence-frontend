@@ -38,21 +38,12 @@ export function BoardHeader({
       <div className="px-4 py-3 flex items-center justify-between gap-4">
         {/* Left Section */}
         <div className="flex items-center gap-3">
-          {/* Hamburger menu for mobile */}
-          <button
-            onClick={() => useSidebarStore.getState().setOpen(true)}
-            className="lg:hidden p-1.5 text-white hover:bg-white/20 rounded transition-colors cursor-pointer"
-            aria-label="Open menu"
-          >
-            <Menu size={18} />
-          </button>
-
           <Link 
             href="/projects"
-            className="p-1.5 rounded hover:bg-white/20 transition-colors"
+            className="p-1.5 rounded-lg text-white hover:bg-white/10 transition-colors flex items-center justify-center"
             title="Back to projects"
           >
-            <ArrowLeft size={18} className="text-white" />
+            <ArrowLeft size={20} />
           </Link>
 
           <h1 className="text-lg font-semibold text-white truncate max-w-md">

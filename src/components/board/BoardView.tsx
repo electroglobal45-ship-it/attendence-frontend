@@ -7,7 +7,7 @@ import {
   Globe, Building2, Eye, Pencil, Copy, Link,
   Check, Search, Trash2, LayoutGrid, Table as TableIcon,
   Calendar as CalendarIcon, Clock, BarChart3, Map as MapIcon,
-  Menu, CheckSquare
+  Menu, CheckSquare, ChevronLeft
 } from 'lucide-react'
 import { boardsAPI, listsAPI } from '@/lib/kanban-api'
 import { tasksAPI } from '@/lib/tasks-api'
@@ -560,6 +560,7 @@ export function BoardView({ projectId, autoLoadFirstProject=true, initialBoardId
   const [boardBgColor, setBoardBgColor] = useState<string>('#F8F9FA')
   const [boardBgImage, setBoardBgImage] = useState<string>('')
   const [bgImageInput, setBgImageInput] = useState<string>('')
+  const [showShareModalState, setShowShareModalState] = useState<boolean>(false)
 
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false)
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
@@ -1074,42 +1075,28 @@ useEffect(() => {
       }}>
 
         {/* LEFT - Back Button + Board Name */}
-        <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 12, minWidth: 0, flex: 1 }}>
+        <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 6 : 10, minWidth: 0, flex: 1 }}>
           
-          {/* Hamburger menu for mobile */}
-          <button
-            onClick={() => useSidebarStore.getState().setOpen(true)}
-            className="lg:hidden p-1.5 -ml-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer"
-            style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4, flexShrink: 0 }}
-            aria-label="Open menu"
-          >
-            <Menu size={20} />
-          </button>
-          
-          {/* Back Button */}
+          {/* Back Button - Small Arrow */}
           <button 
             onClick={() => onBack ? onBack() : window.history.back()}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: isMobile ? '6px 4px' : '6px 12px', borderRadius: 6,
-              background: 'transparent', border: isMobile ? 'none' : `1px solid ${DS.bg3}`,
-              color: DS.textPrimary, fontSize: 13, fontWeight: 500,
-              cursor: 'pointer', transition: 'all .15s',
-              flexShrink: 0,
+              width: 32, height: 32, borderRadius: '50%',
+              background: '#F3F4F6', border: '1px solid #E5E7EB',
+              color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0, transition: 'all .15s'
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = DS.bg2
-              if (!isMobile) e.currentTarget.style.borderColor = DS.textMuted
+              e.currentTarget.style.background = '#E5E7EB'
+              e.currentTarget.style.color = '#111827'
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent'
-              if (!isMobile) e.currentTarget.style.borderColor = DS.bg3
+              e.currentTarget.style.background = '#F3F4F6'
+              e.currentTarget.style.color = '#374151'
             }}
+            title="Back"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-            {!isMobile && <span style={{ marginLeft: 2 }}>Back</span>}
+            <ChevronLeft size={18} />
           </button>
 
           {/* Board Name with Dropdown Selector */}
@@ -1447,66 +1434,6 @@ useEffect(() => {
             {!isMobile && <span style={{ marginLeft: 2 }}>Bulk Action</span>}
           </button>
 
-          {/* Share */}
-          <Dropdown
-            align="right"
-            trigger={
-              <button {...H('sh')} style={{
-                display:'flex', alignItems:'center', gap: 6,
-                padding: isMobile ? '6px 4px' : '6px 14px', borderRadius:6, border: 'none', cursor:'pointer',
-                background: isMobile ? (hov['sh'] ? DS.bg2 : 'transparent') : (hov['sh'] ? '#2D0F47' : '#4A1F6F'),
-                color: isMobile ? DS.textPrimary : '#FFFFFF', fontSize:13, fontWeight:600,
-                transition:'background .15s',
-                boxShadow: isMobile ? 'none' : '0 2px 8px rgba(74,31,111,0.35)',
-              }} title="Share Board">
-                <Share2 size={14}/>
-                {!isMobile && <span style={{ marginLeft: 2 }}>Share</span>}
-              </button>
-            }
-            panel={close=>(
-              <Panel width={320}>
-                <PanelHeader title="Share board" onClose={close}/>
-                <div style={{ padding:'12px 14px' }}>
-                  <p style={{ fontSize:12, color:DS.textMuted, margin:'0 0 6px' }}>Invite by email</p>
-                  <div style={{ display:'flex', gap:6, marginBottom:14 }}>
-                    <input 
-                      type="email" 
-                      placeholder="email@example.com"
-                      value={inviteEmail}
-                      onChange={e => setInviteEmail(e.target.value)}
-                      style={{ ...inputStyle, flex:1 }}
-                      onFocus={e=>(e.target.style.borderColor=DS.accent)}
-                      onBlur={e=>(e.target.style.borderColor=DS.bg3)}/>
-                    <button 
-                      onClick={async () => {
-                        if (!inviteEmail.trim()) return
-                        // Add your invite logic here
-                        alert(`Invitation sent to ${inviteEmail}`)
-                        setInviteEmail('')
-                      }}
-                      style={{ padding:'6px 12px', background:DS.accentDark, color:'#fff',
-                        border:'none', borderRadius:4, cursor:'pointer', fontSize:13, fontWeight:600 }}>
-                      Send
-                    </button>
-                  </div>
-                  <PanelDivider/>
-                  <p style={{ fontSize:12, color:DS.textMuted, margin:'10px 0 6px' }}>Board link</p>
-                  <div style={{ display:'flex', gap:6 }}>
-                    <input readOnly value={`${typeof window!=='undefined'?window.location.origin:''}/board/${selectedBoard?.id}`}
-                      style={{ ...inputStyle, flex:1, fontSize:11, color:DS.textMuted }}/>
-                    <button onClick={copyLink} style={{ display:'flex', alignItems:'center', gap:5,
-                      padding:'6px 12px', background:DS.bg2, color:DS.textPrimary,
-                      border:`1px solid ${DS.bg3}`, borderRadius:4, cursor:'pointer', fontSize:13,
-                      transition:'background .12s', whiteSpace:'nowrap' }}>
-                      {linkCopied?<Check size={13} style={{ color:'#61BD4F' }}/>:<Copy size={13}/>}
-                      {linkCopied?'Copied':'Copy'}
-                    </button>
-                  </div>
-                </div>
-              </Panel>
-            )}
-          />
-
           {/* More */}
           <Dropdown
             align="right"
@@ -1520,6 +1447,7 @@ useEffect(() => {
             panel={close=>(
               <Panel width={220}>
                 <PanelSection label="Board actions"/>
+                <PanelRow icon={<Share2 size={13}/>} label="Share board" onClick={()=>{ setShowShareModalState(true); close() }}/>
                 {canManageBoard && (
                   <PanelRow icon={<Plus size={13}/>}   label="Add list"     onClick={()=>{ setShowCreateList(true); close() }}/>
                 )}
@@ -1717,9 +1645,6 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
-                <PanelDivider/>
-                <PanelRow icon={<Copy size={13}/>}   label="Copy board"   onClick={close}/>
-                <PanelRow icon={<Eye size={13}/>}    label="Watch"        onClick={close}/>
               </Panel>
             )}
           />
@@ -2308,6 +2233,54 @@ useEffect(() => {
                   }}
                 >
                   {creatingBoard ? 'Creating...' : 'Create Board'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Share Board Modal */}
+      {showShareModalState && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: 16 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, padding: 24, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111827' }}>Share board</h3>
+              <button onClick={() => setShowShareModalState(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B7280', padding: 4 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div>
+              <p style={{ fontSize: 12, color: DS.textMuted, margin: '0 0 6px', fontWeight: 600 }}>Invite by email</p>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                <input 
+                  type="email" 
+                  placeholder="email@example.com"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  style={{ ...inputStyle, flex: 1 }}
+                  onFocus={e => (e.target.style.borderColor = DS.accent)}
+                  onBlur={e => (e.target.style.borderColor = DS.bg3)}
+                />
+                <button 
+                  onClick={async () => {
+                    if (!inviteEmail.trim()) return
+                    alert(`Invitation sent to ${inviteEmail}`)
+                    setInviteEmail('')
+                  }}
+                  style={{ padding: '6px 14px', background: DS.accentDark, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                >
+                  Send
+                </button>
+              </div>
+              <div style={{ height: 1, background: '#E5E7EB', margin: '16px 0' }} />
+              <p style={{ fontSize: 12, color: DS.textMuted, margin: '0 0 6px', fontWeight: 600 }}>Board link</p>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input readOnly value={`${typeof window !== 'undefined' ? window.location.origin : ''}/board/${selectedBoard?.id}`}
+                  style={{ ...inputStyle, flex: 1, fontSize: 11, color: DS.textMuted }}
+                />
+                <button onClick={copyLink} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: DS.bg2, color: DS.textPrimary, border: `1px solid ${DS.bg3}`, borderRadius: 6, cursor: 'pointer', fontSize: 13, transition: 'background .12s', whiteSpace: 'nowrap' }}>
+                  {linkCopied ? <Check size={13} style={{ color: '#61BD4F' }} /> : <Copy size={13} />}
+                  {linkCopied ? 'Copied' : 'Copy'}
                 </button>
               </div>
             </div>

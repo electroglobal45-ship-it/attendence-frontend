@@ -19,57 +19,115 @@ export default function ChannelSidebar() {
   const unreadConversations = useMessagingStore((state) => state.unreadConversations)
   const setActiveChannel = useMessagingStore((state) => state.setActiveChannel)
   const setActiveConversation = useMessagingStore((state) => state.setActiveConversation)
-  const handleDeleteConversation = async (conversationId: string) => {
-    if (!confirm('Are you sure you want to delete this conversation? This will delete all messages and remove all participants.')) {
-      return
+  const [channelsExpanded, setChannelsExpanded] = useState(true)
+  const [dmsExpanded, setDmsExpanded] = useState(true)
+  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
+  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false)
+
+  const getLoggedUserId = () => {
+    if (typeof window === 'undefined') return null
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser)
+        if (parsed?.id) return String(parsed.id)
+      } catch (e) {
+        console.error(e)
+      }
     }
-    
+    return localStorage.getItem('userId')
+  }
+  const loggedUserId = getLoggedUserId()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null)
+  const [isDeletingConv, setIsDeletingConv] = useState(false)
+  const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null)
+  const [isDeletingChannel, setIsDeletingChannel] = useState(false)
+
+  const handleDeleteConversation = (conversationId: string) => {
+    setDeletingConvId(conversationId)
+  }
+
+  const confirmDeleteConv = async () => {
+    if (!deletingConvId) return
+    setIsDeletingConv(true)
     try {
       const token = localStorage.getItem('authToken')
       if (!token) return
 
-      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${conversationId}`, {
+      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${deletingConvId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
 
       const data = await response.json()
-      if (data.success) {
-        // Remove conversation from state and reset active conversation if it was deleted
+      if (data.success || response.ok) {
         const conversationsList = useMessagingStore.getState().conversations
-        useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== conversationId))
-        if (activeConversationId === conversationId) {
+        useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== deletingConvId))
+        if (activeConversationId === deletingConvId) {
           useMessagingStore.getState().setActiveConversation(null)
         }
+        setDeletingConvId(null)
       } else {
         alert(data.message || 'Failed to delete conversation')
       }
     } catch (error) {
       console.error('Failed to delete conversation:', error)
       alert('An error occurred while deleting the conversation')
+    } finally {
+      setIsDeletingConv(false)
     }
   }
 
-  const [channelsExpanded, setChannelsExpanded] = useState(true)
-  const [dmsExpanded, setDmsExpanded] = useState(true)
-  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
-  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const handleDeleteChannel = (channelId: string) => {
+    setDeletingChannelId(channelId)
+  }
+
+  const confirmDeleteChannel = async () => {
+    if (!deletingChannelId) return
+    setIsDeletingChannel(true)
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/channels/${deletingChannelId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      const data = await response.json()
+      if (data.success || response.ok) {
+        const channelsList = useMessagingStore.getState().channels
+        useMessagingStore.getState().setChannels(channelsList.filter(c => c.id !== deletingChannelId))
+        if (activeChannelId === deletingChannelId) {
+          useMessagingStore.getState().setActiveChannel(null)
+        }
+        setDeletingChannelId(null)
+      } else {
+        alert(data.message || 'Failed to delete channel')
+      }
+    } catch (error) {
+      console.error('Failed to delete channel:', error)
+      alert('An error occurred while deleting the channel')
+    } finally {
+      setIsDeletingChannel(false)
+    }
+  }
 
   const publicChannels = channels.filter((ch) => ch.type === 'public' && !ch.is_archived)
   const privateChannels = channels.filter((ch) => ch.type === 'private' && !ch.is_archived)
 
   const filteredPublicChannels = publicChannels.filter(ch =>
-    ch.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (ch.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
   const filteredPrivateChannels = privateChannels.filter(ch =>
-    ch.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (ch.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
   const filteredConversations = conversations.filter(conv => {
     const name = conv.type === 'direct'
       ? conv.other_user?.name
       : conv.name || conv.participants
-          ?.filter((p: any) => p.id !== (typeof window !== 'undefined' ? localStorage.getItem('userId') : null))
+          ?.filter((p: any) => p.id !== loggedUserId)
           .map((p: any) => p.name)
           .join(', ')
     return name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -132,6 +190,7 @@ export default function ChannelSidebar() {
                   isActive={activeChannelId === channel.id}
                   unreadCount={unreadChannels[channel.id] || 0}
                   onClick={() => setActiveChannel(channel.id)}
+                  onDelete={() => handleDeleteChannel(channel.id)}
                 />
               ))}
               {filteredPrivateChannels.map((channel) => (
@@ -142,6 +201,7 @@ export default function ChannelSidebar() {
                   isActive={activeChannelId === channel.id}
                   unreadCount={unreadChannels[channel.id] || 0}
                   onClick={() => setActiveChannel(channel.id)}
+                  onDelete={() => handleDeleteChannel(channel.id)}
                 />
               ))}
             </div>
@@ -184,7 +244,7 @@ export default function ChannelSidebar() {
                       conversation.type === 'direct'
                         ? conversation.other_user?.name || 'Direct Message'
                         : conversation.name || conversation.participants
-                            ?.filter((p: any) => p.id !== (typeof window !== 'undefined' ? localStorage.getItem('userId') : null))
+                            ?.filter((p: any) => p.id !== loggedUserId)
                             .map((p: any) => p.name?.split(' ')[0])
                             .join(', ') || 'Group Chat'
                     }
@@ -210,6 +270,70 @@ export default function ChannelSidebar() {
         isOpen={isNewMessageOpen}
         onClose={() => setIsNewMessageOpen(false)}
       />
+
+      {/* Custom Delete Conversation Confirmation Modal */}
+      {deletingConvId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[3000] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl flex flex-col p-6 animate-fade-in text-center font-sans">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-600">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Conversation?</h3>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              Are you sure you want to delete this chat? All messages and attachments will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingConvId(null)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-xl text-gray-700 text-sm font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteConv}
+                disabled={isDeletingConv}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeletingConv ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Channel Confirmation Modal */}
+      {deletingChannelId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[3000] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl flex flex-col p-6 animate-fade-in text-center font-sans">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-600">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Channel?</h3>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              Are you sure you want to delete this channel? All messages and attachments in this channel will be permanently deleted for all members.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingChannelId(null)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-xl text-gray-700 text-sm font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteChannel}
+                disabled={isDeletingChannel}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeletingChannel ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

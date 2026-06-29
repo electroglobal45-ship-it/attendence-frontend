@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { BoardView } from '@/components/board/BoardView'
-import { Plus, RefreshCw, Layout, ChevronRight, Menu } from 'lucide-react'
+import { Plus, RefreshCw, Layout, ChevronRight, Trash2, CheckSquare, Square } from 'lucide-react'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
 import { useAuth } from '@/lib/auth-context'
 import { useSidebarStore } from '@/lib/store/sidebar-store'
+import { PageWrapper } from '@/components/layout/PageWrapper'
+import { boardsAPI } from '@/lib/kanban-api'
 
 const PROJECT_ID = 'c691dc11-b522-4e80-8ae6-337244d2a28d'
 
@@ -27,6 +29,10 @@ export default function BoardsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [teamLeaders, setTeamLeaders] = useState<any[]>([])
   const [selectedTeamLeader, setSelectedTeamLeader] = useState<string>('')
+  const [bulkMode, setBulkMode] = useState(false)
+  const [selectedBoardIds, setSelectedBoardIds] = useState<string[]>([])
+  const [deletingBulk, setDeletingBulk] = useState(false)
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
 
   const token = () => localStorage.getItem('authToken')
 
@@ -58,10 +64,31 @@ export default function BoardsPage() {
         headers: { Authorization: `Bearer ${token()}` }
       })
       const data = await response.json()
-      const tls = (data.data?.users || []).filter((u: any) => u.role === 'team leader')
+      const tls = (data.data?.users || []).filter((u: any) => {
+        const r = u.role?.toLowerCase() || ''
+        return r === 'team leader' || r === 'team_leader' || r === 'leader'
+      })
       setTeamLeaders(tls)
     } catch (err) {
       console.error('Failed to fetch team leaders:', err)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedBoardIds.length === 0) return
+    setDeletingBulk(true)
+    try {
+      await Promise.all(selectedBoardIds.map(id => boardsAPI.deleteBoard(id)))
+      const remaining = boards.filter(b => !selectedBoardIds.includes(b.id))
+      setBoards(remaining)
+      usePrefetchStore.setState({ projects: remaining })
+      setSelectedBoardIds([])
+      setBulkMode(false)
+      setShowBulkDeleteConfirm(false)
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete selected boards')
+    } finally {
+      setDeletingBulk(false)
     }
   }
 
@@ -117,88 +144,73 @@ export default function BoardsPage() {
   }, [user])
 
   // If a board is selected, show the BoardView for that board
-  if (selectedBoardId) {
-    return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh' }}>
-        {/* BoardView has its own header with back button - no duplicate header needed */}
-        <BoardView 
-          projectId={PROJECT_ID} 
-          initialBoardId={selectedBoardId}
-          onBack={() => setSelectedBoardId(null)}
-        />
-      </div>
-    )
-  }
-
-  // Boards grid view
-  return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh', background: '#F8F9FA', fontFamily: 'var(--font-inter), sans-serif' }}>
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-3 py-3 sm:px-7 sm:py-4 flex-shrink-0 shadow-xs">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-              {/* Hamburger menu for mobile */}
+  const mainContent = (
+    <PageWrapper
+      title="Boards"
+      actions={
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button
+            onClick={() => fetchBoards(false)}
+            className="px-2 py-1.5 sm:px-3 sm:py-2"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: '#FFFFFF',
+              border: '1px solid #E5E7EB', borderRadius: 8,
+              color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              transition: 'all 0.15s'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = '#4A1F6F'
+              e.currentTarget.style.color = '#4A1F6F'
+              e.currentTarget.style.background = 'rgba(74,31,111,0.02)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = '#E5E7EB'
+              e.currentTarget.style.color = '#374151'
+              e.currentTarget.style.background = '#FFFFFF'
+            }}
+          >
+            <RefreshCw size={13} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          {user?.role === 'admin' && (
+            <>
               <button
-                onClick={() => useSidebarStore.getState().setOpen(true)}
-                className="lg:hidden p-1.5 -ml-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer flex-shrink-0"
-                style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                aria-label="Open menu"
-              >
-                <Menu size={20} />
-              </button>
-              <div style={{ minWidth: 0 }}>
-                <h1 className="text-base sm:text-2xl font-extrabold tracking-tight" style={{ color: '#111827', margin: 0, fontFamily: 'var(--font-plus-jakarta), sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Boards</h1>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <button
-                onClick={() => fetchBoards(false)}
-                className="px-2 py-1.5 sm:px-3 sm:py-2"
+                onClick={() => { setBulkMode(!bulkMode); setSelectedBoardIds([]) }}
+                className="px-2.5 py-1.5 sm:px-3 sm:py-2"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  background: '#FFFFFF',
-                  border: '1px solid #E5E7EB', borderRadius: 8,
-                  color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  background: bulkMode ? '#F3E8FF' : '#FFFFFF',
+                  border: bulkMode ? '1px solid #C084FC' : '1px solid #E5E7EB', borderRadius: 8,
+                  color: bulkMode ? '#7E22CE' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                   transition: 'all 0.15s'
                 }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = '#4A1F6F'
-                  e.currentTarget.style.color = '#4A1F6F'
-                  e.currentTarget.style.background = 'rgba(74,31,111,0.02)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = '#E5E7EB'
-                  e.currentTarget.style.color = '#374151'
-                  e.currentTarget.style.background = '#FFFFFF'
-                }}
               >
-                <RefreshCw size={13} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
-                <span className="hidden sm:inline">Refresh</span>
+                <CheckSquare size={14} />
+                <span className="hidden sm:inline">{bulkMode ? 'Cancel Bulk' : 'Select'}</span>
               </button>
-              {user?.role === 'admin' && (
-                <button
-                  onClick={() => setShowCreate(true)}
-                  className="px-2.5 py-1.5 sm:px-4 sm:py-2"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'linear-gradient(135deg, #4A1F6F 0%, #3B1859 100%)',
-                    border: 'none', borderRadius: 8,
-                    color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(74,31,111,0.25)',
-                    transition: 'all 0.15s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  <Plus size={14} /> Add
-                </button>
-              )}
-            </div>
-          </div>
+              <button
+                onClick={() => { setShowCreate(true); fetchTeamLeaders() }}
+                className="px-2.5 py-1.5 sm:px-4 sm:py-2"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'linear-gradient(135deg, #4A1F6F 0%, #3B1859 100%)',
+                  border: 'none', borderRadius: 8,
+                  color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(74,31,111,0.25)',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                <Plus size={14} /> <span className="hidden sm:inline">Add</span>
+              </button>
+            </>
+          )}
         </div>
-
-        {/* Content */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '28px' }}>
+      }
+    >
+      <div style={{ flex: 1, overflow: 'auto' }}>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
           {loading ? (
@@ -230,7 +242,32 @@ export default function BoardsPage() {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+            <>
+              {bulkMode && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', marginBottom: 16, background: 'rgba(74,31,111,0.06)', border: '1px solid rgba(74,31,111,0.2)', borderRadius: 12 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#4A1F6F' }}>{selectedBoardIds.length} boards selected</span>
+                  <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                    <button
+                      onClick={() => {
+                        if (selectedBoardIds.length === boards.length) setSelectedBoardIds([])
+                        else setSelectedBoardIds(boards.map(b => b.id))
+                      }}
+                      style={{ padding: '6px 12px', fontSize: 12, fontWeight: 600, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 6, cursor: 'pointer' }}
+                    >
+                      {selectedBoardIds.length === boards.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                    {selectedBoardIds.length > 0 && (
+                      <button
+                        onClick={() => setShowBulkDeleteConfirm(true)}
+                        style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700, background: '#EF4444', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <Trash2 size={13} /> Delete Selected ({selectedBoardIds.length})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
               {boards.map((board, i) => {
                 const colors = [
                   'linear-gradient(135deg, #4A1F6F 0%, #6B2D8E 100%)',
@@ -243,30 +280,47 @@ export default function BoardsPage() {
                   'linear-gradient(135deg, #7C3AA7 0%, #D9A441 100%)'
                 ]
                 const color = colors[i % colors.length]
+                const isSelected = selectedBoardIds.includes(board.id)
                 return (
-                  <button
+                  <div
                     key={board.id}
-                    onClick={() => setSelectedBoardId(board.id)}
+                    onClick={() => {
+                      if (bulkMode) {
+                        setSelectedBoardIds(prev => prev.includes(board.id) ? prev.filter(id => id !== board.id) : [...prev, board.id])
+                      } else {
+                        setSelectedBoardId(board.id)
+                      }
+                    }}
                     style={{
-                      background: '#FFFFFF', border: '1px solid #E5E7EB',
+                      background: '#FFFFFF', border: isSelected && bulkMode ? '2px solid #4A1F6F' : '1px solid #E5E7EB',
                       borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-                      textAlign: 'left', padding: 0,
+                      textAlign: 'left', padding: 0, position: 'relative',
                       transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                      boxShadow: isSelected && bulkMode ? '0 4px 14px rgba(74,31,111,0.18)' : '0 1px 3px rgba(0,0,0,0.06)',
                     }}
                     onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'translateY(-3px)'
-                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(74,31,111,0.12)'
-                      e.currentTarget.style.borderColor = '#4A1F6F'
+                      if (!bulkMode) {
+                        e.currentTarget.style.transform = 'translateY(-3px)'
+                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(74,31,111,0.12)'
+                        e.currentTarget.style.borderColor = '#4A1F6F'
+                      }
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'
-                      e.currentTarget.style.borderColor = '#E5E7EB'
+                      if (!bulkMode) {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'
+                        e.currentTarget.style.borderColor = '#E5E7EB'
+                      }
                     }}
                   >
                     {/* Colour strip */}
                     <div style={{ height: 80, background: color, position: 'relative', overflow: 'hidden' }}>
+                      {/* Bulk Checkbox Overlay */}
+                      {bulkMode && (
+                        <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, background: '#FFFFFF', borderRadius: 6, padding: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
+                          {isSelected ? <CheckSquare size={18} color="#4A1F6F" /> : <Square size={18} color="#9CA3AF" />}
+                        </div>
+                      )}
                       {/* Grid pattern overlay */}
                       <div style={{
                         position: 'absolute', inset: 0,
@@ -297,7 +351,7 @@ export default function BoardsPage() {
                         {new Date(board.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
-                  </button>
+                  </div>
                 )
               })}
 
@@ -319,9 +373,40 @@ export default function BoardsPage() {
                 </div>
                 <span style={{ color: '#6B7280', fontSize: 13, fontWeight: 600 }}>Create new board</span>
               </button>
-            </div>
+              </div>
+            </>
           )}
         </div>
+
+      {/* Bulk Delete Confirm Modal */}
+      {showBulkDeleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: 16 }}>
+          <div style={{ background: '#FFFFFF', borderRadius: 16, padding: 24, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', textAlign: 'center' }}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#FEE2E2', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Trash2 size={24} />
+            </div>
+            <h3 style={{ color: '#111827', fontSize: 18, fontWeight: 800, margin: '0 0 6px' }}>Delete Selected Boards?</h3>
+            <p style={{ color: '#6B7280', fontSize: 13, margin: '0 0 24px', lineHeight: 1.5 }}>
+              Are you sure you want to delete {selectedBoardIds.length} board(s)? This will permanently remove all tasks and data inside them.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                style={{ flex: 1, padding: '10px', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 8, color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={deletingBulk}
+                style={{ flex: 1, padding: '10px', background: '#EF4444', border: 'none', borderRadius: 8, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: deletingBulk ? 0.6 : 1 }}
+              >
+                {deletingBulk ? 'Deleting...' : 'Delete Boards'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Board Modal */}
       {showCreate && (
@@ -413,6 +498,14 @@ export default function BoardsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageWrapper>
   )
+
+  if (selectedBoardId) {
+    return <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh' }}>
+      <BoardView projectId={PROJECT_ID} initialBoardId={selectedBoardId} onBack={() => setSelectedBoardId(null)} />
+    </div>
+  }
+
+  return mainContent
 }

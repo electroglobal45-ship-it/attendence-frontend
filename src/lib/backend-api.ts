@@ -91,6 +91,47 @@ const refreshAccessToken = async (): Promise<string | null> => {
   return _refreshPromise
 }
 
+/**
+ * authedFetch — like `fetch` but for Next.js internal API routes (/api/*).
+ * Automatically injects the current Bearer token, and on a 401 (expired JWT)
+ * refreshes the token once and retries before giving up.
+ */
+export async function authedFetch(
+  url: string,
+  options: RequestInit = {},
+  _isRetry = false
+): Promise<Response> {
+  const token = getAuthToken()
+
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(url, { ...options, headers })
+
+  if (response.status === 401 && !_isRetry) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      return authedFetch(url, options, true)
+    }
+    // Refresh also failed — clear session and redirect to login
+    clearAuthToken()
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user')
+      localStorage.removeItem('userRole')
+      clearSecureCookie('authToken')
+      clearSecureCookie('userRole')
+      window.location.href = '/login'
+    }
+  }
+
+  return response
+}
+
 // Generic API request function with automatic 401 → refresh → retry
 async function apiRequest<T>(
   endpoint: string,

@@ -219,6 +219,10 @@ export const Sidebar = memo(function Sidebar() {
   const [isResizing, setIsResizing] = useState(false)
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false)
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null)
+  const [isDeletingConv, setIsDeletingConv] = useState(false)
+  const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null)
+  const [isDeletingChannel, setIsDeletingChannel] = useState(false)
   
     const dropdownRef = useRef<HTMLDivElement>(null)
   const heightRef = useRef(300)
@@ -312,37 +316,73 @@ export const Sidebar = memo(function Sidebar() {
     }
   }, [router, pathname, setOpen, setActiveConversation])
 
-  const handleDeleteConversation = useCallback(async (conversationId: string) => {
-    if (!confirm('Are you sure you want to delete this conversation? This will delete all messages and remove all participants.')) {
-      return
-    }
-    
+  const handleDeleteConversation = useCallback((conversationId: string) => {
+    setDeletingConvId(conversationId)
+  }, [])
+
+  const confirmDeleteConv = async () => {
+    if (!deletingConvId) return
+    setIsDeletingConv(true)
     try {
       const token = localStorage.getItem('authToken')
       if (!token) return
 
       const BACKEND_URL = getBackendUrl()
-      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${conversationId}`, {
+      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${deletingConvId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
 
       const data = await response.json()
-      if (data.success) {
-        // Remove conversation from state and reset active conversation if it was deleted
+      if (data.success || response.ok) {
         const conversationsList = useMessagingStore.getState().conversations
-        useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== conversationId))
-        if (activeConversationId === conversationId) {
+        useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== deletingConvId))
+        if (activeConversationId === deletingConvId) {
           useMessagingStore.getState().setActiveConversation(null)
         }
+        setDeletingConvId(null)
       } else {
         alert(data.message || 'Failed to delete conversation')
       }
     } catch (error) {
       console.error('Failed to delete conversation:', error)
       alert('An error occurred while deleting the conversation')
+    } finally {
+      setIsDeletingConv(false)
     }
-  }, [activeConversationId])
+  }
+
+  const confirmDeleteChannel = async () => {
+    if (!deletingChannelId) return
+    setIsDeletingChannel(true)
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+
+      const BACKEND_URL = getBackendUrl()
+      const response = await fetch(`${BACKEND_URL}/api/v1/channels/${deletingChannelId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      const data = await response.json()
+      if (data.success || response.ok) {
+        const channelsList = useMessagingStore.getState().channels
+        useMessagingStore.getState().setChannels(channelsList.filter(c => c.id !== deletingChannelId))
+        if (activeChannelId === deletingChannelId) {
+          useMessagingStore.getState().setActiveChannel(null)
+        }
+        setDeletingChannelId(null)
+      } else {
+        alert(data.message || 'Failed to delete channel')
+      }
+    } catch (error) {
+      console.error('Failed to delete channel:', error)
+      alert('An error occurred while deleting the channel')
+    } finally {
+      setIsDeletingChannel(false)
+    }
+  }
 
   const startResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -657,25 +697,36 @@ export const Sidebar = memo(function Sidebar() {
                           const hasUnread = unreadCount > 0
                           
                           return (
-                            <button
-                              key={channel.id}
-                              onClick={() => handleChannelClick(channel.id)}
-                              className={`flex items-center w-full rounded-lg text-xs font-medium transition-all px-2 py-1.5 cursor-pointer gap-2 ${
-                                isChanActive
-                                  ? 'bg-white/15 text-white font-semibold'
-                                  : 'text-purple-200/60 hover:bg-white/10 hover:text-white'
-                              }`}
-                            >
-                              <span className="opacity-60">
-                                {channel.type === 'private' ? <Lock size={13} /> : <Hash size={13} />}
-                              </span>
-                              <span className={`truncate flex-1 text-left ${hasUnread ? 'font-semibold text-white' : ''}`}>{channel.name}</span>
-                              {hasUnread && (
-                                <span className="bg-red-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[1rem] text-center ml-auto">
-                                  {unreadCount}
+                            <div key={channel.id} className="relative group w-full">
+                              <button
+                                onClick={() => handleChannelClick(channel.id)}
+                                className={`flex items-center w-full rounded-lg text-xs font-medium transition-all pl-2 pr-7 py-1.5 cursor-pointer gap-2 ${
+                                  isChanActive
+                                    ? 'bg-white/15 text-white font-semibold'
+                                    : 'text-purple-200/60 hover:bg-white/10 hover:text-white'
+                                }`}
+                              >
+                                <span className="opacity-60">
+                                  {channel.type === 'private' ? <Lock size={13} /> : <Hash size={13} />}
                                 </span>
-                              )}
-                            </button>
+                                <span className={`truncate flex-1 text-left ${hasUnread ? 'font-semibold text-white' : ''}`}>{channel.name || 'Channel'}</span>
+                                {hasUnread && (
+                                  <span className="bg-red-400 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[1rem] text-center ml-auto">
+                                    {unreadCount}
+                                  </span>
+                                )}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeletingChannelId(channel.id)
+                                }}
+                                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded text-purple-300/50 hover:text-red-400 opacity-60 hover:opacity-100 transition-opacity z-10 cursor-pointer"
+                                title="Delete Channel"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           )
                         })}
                       </div>
@@ -765,13 +816,13 @@ export const Sidebar = memo(function Sidebar() {
                     const isChanActive = activeChannelId === channel.id
                     const unreadCount = unreadChannels[channel.id] || 0
                     const hasUnread = unreadCount > 0
-                    const initials = channel.name.slice(0, 2).toUpperCase()
+                    const initials = (channel.name || 'Channel').slice(0, 2).toUpperCase()
                     
                     return (
                       <button
                         key={channel.id}
                         onClick={() => handleChannelClick(channel.id)}
-                        title={channel.name}
+                        title={channel.name || 'Channel'}
                         className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all relative border cursor-pointer ${
                           isChanActive
                             ? 'bg-[#4A1F6F]/10 border-[#4A1F6F]/30 text-[#4A1F6F] font-extrabold shadow-sm'
@@ -841,6 +892,70 @@ export const Sidebar = memo(function Sidebar() {
         isOpen={isNewMessageOpen}
         onClose={() => setIsNewMessageOpen(false)}
       />
+
+      {/* Custom Delete Conversation Confirmation Modal */}
+      {deletingConvId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[3000] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl flex flex-col p-6 animate-fade-in text-center font-sans">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-600">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Conversation?</h3>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              Are you sure you want to delete this chat? All messages and attachments will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingConvId(null)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-xl text-gray-700 text-sm font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteConv}
+                disabled={isDeletingConv}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeletingConv ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Channel Confirmation Modal */}
+      {deletingChannelId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[3000] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl flex flex-col p-6 animate-fade-in text-center font-sans">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-600">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Channel?</h3>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              Are you sure you want to delete this channel? All messages and attachments in this channel will be permanently deleted for all members.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingChannelId(null)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-xl text-gray-700 text-sm font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteChannel}
+                disabled={isDeletingChannel}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeletingChannel ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 })

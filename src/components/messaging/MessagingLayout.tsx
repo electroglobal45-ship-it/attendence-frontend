@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from 'react'
 import { useMessagingStore } from '@/store/messaging.store'
-import { MessageSquare, Menu, Hash, Lock } from 'lucide-react'
+import { MessageSquare, Menu, Hash, Lock, Plus } from 'lucide-react'
 import ChatArea from './ChatArea'
 import ThreadPanel from './ThreadPanel'
 import { useSidebarStore } from '@/lib/store/sidebar-store'
 import { PresenceIndicator } from './PresenceIndicator'
 import { getBackendUrl } from '@/lib/socket'
+import CreateChannelModal from './CreateChannelModal'
+import NewMessageModal from './NewMessageModal'
+import ChannelInfoPanel from './ChannelInfoPanel'
 
 export default function MessagingLayout() {
   const [isMounted, setIsMounted] = useState(false)
+  const channels = useMessagingStore((state) => state.channels)
   const isThreadPanelOpen = useMessagingStore((state) => state.isThreadPanelOpen)
   const activeChannelId = useMessagingStore((state) => state.activeChannelId)
   const activeConversationId = useMessagingStore((state) => state.activeConversationId)
@@ -54,9 +58,27 @@ export default function MessagingLayout() {
     }
   }
 
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
+
+  // Register window listener for toggle channel info event
+  useEffect(() => {
+    const handleToggle = () => {
+      setIsInfoOpen((prev) => !prev)
+    }
+    window.addEventListener('toggle-channel-info', handleToggle)
+    return () => window.removeEventListener('toggle-channel-info', handleToggle)
+  }, [])
+
+  // Auto-close info panel if active channel changes
+  useEffect(() => {
+    setIsInfoOpen(false)
+  }, [activeChannelId])
+
   if (!isMounted) {
     return null
   }
+
+  const activeChannel = channels.find((ch) => ch.id === activeChannelId)
 
   return (
     <div className="flex h-full bg-[#150825] overflow-hidden">
@@ -69,6 +91,19 @@ export default function MessagingLayout() {
           <InboxState />
         )}
       </main>
+
+      {/* Right Panel - Channel Info Details Panel */}
+      {isInfoOpen && activeChannel && (
+        <ChannelInfoPanel
+          isOpen={isInfoOpen}
+          onClose={() => setIsInfoOpen(false)}
+          channelId={activeChannel.id}
+          channelName={activeChannel.name}
+          channelType={activeChannel.type}
+          description={activeChannel.description}
+          topic={activeChannel.topic}
+        />
+      )}
 
       {/* Right Panel - Thread Replies (if open) */}
       {isThreadPanelOpen && (
@@ -89,6 +124,9 @@ function InboxState() {
   const setActiveConversation = useMessagingStore((state) => state.setActiveConversation)
   const setOpen = useSidebarStore((state) => state.setOpen)
 
+  const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
+  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false)
+
   const publicChannels = channels.filter(ch => ch.type === 'public' && !ch.is_archived)
   const privateChannels = channels.filter(ch => ch.type === 'private' && !ch.is_archived)
   const hasAnyContent = publicChannels.length > 0 || privateChannels.length > 0 || conversations.length > 0
@@ -96,15 +134,26 @@ function InboxState() {
   return (
     <div className="flex-1 flex flex-col h-full bg-[#150825]">
       {/* Mobile Header */}
-      <header className="flex items-center gap-3 px-6 py-3 border-b border-[#4A1F6F]/40 bg-[#1E0A2E] lg:hidden flex-shrink-0">
-        <button
-          onClick={() => setOpen(true)}
-          className="p-2 -ml-2 text-purple-300 hover:text-white hover:bg-[#2D1152] rounded-lg cursor-pointer transition-colors"
-          aria-label="Open menu"
-        >
-          <Menu size={22} />
-        </button>
-        <h1 className="text-lg font-bold text-white">Inbox</h1>
+      <header className="flex items-center justify-between px-6 py-3 border-b border-[#4A1F6F]/40 bg-[#1E0A2E] lg:hidden flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setOpen(true)}
+            className="p-2 -ml-2 text-purple-300 hover:text-white hover:bg-[#2D1152] rounded-lg cursor-pointer transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu size={22} />
+          </button>
+          <h1 className="text-lg font-bold text-white">Inbox</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsCreateChannelOpen(true)}
+            className="p-1.5 bg-[#4A1F6F] hover:bg-[#6B2D8E] text-white rounded-lg transition-all"
+            title="Create Channel"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
       </header>
 
       {/* Desktop Inbox Header */}
@@ -112,6 +161,20 @@ function InboxState() {
         <div>
           <h1 className="text-2xl font-bold text-white">Inbox</h1>
           <p className="text-sm text-purple-300 mt-0.5">Select a channel or conversation to start messaging</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsCreateChannelOpen(true)}
+            className="px-4 py-2 bg-[#4A1F6F] hover:bg-[#6B2D8E] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-md hover:shadow-lg cursor-pointer"
+          >
+            <Plus size={15} /> Create Channel
+          </button>
+          <button
+            onClick={() => setIsNewMessageOpen(true)}
+            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-purple-200 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer border border-purple-400/20"
+          >
+            <Plus size={15} /> New Message
+          </button>
         </div>
       </div>
 
@@ -122,7 +185,15 @@ function InboxState() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#2D1152] mb-4">
               <MessageSquare className="w-8 h-8 text-purple-400" />
             </div>
-            <p className="text-purple-300 text-sm">No channels or conversations yet</p>
+            <p className="text-purple-300 text-sm mb-4">No channels or conversations yet</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsCreateChannelOpen(true)}
+                className="px-4 py-2 bg-[#4A1F6F] hover:bg-[#6B2D8E] text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <Plus size={15} /> Create Channel
+              </button>
+            </div>
           </div>
         ) : (
           <div className="py-6">
@@ -130,9 +201,18 @@ function InboxState() {
             {/* Channels */}
             {(publicChannels.length > 0 || privateChannels.length > 0) && (
               <section className="mb-8">
-                <h2 className="px-6 lg:px-8 text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3">
-                  Channels
-                </h2>
+                <div className="px-6 lg:px-8 flex items-center justify-between mb-3">
+                  <h2 className="text-xs font-semibold text-purple-400 uppercase tracking-wider">
+                    Channels
+                  </h2>
+                  <button
+                    onClick={() => setIsCreateChannelOpen(true)}
+                    className="p-1 hover:bg-white/10 rounded text-purple-300 hover:text-white transition-all cursor-pointer"
+                    title="Create Channel"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
                 <div className="space-y-0.5">
                   {[...publicChannels, ...privateChannels].map(channel => {
                     const unread = unreadChannels[channel.id] || 0
@@ -166,9 +246,18 @@ function InboxState() {
             {/* Direct Messages */}
             {conversations.length > 0 && (
               <section>
-                <h2 className="px-6 lg:px-8 text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3">
-                  Direct Messages
-                </h2>
+                <div className="px-6 lg:px-8 flex items-center justify-between mb-3">
+                  <h2 className="text-xs font-semibold text-purple-400 uppercase tracking-wider">
+                    Direct Messages
+                  </h2>
+                  <button
+                    onClick={() => setIsNewMessageOpen(true)}
+                    className="p-1 hover:bg-white/10 rounded text-purple-300 hover:text-white transition-all cursor-pointer"
+                    title="New Message"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
                 <div className="space-y-0.5">
                   {conversations.map(conv => {
                     const unread = unreadConversations[conv.id] || 0
@@ -214,6 +303,15 @@ function InboxState() {
           </div>
         )}
       </div>
+
+      <CreateChannelModal
+        isOpen={isCreateChannelOpen}
+        onClose={() => setIsCreateChannelOpen(false)}
+      />
+      <NewMessageModal
+        isOpen={isNewMessageOpen}
+        onClose={() => setIsNewMessageOpen(false)}
+      />
     </div>
   )
 }

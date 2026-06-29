@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, RefreshCw, LayoutGrid, CheckCircle2, GripVertical, Filter, Menu } from 'lucide-react'
+import { Clock, RefreshCw, LayoutGrid, CheckCircle2, GripVertical, Filter } from 'lucide-react'
 import { TaskDetailModal } from '@/components/board/TaskDetailModal'
 import { BoardView } from '@/components/board/BoardView'
 import Link from 'next/link'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
 import { useSidebarStore } from '@/lib/store/sidebar-store'
+import { PageWrapper } from '@/components/layout/PageWrapper'
 import {
   DndContext,
   closestCenter,
@@ -409,10 +410,103 @@ export default function TasksPage() {
   }
 
   return (
-    <>
+    <PageWrapper
+      title="All Tasks"
+      subtitle={`Tasks across all boards · ${tasks.length} total`}
+      actions={
+        <div className="tasks-header-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {/* Refresh */}
+          <button
+            onClick={() => fetchTasks(true)}
+            className="px-2 py-1.5 sm:px-4 sm:py-2"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 10, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = `${PURPLE}50`; e.currentTarget.style.color = PURPLE }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
+          >
+            <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          {/* Filter */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-2 py-1.5 sm:px-4 sm:py-2"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: activeFiltersCount > 0 ? PURPLE_10 : '#FFFFFF',
+                border: `1px solid ${activeFiltersCount > 0 ? PURPLE : '#E5E7EB'}`,
+                borderRadius: 10, color: activeFiltersCount > 0 ? PURPLE : '#374151',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', transition: 'all 0.15s'
+              }}
+            >
+              <Filter size={13} />
+              <span className="hidden sm:inline">Filter</span>
+              {activeFiltersCount > 0 && (
+                <span style={{ position: 'absolute', top: -6, right: -6, background: PURPLE, color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+
+            {showFilters && (
+              <>
+                <div 
+                  className="filter-backdrop"
+                  onClick={() => setShowFilters(false)} 
+                />
+                <div className="filter-dropdown-container">
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#FFFFFF', zIndex: 1 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, color: PURPLE, margin: 0 }}>Filter Tasks</h3>
+                    {activeFiltersCount > 0 && (
+                      <button onClick={clearAllFilters} style={{ fontSize: 11, color: PURPLE, background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Clear all</button>
+                    )}
+                  </div>
+                  <div style={{ padding: '8px 0' }}>
+                    {/* Assigned Filter */}
+                    <div style={{ padding: '8px 16px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Assigned To</div>
+                      {users.slice(0, 10).map(user => (
+                        <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={filterMembers.has(user.id)} onChange={e => { const s = new Set(filterMembers); e.target.checked ? s.add(user.id) : s.delete(user.id); setFilterMembers(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
+                          <div style={{ width: 24, height: 24, borderRadius: '50%', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span style={{ fontSize: 13, color: '#111827' }}>{user.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div style={{ height: 1, background: '#F3F4F6', margin: '8px 0' }} />
+                    {/* Due Date Filter */}
+                    <div style={{ padding: '8px 16px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Due Date</div>
+                      {['Overdue', 'Due next day', 'Due next week', 'No due date'].map(option => (
+                        <label key={option} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={filterDueDate.has(option)} onChange={e => { const s = new Set(filterDueDate); e.target.checked ? s.add(option) : s.delete(option); setFilterDueDate(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
+                          <span style={{ fontSize: 13, color: '#111827' }}>{option}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Open Board */}
+          <button
+            onClick={() => setShowKanban(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 12px ${PURPLE}40` }}
+          >
+            <LayoutGrid size={13} />
+            Open Board
+          </button>
+        </div>
+      }
+    >
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        .task-row:hover > div { background: ${PURPLE_5} !important; }
+        .task-row:hover > div { background: rgba(74,31,111,0.05) !important; }
         .crm-tab-btn {
           padding: 6px 10px; border-radius: 10px; border: none; cursor: pointer;
           font-size: 12px; font-weight: 600; transition: all 0.15s;
@@ -427,7 +521,7 @@ export default function TasksPage() {
             gap: 7px;
           }
         }
-        .crm-tab-btn:hover { background: ${PURPLE_5}; color: ${PURPLE}; }
+        .crm-tab-btn:hover { background: rgba(74,31,111,0.05); color: #4A1F6F; }
 
         /* Responsive Layout styles */
         .tasks-header-wrapper {
@@ -543,132 +637,7 @@ export default function TasksPage() {
           }
         }
       `}</style>
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100vh', background: '#F8F9FA', fontFamily: 'system-ui,sans-serif' }}>
-
-        {/* ── Header ───────────────────────────────────────────────────────────── */}
-        <div className="tasks-header-wrapper" style={{ background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <div className="tasks-header-container">
-            {/* Title */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-              {/* Hamburger menu for mobile */}
-              <button
-                onClick={() => useSidebarStore.getState().setOpen(true)}
-                className="lg:hidden p-1.5 -ml-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg touch-manipulation cursor-pointer flex-shrink-0"
-                style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                aria-label="Open menu"
-              >
-                <Menu size={20} />
-              </button>
-              <div style={{ minWidth: 0 }}>
-                <h1 className="text-base sm:text-2xl font-extrabold tracking-tight" style={{ color: PURPLE, margin: 0, fontFamily: 'var(--font-plus-jakarta), sans-serif' }}>All Tasks</h1>
-                <p className="hidden sm:block" style={{ color: '#6B7280', fontSize: 13, margin: '3px 0 0' }}>Tasks across all boards · {tasks.length} total</p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="tasks-header-actions" style={{ gap: 6 }}>
-              {/* Refresh */}
-              <button
-                onClick={() => fetchTasks(true)}
-                className="px-2 py-1.5 sm:px-4 sm:py-2"
-                style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 10, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = `${PURPLE}50`; e.currentTarget.style.color = PURPLE }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
-              >
-                <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
-
-              {/* Filter */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="px-2 py-1.5 sm:px-4 sm:py-2"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: activeFiltersCount > 0 ? PURPLE_10 : '#FFFFFF',
-                    border: `1px solid ${activeFiltersCount > 0 ? PURPLE : '#E5E7EB'}`,
-                    borderRadius: 10, color: activeFiltersCount > 0 ? PURPLE : '#374151',
-                    fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', transition: 'all 0.15s'
-                  }}
-                >
-                  <Filter size={13} />
-                  <span className="hidden sm:inline">Filter</span>
-                  {activeFiltersCount > 0 && (
-                    <span style={{ position: 'absolute', top: -6, right: -6, background: PURPLE, color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
-                      {activeFiltersCount}
-                    </span>
-                  )}
-                </button>
-
-                {showFilters && (
-                  <>
-                    <div 
-                      className="filter-backdrop"
-                      onClick={() => setShowFilters(false)} 
-                    />
-                    <div className="filter-dropdown-container">
-                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#FFFFFF', zIndex: 1 }}>
-                        <h3 style={{ fontSize: 14, fontWeight: 700, color: PURPLE, margin: 0 }}>Filter Tasks</h3>
-                        {activeFiltersCount > 0 && (
-                          <button onClick={clearAllFilters} style={{ fontSize: 11, color: PURPLE, background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Clear all</button>
-                        )}
-                      </div>
-                      <div style={{ padding: '8px 0' }}>
-                        {/* Board Filter */}
-                        <div style={{ padding: '8px 16px' }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>By Board</div>
-                          {boards.length === 0 ? (
-                            <div style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic', padding: '8px 0' }}>Loading boards...</div>
-                          ) : boards.map(board => (
-                            <label key={board.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={filterBoards.has(board.id)} onChange={e => { const s = new Set(filterBoards); e.target.checked ? s.add(board.id) : s.delete(board.id); setFilterBoards(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
-                              <span style={{ fontSize: 13, color: '#111827' }}>{board.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                        <div style={{ height: 1, background: '#F3F4F6', margin: '8px 0' }} />
-                        {/* Assigned Filter */}
-                        <div style={{ padding: '8px 16px' }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Assigned To</div>
-                          {users.slice(0, 10).map(user => (
-                            <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={filterMembers.has(user.id)} onChange={e => { const s = new Set(filterMembers); e.target.checked ? s.add(user.id) : s.delete(user.id); setFilterMembers(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
-                              <div style={{ width: 24, height: 24, borderRadius: '50%', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
-                                {user.name.charAt(0).toUpperCase()}
-                              </div>
-                              <span style={{ fontSize: 13, color: '#111827' }}>{user.name}</span>
-                            </label>
-                          ))}
-                        </div>
-                        <div style={{ height: 1, background: '#F3F4F6', margin: '8px 0' }} />
-                        {/* Due Date Filter */}
-                        <div style={{ padding: '8px 16px' }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Due Date</div>
-                          {['Overdue', 'Due next day', 'Due next week', 'No due date'].map(option => (
-                            <label key={option} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
-                              <input type="checkbox" checked={filterDueDate.has(option)} onChange={e => { const s = new Set(filterDueDate); e.target.checked ? s.add(option) : s.delete(option); setFilterDueDate(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
-                              <span style={{ fontSize: 13, color: '#111827' }}>{option}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Open Board */}
-              <button
-                onClick={() => setShowKanban(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 12px ${PURPLE}40` }}
-              >
-                <LayoutGrid size={13} />
-                Open Board
-              </button>
-            </div>
-          </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
           {/* Tab Filters */}
           <div className="tasks-tabs-container no-scrollbar" style={{
@@ -772,8 +741,6 @@ export default function TasksPage() {
             </div>
           )}
         </div>
-      </div>
-
       {/* Task Detail Modal */}
       {selectedTask && (
         <TaskDetailModal
@@ -784,6 +751,6 @@ export default function TasksPage() {
           projectId={projectId}
         />
       )}
-    </>
+    </PageWrapper>
   )
 }

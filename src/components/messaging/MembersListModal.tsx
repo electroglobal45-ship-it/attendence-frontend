@@ -41,10 +41,28 @@ export default function MembersListModal({
 
   useEffect(() => {
     if (isOpen) {
-      const userId = localStorage.getItem('userId')
-      const userRole = localStorage.getItem('userRole')
-      setCurrentUserId(userId)
-      setCurrentUserRole(userRole)
+      const getLoggedUser = () => {
+        if (typeof window === 'undefined') return { id: null, role: null }
+        const storedUser = localStorage.getItem('user')
+        if (storedUser) {
+          try {
+            const parsed = JSON.parse(storedUser)
+            return {
+              id: parsed?.id ? String(parsed.id) : null,
+              role: parsed?.role || localStorage.getItem('userRole')
+            }
+          } catch (e) {
+            console.error(e)
+          }
+        }
+        return {
+          id: localStorage.getItem('userId'),
+          role: localStorage.getItem('userRole')
+        }
+      }
+      const { id, role } = getLoggedUser()
+      setCurrentUserId(id)
+      setCurrentUserRole(role)
       fetchMembers()
     }
   }, [isOpen, channelId, conversationId])
@@ -168,10 +186,54 @@ export default function MembersListModal({
     fetchAvailableUsers()
   }
 
+  const handlePromote = async (memberId: string) => {
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${conversationId}/members/${memberId}/promote`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (response.ok) {
+        fetchMembers()
+      } else {
+        const data = await response.json()
+        alert(data.message || 'Failed to promote member')
+      }
+    } catch (error) {
+      console.error('Failed to promote member:', error)
+    }
+  }
+
+  const handleDemote = async (memberId: string) => {
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+
+      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${conversationId}/members/${memberId}/demote`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (response.ok) {
+        fetchMembers()
+      } else {
+        const data = await response.json()
+        alert(data.message || 'Failed to demote member')
+      }
+    } catch (error) {
+      console.error('Failed to demote member:', error)
+    }
+  }
+
   const getRoleIcon = (role: string) => {
     switch (role) {
+      case 'owner':
       case 'admin':
         return <Crown className="w-4 h-4 text-yellow-500" />
+      case 'sub_admin':
       case 'moderator':
         return <Shield className="w-4 h-4 text-blue-500" />
       default:
@@ -182,6 +244,8 @@ export default function MembersListModal({
   const getRoleBadge = (role: string) => {
     const colors = {
       admin: 'bg-yellow-100 text-yellow-800',
+      owner: 'bg-yellow-100 text-yellow-800',
+      sub_admin: 'bg-blue-100 text-blue-800',
       moderator: 'bg-blue-100 text-blue-800',
       member: 'bg-gray-100 text-gray-800',
     }
@@ -191,11 +255,17 @@ export default function MembersListModal({
   if (!isOpen) return null
 
   const currentUserMember = members.find((m) => m.id === currentUserId)
-  const isChannelAdmin = currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin'
-
+  
+  // WhatsApp admin logic
+  const isGroup = !!conversationId && !channelId
+  
+  // Can manage: channel admins/HR/system admins, OR for groups if user has admin/sub_admin role
   const canManageMembers = conversationId
-    ? true
-    : (isChannelAdmin || currentUserRole === 'admin' || currentUserRole === 'hr')
+    ? (!isGroup || currentUserMember?.role === 'admin' || currentUserMember?.role === 'sub_admin')
+    : (currentUserMember?.role === 'owner' || currentUserMember?.role === 'admin' || currentUserRole === 'admin' || currentUserRole === 'hr')
+
+  // Can promote/demote (only group creator/admin)
+  const canPromoteDemote = isGroup && currentUserMember?.role === 'admin'
   
   const filteredUsers = availableUsers.filter((user) =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -238,63 +308,92 @@ export default function MembersListModal({
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  className="px-6 py-4 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {/* Avatar with Presence */}
-                      <div className="relative flex-shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
-                          {member.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="absolute bottom-0 right-0">
-                          <PresenceIndicator userId={member.id} size="sm" />
-                        </div>
-                      </div>
+              {members.map((member) => {
+                // Determine if can delete this member (sub_admin cannot delete admin or sub_admin)
+                const canRemoveTarget = canManageMembers && 
+                  member.id !== currentUserId && 
+                  (!isGroup || currentUserMember?.role === 'admin' || (currentUserMember?.role === 'sub_admin' && member.role === 'member'))
 
-                      {/* Member Info */}
-                      <div className="flex-1 min-w-0">
+                return (
+                  <div
+                    key={member.id}
+                    className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {/* Avatar with Presence */}
+                        <div className="relative flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
+                            {member.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="absolute bottom-0 right-0">
+                            <PresenceIndicator userId={member.id} size="sm" />
+                          </div>
+                        </div>
+
+                        {/* Member Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900 truncate">
+                              {member.name}
+                            </h3>
+                            {member.id === currentUserId && (
+                              <span className="text-xs text-gray-500">(You)</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 truncate">{member.email}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {getRoleIcon(member.role)}
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full ${getRoleBadge(
+                                member.role
+                              )}`}
+                            >
+                              {member.role}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              Joined {new Date(member.joined_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-900 truncate">
-                            {member.name}
-                          </h3>
-                          {member.id === currentUserId && (
-                            <span className="text-xs text-gray-500">(You)</span>
+                          {canPromoteDemote && member.id !== currentUserId && (
+                            <>
+                              {member.role === 'member' && (
+                                <button
+                                  onClick={() => handlePromote(member.id)}
+                                  className="px-2.5 py-1 text-xs bg-indigo-50 text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-100 transition"
+                                >
+                                  Make Sub-Admin
+                                </button>
+                              )}
+                              {member.role === 'sub_admin' && (
+                                <button
+                                  onClick={() => handleDemote(member.id)}
+                                  className="px-2.5 py-1 text-xs bg-red-50 text-red-600 border border-red-200 rounded hover:bg-red-100 transition"
+                                >
+                                  Dismiss Sub-Admin
+                                </button>
+                              )}
+                            </>
+                          )}
+                          {canRemoveTarget && (
+                            <button
+                              onClick={() => handleRemoveMember(member.id)}
+                              className="flex-shrink-0 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Remove member"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
-                        <p className="text-sm text-gray-500 truncate">{member.email}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {getRoleIcon(member.role)}
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${getRoleBadge(
-                              member.role
-                            )}`}
-                          >
-                            {member.role}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            Joined {new Date(member.joined_at).toLocaleDateString()}
-                          </span>
-                        </div>
                       </div>
-
-                      {/* Actions */}
-                      {canManageMembers && member.id !== currentUserId && (
-                        <button
-                          onClick={() => handleRemoveMember(member.id)}
-                          className="flex-shrink-0 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Remove member"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

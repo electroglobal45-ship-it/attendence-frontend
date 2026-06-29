@@ -46,7 +46,10 @@ export default function EmployeesPage() {
       const d = await res.json()
       if (res.ok) {
         const users = d.data?.users || []
-        const filtered = users.filter((u: any) => u.role === 'employee')
+        // Show all users except admin and hr
+        const filtered = users.filter((u: any) => 
+          u.role === 'employee' || u.role === 'team leader'
+        )
         setEmployees(filtered)
         usePrefetchStore.setState({
           employees: filtered,
@@ -60,16 +63,17 @@ export default function EmployeesPage() {
     }
   }
 
+  // Sync from store whenever it updates (e.g. prefetch completes after mount)
+  useEffect(() => {
+    if (storeEmployees && storeEmployees.length > 0) {
+      setEmployees(storeEmployees)
+    }
+  }, [storeEmployees])
+
   useEffect(() => {
     const hasData = storeEmployees && storeEmployees.length > 0
     fetchEmployees(hasData)
   }, [])
-
-  useEffect(() => {
-    if (storeEmployees) {
-      setEmployees(storeEmployees)
-    }
-  }, [storeEmployees])
 
   const onSubmit = async (data: EmployeeForm) => {
     setLoading(true)
@@ -120,12 +124,6 @@ export default function EmployeesPage() {
   return (
     <PageWrapper
       title="Employees"
-      actions={
-        <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm">
-          <Plus size={16} />
-          Add
-        </button>
-      }
     >
       {/* ── Credentials popup after creation ── */}
       {createdCreds && (

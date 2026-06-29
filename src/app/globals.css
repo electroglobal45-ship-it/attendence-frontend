@@ -2,291 +2,116 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  body {
-    @apply bg-white text-text-primary font-sans antialiased;
+/* Custom animations for notifications */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-10deg); }
+  75% { transform: rotate(10deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
   }
-
-  h1 { @apply text-2xl font-bold text-text-primary font-jakarta; }
-  h2 { @apply text-xl font-bold text-text-primary font-jakarta; }
-  h3 { @apply text-lg font-bold text-text-primary font-jakarta; }
-
-  /* Prevent zoom on input focus for iOS */
-  @supports (-webkit-touch-callout: none) {
-    input[type="text"],
-    input[type="email"],
-    input[type="password"],
-    input[type="number"],
-    input[type="date"],
-    input[type="time"],
-    select,
-    textarea {
-      font-size: 16px !important;
-    }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-@layer components {
-  /* ── Trello-style Components ──────────────────────────────────────────── */
+@layer utilities {
+  .animate-wiggle {
+    animation: wiggle 0.5s ease-in-out;
+  }
   
-  /* Card */
-  .trello-card {
-    @apply bg-card-bg rounded-trello-md shadow-trello-card hover:shadow-trello-card-hover 
-           transition-shadow cursor-pointer;
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
   }
-
-  /* List */
-  .trello-list {
-    @apply bg-list-bg rounded-trello-md w-trello-list flex-shrink-0;
-  }
-
-  /* Button variants */
-  .btn-trello-primary {
-    @apply bg-trello-blue text-white px-4 py-2 rounded-trello-sm text-sm font-medium
-           hover:bg-trello-blue-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  .btn-trello-secondary {
-    @apply bg-list-bg text-text-primary px-4 py-2 rounded-trello-sm text-sm font-medium
-           hover:bg-list-bg-hover transition-colors;
-  }
-
-  .btn-trello-ghost {
-    @apply text-text-secondary px-4 py-2 rounded-trello-sm text-sm font-medium
-           hover:bg-list-bg transition-colors;
-  }
-
-  /* Input */
-  .input-trello {
-    @apply w-full border-2 border-border-light rounded-trello-sm px-3 py-2 text-sm text-text-primary
-           placeholder:text-text-tertiary focus:outline-none focus:border-trello-blue
-           transition-all;
-  }
-
-  /* Badge */
-  .badge-trello {
-    @apply inline-flex items-center gap-1 px-2 py-1 rounded-trello-sm text-xs font-medium
-           bg-list-bg text-text-secondary hover:bg-list-bg-hover transition-colors;
-  }
-
-  /* Label */
-  .label-trello {
-    @apply inline-flex items-center px-2 py-1 rounded-trello-sm text-xs font-medium
-           cursor-pointer hover:opacity-80 transition-opacity;
-  }
-
-  /* ── Legacy Components (for backward compatibility) ───────────────────── */
   
-  .card {
-    @apply bg-white border border-grey-200 rounded-lg p-6 shadow-sm;
-  }
-
-  .btn-primary {
-    @apply bg-[#4A1F6F] text-white px-4 py-2 rounded-xl text-sm font-semibold
-           hover:bg-[#3b1859] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-[0.98] whitespace-nowrap;
-  }
-
-  .btn-secondary {
-    @apply bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-xl text-sm font-semibold
-           hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] hover:border-[#4A1F6F]/20 transition-all active:scale-[0.98] whitespace-nowrap;
-  }
-
-  .btn-ghost {
-    @apply text-slate-650 px-4 py-2 rounded-xl text-sm font-semibold
-           hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] transition-all whitespace-nowrap;
-  }
-
-  .input {
-    @apply w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800
-           placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4A1F6F]/15
-           focus:border-[#4A1F6F] transition-all;
-  }
-
-  .badge-present {
-    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
-           bg-emerald-50 text-emerald-700 border-emerald-200;
-  }
-
-  .badge-absent {
-    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
-           bg-red-50 text-red-700 border-red-200;
-  }
-
-  .badge-half-day {
-    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
-           bg-orange-50 text-orange-700 border-orange-200;
-  }
-
-  .badge-pending {
-    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
-           bg-amber-50 text-amber-700 border-amber-200;
-  }
-
-  .badge-approved {
-    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
-           bg-emerald-50 text-emerald-700 border-emerald-200;
-  }
-
-  .badge-rejected {
-    @apply inline-flex items-center px-2 py-0.5 rounded border text-xs font-semibold capitalize
-           bg-red-50 text-red-700 border-red-200;
-  }
-
-  .table-wrapper {
-    @apply w-full overflow-x-auto rounded-lg border border-grey-200;
-  }
-
-  .table {
-    @apply w-full text-sm text-left;
-  }
-
-  .table thead {
-    @apply bg-grey-50 border-b border-grey-200;
-  }
-
-  .table th {
-    @apply px-4 py-3 text-xs font-semibold text-grey-500 uppercase tracking-wider whitespace-nowrap;
-  }
-
-  .table td {
-    @apply px-4 py-3 text-grey-700 border-b border-grey-100;
-  }
-
-  .table tbody tr:hover {
-    @apply bg-grey-50;
-  }
-
-  .sidebar-link {
-    @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-grey-600
-           hover:bg-grey-100 hover:text-grey-900 transition-colors;
-  }
-
-  .sidebar-link.active {
-    @apply bg-grey-900 text-white hover:bg-grey-800 hover:text-white;
-  }
-
-  .stat-card {
-    @apply card flex flex-col gap-1;
-  }
-
-  .stat-value {
-    @apply text-3xl font-bold text-grey-900;
-  }
-
-  .stat-label {
-    @apply text-sm text-grey-500;
+  .animate-slideUp {
+    animation: slideUp 0.3s ease-out;
   }
 }
 
-/* Custom scrollbar for Trello lists */
-.trello-list::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Enhanced scrollbar styling */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
 }
 
-.trello-list::-webkit-scrollbar-track {
+.overflow-y-auto::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.trello-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 3px;
 }
 
-.trello-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #A0AEC0;
 }
 
-/* Smooth scrolling for board */
-.board-scroll {
-  scroll-behavior: smooth;
+/* Proper bordered table styling */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
 }
 
-/* Mobile-specific improvements */
-@media (max-width: 640px) {
-  button, a, input, select, textarea {
-    min-height: 44px;
-  }
-
-  .space-y-5 > * + * {
-    margin-top: 1rem;
-  }
+.table thead {
+  background-color: #F9FAFB;
+  border-bottom: 2px solid #E5E7EB;
 }
 
-/* ── Premium CRM SaaS Styles ── */
-.crm-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  border-radius: 1rem; /* rounded-2xl */
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.crm-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  border-color: rgba(203, 213, 225, 1);
-}
-
-.btn-crm {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+.table thead th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.875rem;
   font-weight: 600;
-  font-size: 0.75rem; /* text-xs */
-  line-height: 1rem;
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem; /* rounded-xl */
-  transition: all 0.15s ease-in-out;
-  cursor: pointer;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid #E5E7EB;
 }
 
-.btn-crm-primary {
-  @apply btn-crm bg-[#4A1F6F] text-white hover:bg-[#3b1859] shadow-sm hover:shadow active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+.table tbody tr {
+  border-bottom: 1px solid #E5E7EB;
+  transition: background-color 0.15s ease;
 }
 
-.btn-crm-secondary {
-  @apply btn-crm bg-white text-slate-700 border border-slate-200 hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] hover:border-[#4A1F6F]/20 active:scale-95 disabled:opacity-50;
+.table tbody tr:hover {
+  background-color: #F9FAFB;
 }
 
-.btn-crm-success {
-  @apply btn-crm bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow active:scale-95 disabled:opacity-50;
+.table tbody tr:last-child {
+  border-bottom: none;
 }
 
-.btn-crm-warning {
-  @apply btn-crm bg-amber-500 text-white hover:bg-amber-600 shadow-sm hover:shadow active:scale-95 disabled:opacity-50;
+.table tbody td {
+  padding: 12px 16px;
+  font-size: 0.875rem;
+  color: #1F2937;
+  border: 1px solid #E5E7EB;
 }
 
-.btn-crm-danger {
-  @apply btn-crm bg-rose-600 text-white hover:bg-rose-700 shadow-sm hover:shadow active:scale-95 disabled:opacity-50;
+.table-wrapper {
+  border: 1px solid #E5E7EB;
+  border-radius: 0.5rem;
+  overflow: hidden;
 }
 
-.btn-crm-ai {
-  @apply btn-crm bg-[#6B2D8C] text-white hover:bg-[#562470] shadow-sm hover:shadow active:scale-95 disabled:opacity-50;
-}
-
-.hover-lift {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.hover-lift:hover {
-  transform: translateY(-2px);
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
+/* Hide scrollbar for horizontal scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
-  width: 0 !important;
-  height: 0 !important;
-  background: transparent !important;
 }
 
-/* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-

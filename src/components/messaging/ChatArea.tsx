@@ -38,6 +38,8 @@ export default function ChatArea() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false)
   const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const actionsDropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown when clicking outside
@@ -188,11 +190,13 @@ export default function ChatArea() {
     }
   }
 
-  const handleDeleteConversation = async () => {
-    if (!confirm('Are you sure you want to delete this conversation? This will delete all messages and remove all participants.')) {
-      return
-    }
-    
+  const handleDeleteConversation = () => {
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteConversation = async () => {
+    if (!activeConversationId) return
+    setIsDeleting(true)
     try {
       const token = localStorage.getItem('authToken')
       if (!token) return
@@ -203,17 +207,19 @@ export default function ChatArea() {
       })
 
       const data = await response.json()
-      if (data.success) {
-        // Remove conversation from state and reset active conversation
+      if (data.success || response.ok) {
         const conversationsList = useMessagingStore.getState().conversations
         useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== activeConversationId))
         useMessagingStore.getState().setActiveConversation(null)
+        setShowDeleteConfirm(false)
       } else {
         alert(data.message || 'Failed to delete conversation')
       }
     } catch (error) {
       console.error('Failed to delete conversation:', error)
       alert('An error occurred while deleting the conversation')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -224,6 +230,20 @@ export default function ChatArea() {
       {/* ── Chat Header ── */}
       <header className="flex items-center justify-between px-5 py-3 border-b border-[#4A1F6F]/40 bg-[#1E0A2E] flex-shrink-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Mobile Back Button (to clear active chat and go back to Inbox view) */}
+          <button
+            onClick={() => {
+              useMessagingStore.getState().setActiveChannel(null)
+              useMessagingStore.getState().setActiveConversation(null)
+            }}
+            className="lg:hidden p-1.5 text-purple-300 hover:text-white hover:bg-[#2D1152] rounded-lg transition-colors shrink-0"
+            title="Back to inbox"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+
           {/* Mobile hamburger */}
           <button
             onClick={() => useSidebarStore.getState().setOpen(true)}
@@ -272,16 +292,31 @@ export default function ChatArea() {
           ) : null}
         </div>
 
-        {/* Header Actions — Members button directly in header */}
+        {/* Header Actions — Members/Info button directly in header */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button
-            onClick={() => setIsMembersModalOpen(true)}
-            className="p-2 rounded-lg transition-colors text-purple-300 hover:text-white hover:bg-[#2D1152] flex items-center gap-1.5 text-sm font-semibold"
-            title="Members"
-          >
-            <Users className="w-5 h-5 text-purple-300" />
-            <span className="hidden sm:inline">Members</span>
-          </button>
+          {activeChannel ? (
+            <button
+              onClick={() => {
+                const cur = useMessagingStore.getState().isSearchOpen // We repurpose isSearchOpen, or we just emit an event, or read from window
+                const ev = new CustomEvent('toggle-channel-info')
+                window.dispatchEvent(ev)
+              }}
+              className="p-2 rounded-lg transition-colors text-purple-300 hover:text-white hover:bg-[#2D1152] flex items-center gap-1.5 text-sm font-semibold"
+              title="Channel Details"
+            >
+              <Users className="w-5 h-5 text-purple-300" />
+              <span className="hidden sm:inline">Details</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsMembersModalOpen(true)}
+              className="p-2 rounded-lg transition-colors text-purple-300 hover:text-white hover:bg-[#2D1152] flex items-center gap-1.5 text-sm font-semibold"
+              title="Members"
+            >
+              <Users className="w-5 h-5 text-purple-300" />
+              <span className="hidden sm:inline">Members</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -328,6 +363,38 @@ export default function ChatArea() {
         channelData={activeChannel}
         onUpdate={handleUpdateChannel}
       />
+
+      {/* Custom Delete Conversation Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[3000] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl flex flex-col p-6 animate-fade-in text-center font-sans">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-600">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Conversation?</h3>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              Are you sure you want to delete this chat? All messages and attachments will be permanently removed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-xl text-gray-700 text-sm font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteConversation}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

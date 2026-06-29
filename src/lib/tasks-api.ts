@@ -4,6 +4,7 @@
  */
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+import { authedFetch } from '@/lib/backend-api'
 
 // Get auth token from localStorage
 const getAuthToken = (): string | null => {
@@ -997,13 +998,9 @@ export const boardsAPI = {
 
 export const salaryAPI = {
   async getSalarySlips(month: number, year: number) {
-    const token = typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || localStorage.getItem('authToken')) : null
-    const response = await fetch('/api/salary/calculate', {
+    const response = await authedFetch('/api/salary/calculate', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ month, year }),
     })
 

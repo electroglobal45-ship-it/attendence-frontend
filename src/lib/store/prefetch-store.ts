@@ -23,6 +23,7 @@ export type PrefetchChunk =
   | 'settings'
   | 'salary'
   | 'agents'
+  | 'messages'
 
 interface PrefetchState {
   // ── Data ──────────────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ const defaultStatus: Record<PrefetchChunk, LoadStatus> = {
   settings:   'idle',
   salary:     'idle',
   agents:     'idle',
+  messages:   'idle',
 }
 
 export const usePrefetchStore = create<PrefetchState>((set, get) => ({
@@ -166,7 +168,7 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
       vault: vaultAPI.getEntries().catch(() => ({ data: { entries: [] } })),
       meetings: meetingsAPI.getMeetings().catch(() => ({ data: { meetings: [] } })),
       projects: boardsAPI.getProjectBoards('c691dc11-b522-4e80-8ae6-337244d2a28d').catch(() => ({ data: { boards: [] } })),
-      employees: employeesAPI.getAllEmployees().catch(() => ({ data: { employees: [] } })),
+      employees: usersAPI.getAllUsers().catch(() => ({ data: { users: [] } })),
       settings: settingsAPI.getOfficeLocations().catch(() => ({ data: { locations: [] } })),
       salary: typeof window !== 'undefined'
         ? salaryAPI.getSalarySlips(new Date().getMonth() + 1, new Date().getFullYear()).catch(() => null)
@@ -278,10 +280,14 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
         newStatus.projects = 'error'
       }
 
-      // Employees
+      // Employees (sourced from /api/v1/users filtered by role, same as employees page)
       const employeesResult = resultsMap.employees
       if (employeesResult.status === 'fulfilled') {
-        updates.employees = (employeesResult.value as any)?.data?.employees ?? []
+        const allUsers = (employeesResult.value as any)?.data?.users ?? (employeesResult.value as any)?.data?.employees ?? []
+        // Show employees and team leaders
+        updates.employees = allUsers.filter((u: any) => 
+          u.role === 'employee' || u.role === 'team leader'
+        )
         newStatus.employees = 'done'
       } else {
         newStatus.employees = 'error'
@@ -492,18 +498,24 @@ export const usePrefetchStore = create<PrefetchState>((set, get) => ({
         case 'employees': {
           if (isAdmin) {
             const [empRes, statsRes] = await Promise.allSettled([
-              employeesAPI.getAllEmployees(),
+              usersAPI.getAllUsers(),
               adminAPI.getDashboardStats()
             ])
             set((state) => ({
-              employees: empRes.status === 'fulfilled' && empRes.value?.success ? empRes.value.data.employees : state.employees,
+              employees: empRes.status === 'fulfilled'
+                ? (empRes.value?.data?.users ?? []).filter((u: any) => 
+                    u.role === 'employee' || u.role === 'team leader'
+                  )
+                : state.employees,
               adminStats: statsRes.status === 'fulfilled' && statsRes.value?.success ? statsRes.value.data : state.adminStats,
               status: { ...state.status, employees: 'done' },
             }))
           } else {
-            const res = await employeesAPI.getAllEmployees()
+            const res = await usersAPI.getAllUsers()
             set((state) => ({
-              employees: res?.data?.employees ?? [],
+              employees: (res?.data?.users ?? []).filter((u: any) => 
+                u.role === 'employee' || u.role === 'team leader'
+              ),
               status: { ...state.status, employees: 'done' },
             }))
           }
