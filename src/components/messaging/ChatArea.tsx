@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useMessagingStore } from '@/store/messaging.store'
 import { useSocket } from '@/hooks/useSocket'
-import { Hash, Lock, Users, Star, Pin, Settings, Video, Menu, MoreVertical, Loader2, Trash2 } from 'lucide-react'
+import { Hash, Lock, Users, Star, Pin, Settings, Video, Menu, MoreVertical, Loader2, Trash2, Search, X } from 'lucide-react'
 import { useSidebarStore } from '@/lib/store/sidebar-store'
 import { useMeetings } from '@/lib/meetings-context'
 import { meetingsAPI } from '@/lib/tasks-api'
@@ -27,6 +27,12 @@ export default function ChatArea() {
   const setConversationMessages = useMessagingStore((state) => state.setConversationMessages)
   const setChannels = useMessagingStore((state) => state.setChannels)
   const setConversations = useMessagingStore((state) => state.setConversations)
+
+  const isSearchOpen = useMessagingStore((state) => state.isSearchOpen)
+  const setSearchOpen = useMessagingStore((state) => state.setSearchOpen)
+  const searchQuery = useMessagingStore((state) => state.searchQuery)
+  const setSearchQuery = useMessagingStore((state) => state.setSearchQuery)
+  const clearChatForSelf = useMessagingStore((state) => state.clearChatForSelf)
 
   const { joinChannel, socket } = useSocket()
   const { user: currentUser } = useAuth()
@@ -195,29 +201,17 @@ export default function ChatArea() {
   }
 
   const confirmDeleteConversation = async () => {
-    if (!activeConversationId) return
+    if (!activeChannelId && !activeConversationId) return
     setIsDeleting(true)
     try {
-      const token = localStorage.getItem('authToken')
-      if (!token) return
-
-      const response = await fetch(`${BACKEND_URL}/api/v1/conversations/${activeConversationId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      })
-
-      const data = await response.json()
-      if (data.success || response.ok) {
-        const conversationsList = useMessagingStore.getState().conversations
-        useMessagingStore.getState().setConversations(conversationsList.filter(c => c.id !== activeConversationId))
-        useMessagingStore.getState().setActiveConversation(null)
-        setShowDeleteConfirm(false)
-      } else {
-        alert(data.message || 'Failed to delete conversation')
+      if (activeChannelId) {
+        clearChatForSelf('channel', activeChannelId)
+      } else if (activeConversationId) {
+        clearChatForSelf('conversation', activeConversationId)
       }
+      setShowDeleteConfirm(false)
     } catch (error) {
-      console.error('Failed to delete conversation:', error)
-      alert('An error occurred while deleting the conversation')
+      console.error('Failed to clear chat:', error)
     } finally {
       setIsDeleting(false)
     }
@@ -228,8 +222,8 @@ export default function ChatArea() {
   return (
     <div className="flex-1 flex flex-col bg-[#150825] h-full">
       {/* ── Chat Header ── */}
-      <header className="flex items-center justify-between px-5 py-3 border-b border-[#4A1F6F]/40 bg-[#1E0A2E] flex-shrink-0">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+      <header className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-[#4A1F6F]/40 bg-[#1E0A2E] flex-shrink-0 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           {/* Mobile Back Button (to clear active chat and go back to Inbox view) */}
           <button
             onClick={() => {
@@ -260,9 +254,9 @@ export default function ChatArea() {
                 : <Hash className="w-5 h-5 text-[#D9A441] flex-shrink-0" />
               }
               <div className="min-w-0 flex-1">
-                <h1 className="text-base font-bold text-white truncate">{activeChannel.name}</h1>
+                <h1 className="text-sm sm:text-base font-bold text-white truncate">{activeChannel.name}</h1>
                 {activeChannel.topic && (
-                  <p className="text-xs text-purple-300 truncate">{activeChannel.topic}</p>
+                  <p className="text-xs text-purple-300 truncate hidden sm:block">{activeChannel.topic}</p>
                 )}
               </div>
             </>
@@ -274,7 +268,7 @@ export default function ChatArea() {
                 </span>
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="text-base font-bold text-white truncate">
+                <h1 className="text-sm sm:text-base font-bold text-white truncate">
                   {activeConversation.type === 'direct'
                     ? activeConversation.other_user?.name || 'Direct Message'
                     : activeConversation.name || activeConversation.participants
@@ -292,33 +286,139 @@ export default function ChatArea() {
           ) : null}
         </div>
 
-        {/* Header Actions — Members/Info button directly in header */}
+        {/* Header Actions */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {activeChannel ? (
+          {/* Video Call — ONLY for DMs (Icon only, no text label as requested) */}
+          {activeConversation?.type === 'direct' && (
             <button
-              onClick={() => {
-                const cur = useMessagingStore.getState().isSearchOpen // We repurpose isSearchOpen, or we just emit an event, or read from window
-                const ev = new CustomEvent('toggle-channel-info')
-                window.dispatchEvent(ev)
-              }}
-              className="p-2 rounded-lg transition-colors text-purple-300 hover:text-white hover:bg-[#2D1152] flex items-center gap-1.5 text-sm font-semibold"
-              title="Channel Details"
+              onClick={handleVideoCall}
+              className="p-2.5 rounded-xl transition-colors text-purple-300 hover:text-white hover:bg-[#2D1152] flex items-center justify-center cursor-pointer"
+              title="Start Video Call"
             >
-              <Users className="w-5 h-5 text-purple-300" />
-              <span className="hidden sm:inline">Details</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsMembersModalOpen(true)}
-              className="p-2 rounded-lg transition-colors text-purple-300 hover:text-white hover:bg-[#2D1152] flex items-center gap-1.5 text-sm font-semibold"
-              title="Members"
-            >
-              <Users className="w-5 h-5 text-purple-300" />
-              <span className="hidden sm:inline">Members</span>
+              <Video className="w-5 h-5 text-purple-300 hover:text-white transition-colors" />
             </button>
           )}
+
+          {/* Vertical 3-Dots Dropdown Menu */}
+          <div className="relative" ref={actionsDropdownRef}>
+            <button
+              onClick={() => setIsActionsDropdownOpen(!isActionsDropdownOpen)}
+              className={`p-2.5 rounded-xl transition-colors flex items-center justify-center cursor-pointer ${
+                isActionsDropdownOpen ? 'bg-[#4A1F6F] text-white' : 'text-purple-300 hover:text-white hover:bg-[#2D1152]'
+              }`}
+              title="More Options"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isActionsDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-52 bg-[#1E0A2E] border border-[#4A1F6F]/60 rounded-2xl shadow-2xl py-2 z-[100] animate-fade-in text-sm font-medium">
+                {/* Search Chat Option */}
+                <button
+                  onClick={() => {
+                    setSearchOpen(!isSearchOpen)
+                    setIsActionsDropdownOpen(false)
+                  }}
+                  className="w-full px-4 py-2.5 text-left text-purple-200 hover:text-white hover:bg-[#2D1152] flex items-center gap-3 transition-colors cursor-pointer"
+                >
+                  <Search className="w-4 h-4 text-purple-300" />
+                  <span>Search Chat</span>
+                </button>
+
+                {/* Members / Details Option — Hide for DMs */}
+                {activeChannel ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        const ev = new CustomEvent('toggle-channel-info')
+                        window.dispatchEvent(ev)
+                        setIsActionsDropdownOpen(false)
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-purple-200 hover:text-white hover:bg-[#2D1152] flex items-center gap-3 transition-colors cursor-pointer"
+                    >
+                      <Users className="w-4 h-4 text-purple-300" />
+                      <span>Channel Details</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsSettingsModalOpen(true)
+                        setIsActionsDropdownOpen(false)
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-purple-200 hover:text-white hover:bg-[#2D1152] flex items-center gap-3 transition-colors cursor-pointer"
+                    >
+                      <Settings className="w-4 h-4 text-purple-300" />
+                      <span>Channel Settings</span>
+                    </button>
+                  </>
+                ) : activeConversation?.type === 'group' ? (
+                  <button
+                    onClick={() => {
+                      setIsMembersModalOpen(true)
+                      setIsActionsDropdownOpen(false)
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-purple-200 hover:text-white hover:bg-[#2D1152] flex items-center gap-3 transition-colors cursor-pointer"
+                  >
+                    <Users className="w-4 h-4 text-purple-300" />
+                    <span>Group Members</span>
+                  </button>
+                ) : null}
+
+                <div className="my-1 border-t border-[#4A1F6F]/40" />
+
+                {/* Delete Chat Option */}
+                <button
+                  onClick={() => {
+                    handleDeleteConversation()
+                    setIsActionsDropdownOpen(false)
+                  }}
+                  className="w-full px-4 py-2.5 text-left text-red-400 hover:text-red-300 hover:bg-red-950/40 flex items-center gap-3 transition-colors cursor-pointer font-semibold"
+                >
+                  <Trash2 className="w-4 h-4 text-red-400" />
+                  <span>Delete Chat</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
+
+      {/* In-Chat Search Bar */}
+      {isSearchOpen && (
+        <div className="px-4 py-2.5 border-b border-[#4A1F6F]/40 bg-[#17082A] flex items-center justify-between gap-3 animate-fade-in flex-shrink-0 min-h-[50px]">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-[#2D1152] flex items-center justify-center flex-shrink-0">
+              <Search className="w-4 h-4 text-purple-300" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search messages in this chat..."
+              className="flex-1 bg-transparent text-sm text-white placeholder-purple-400/60 outline-none h-9"
+              autoFocus
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="w-8 h-8 rounded-lg hover:bg-[#2D1152] text-purple-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                title="Clear input"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => setSearchOpen(false)}
+              className="h-8 px-3 rounded-lg bg-[#2D1152] hover:bg-[#4A1F6F] text-purple-200 hover:text-white text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Messages List */}
       <div className="flex-1 overflow-hidden flex flex-col bg-[#150825]">
@@ -371,9 +471,9 @@ export default function ChatArea() {
             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-red-600">
               <Trash2 className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Delete Conversation?</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Clear Chat History?</h3>
             <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-              Are you sure you want to delete this chat? All messages and attachments will be permanently removed.
+              Are you sure you want to clear this chat? This will remove messages from your view only.
             </p>
             <div className="flex gap-3">
               <button

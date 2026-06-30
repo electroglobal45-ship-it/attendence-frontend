@@ -214,9 +214,18 @@ class SocketManager {
 
     if (channelId) {
       store.deleteChannelMessage(channelId, messageId)
-    } else if (conversationId) {
+    }
+    if (conversationId) {
       store.deleteConversationMessage(conversationId, messageId)
     }
+    
+    // Always fallback to searching all rooms in store to guarantee instant removal
+    Object.keys(store.channelMessages).forEach((chId) => {
+      store.deleteChannelMessage(chId, messageId)
+    })
+    Object.keys(store.conversationMessages).forEach((convId) => {
+      store.deleteConversationMessage(convId, messageId)
+    })
   }
 
   // Reaction handlers

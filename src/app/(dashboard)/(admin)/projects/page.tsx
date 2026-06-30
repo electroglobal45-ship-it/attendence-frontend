@@ -149,30 +149,6 @@ export default function BoardsPage() {
       title="Boards"
       actions={
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button
-            onClick={() => fetchBoards(false)}
-            className="px-2 py-1.5 sm:px-3 sm:py-2"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: '#FFFFFF',
-              border: '1px solid #E5E7EB', borderRadius: 8,
-              color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              transition: 'all 0.15s'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#4A1F6F'
-              e.currentTarget.style.color = '#4A1F6F'
-              e.currentTarget.style.background = 'rgba(74,31,111,0.02)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = '#E5E7EB'
-              e.currentTarget.style.color = '#374151'
-              e.currentTarget.style.background = '#FFFFFF'
-            }}
-          >
-            <RefreshCw size={13} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
           {user?.role === 'admin' && (
             <>
               <button

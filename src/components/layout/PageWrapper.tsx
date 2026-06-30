@@ -43,7 +43,7 @@ export function PageWrapper({ children, title, subtitle, actions, onBack }: Page
           )}
 
           {(title || subtitle) && (
-            <div className={`min-w-0 flex-1 ${actions && !onBack ? 'hidden sm:block' : ''}`}>
+            <div className="min-w-0 flex-1">
               {title && (
                 <h1 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 truncate leading-tight flex items-center gap-2">
                   {typeof title === 'string' ? title : title}
@@ -54,7 +54,6 @@ export function PageWrapper({ children, title, subtitle, actions, onBack }: Page
           )}
           
           <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-            <NotificationBell />
             {actions}
           </div>
         </div>

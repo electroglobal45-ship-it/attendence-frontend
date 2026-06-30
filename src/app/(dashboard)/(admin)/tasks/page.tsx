@@ -415,33 +415,21 @@ export default function TasksPage() {
       subtitle={`Tasks across all boards · ${tasks.length} total`}
       actions={
         <div className="tasks-header-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {/* Refresh */}
-          <button
-            onClick={() => fetchTasks(true)}
-            className="px-2 py-1.5 sm:px-4 sm:py-2"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 10, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = `${PURPLE}50`; e.currentTarget.style.color = PURPLE }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
-          >
-            <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-
           {/* Filter */}
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="px-2 py-1.5 sm:px-4 sm:py-2"
+              className="p-2 sm:px-3"
               style={{
-                display: 'flex', alignItems: 'center', gap: 6,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: activeFiltersCount > 0 ? PURPLE_10 : '#FFFFFF',
                 border: `1px solid ${activeFiltersCount > 0 ? PURPLE : '#E5E7EB'}`,
                 borderRadius: 10, color: activeFiltersCount > 0 ? PURPLE : '#374151',
                 fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', transition: 'all 0.15s'
               }}
+              title="Filter Tasks"
             >
-              <Filter size={13} />
-              <span className="hidden sm:inline">Filter</span>
+              <Filter size={14} />
               {activeFiltersCount > 0 && (
                 <span style={{ position: 'absolute', top: -6, right: -6, background: PURPLE, color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
                   {activeFiltersCount}
@@ -468,7 +456,7 @@ export default function TasksPage() {
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Assigned To</div>
                       {users.slice(0, 10).map(user => (
                         <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', cursor: 'pointer' }}>
-                          <input type="checkbox" checked={filterMembers.has(user.id)} onChange={e => { const s = new Set(filterMembers); e.target.checked ? s.add(user.id) : s.delete(user.id); setFilterMembers(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
+                           <input type="checkbox" checked={filterMembers.has(user.id)} onChange={e => { const s = new Set(filterMembers); e.target.checked ? s.add(user.id) : s.delete(user.id); setFilterMembers(s) }} style={{ accentColor: PURPLE, cursor: 'pointer' }} />
                           <div style={{ width: 24, height: 24, borderRadius: '50%', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
                             {user.name.charAt(0).toUpperCase()}
                           </div>
@@ -496,17 +484,19 @@ export default function TasksPage() {
           {/* Open Board */}
           <button
             onClick={() => setShowKanban(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 12px ${PURPLE}40` }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 12px ${PURPLE}40` }}
           >
             <LayoutGrid size={13} />
-            Open Board
+            Board
           </button>
         </div>
       }
     >
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        .task-row:hover > div { background: rgba(74,31,111,0.05) !important; }
+        .task-row:hover > div { background: #F8FAFC !important; }
+        .task-row-grid { border-bottom: 1px solid #E2E8F0 !important; }
+        .task-row:last-child .task-row-grid { border-bottom: none !important; }
         .crm-tab-btn {
           padding: 6px 10px; border-radius: 10px; border: none; cursor: pointer;
           font-size: 12px; font-weight: 600; transition: all 0.15s;
@@ -698,43 +688,29 @@ export default function TasksPage() {
               <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>Try adjusting your filters or create a new task</p>
             </div>
           ) : (
-            <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 14, overflow: 'hidden', boxShadow: '0 4px 18px rgba(74,31,111,0.06)' }}>
               {/* Table Header */}
-              <div className="task-table-header" style={{ gap: 16, padding: '12px 20px', background: PURPLE_5, borderBottom: `1px solid ${PURPLE}15`, fontSize: 11, fontWeight: 700, color: PURPLE, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+              <div className="task-table-header" style={{ gap: 16, padding: '12px 20px', background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', fontSize: 11, fontWeight: 800, color: '#4A1F6F', textTransform: 'uppercase', letterSpacing: '.8px' }}>
                 <div />
                 <div>Name</div>
                 <div>Assignee</div>
                 <div>Due Date</div>
               </div>
 
-              {/* Grouped Rows */}
+              {/* Directly List All Filtered Rows */}
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                   <div>
-                    {(['in_progress', 'todo', 'done'] as const).map(statusKey => {
-                      const group = taskGroups[statusKey]
-                      if (!group || group.length === 0) return null
-                      const cfg = STATUS_CFG[statusKey]
-                      return (
-                        <div key={statusKey}>
-                          {/* Section Header */}
-                          <div style={{ background: cfg.rowBg, color: cfg.rowText, fontWeight: 700, fontSize: 12, padding: '10px 20px', borderBottom: `1px solid ${cfg.rowBorder}`, textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.dot, display: 'inline-block' }} />
-                            {cfg.text} ({group.length})
-                          </div>
-                          {group.map((task, idx) => (
-                            <SortableTaskRow
-                              key={task.id}
-                              task={task}
-                              idx={idx}
-                              totalTasks={group.length}
-                              onTaskClick={() => setSelectedTask(task)}
-                              onComplete={() => completeTask(task.id)}
-                            />
-                          ))}
-                        </div>
-                      )
-                    })}
+                    {filteredTasks.map((task, idx) => (
+                      <SortableTaskRow
+                        key={task.id}
+                        task={task}
+                        idx={idx}
+                        totalTasks={filteredTasks.length}
+                        onTaskClick={() => setSelectedTask(task)}
+                        onComplete={() => completeTask(task.id)}
+                      />
+                    ))}
                   </div>
                 </SortableContext>
               </DndContext>

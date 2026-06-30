@@ -41,7 +41,23 @@ export default function AttendancePage() {
   // Sync local todayRecord from store
   useEffect(() => {
     setTodayRecord(storeAttendance)
-  }, [storeAttendance])
+    if (storeAttendance?.check_in) {
+      localStorage.setItem(`checked-in-date-${user?.id}`, new Date().toDateString())
+    }
+    if (storeAttendance?.check_out) {
+      localStorage.setItem(`checked-out-date-${user?.id}`, new Date().toDateString())
+    }
+  }, [storeAttendance, user?.id])
+
+  const [cachedCheckedIn, setCachedCheckedIn] = useState(false)
+  const [cachedCheckedOut, setCachedCheckedOut] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    const todayStr = new Date().toDateString()
+    setCachedCheckedIn(localStorage.getItem(`checked-in-date-${user.id}`) === todayStr)
+    setCachedCheckedOut(localStorage.getItem(`checked-out-date-${user.id}`) === todayStr)
+  }, [user])
   
   const [attendanceBlocked, setAttendanceBlocked] = useState(false)
   const [blockReason, setBlockReason] = useState<string>('')
@@ -49,12 +65,12 @@ export default function AttendancePage() {
   const [showOptInModal, setShowOptInModal] = useState(false)
   const [optInReason, setOptInReason] = useState('')
   const [optingIn, setOptingIn] = useState(false)
-
+ 
   // Computed values
-  const alreadyCheckedIn  = !!todayRecord?.check_in
-  const alreadyMarkedOut = !!todayRecord?.check_out
+  const alreadyCheckedIn  = !!todayRecord?.check_in || cachedCheckedIn
+  const alreadyMarkedOut = !!todayRecord?.check_out || cachedCheckedOut
   const canSubmit = !!selfieBlob && !!gpsData && !submitting
-
+ 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login')
   }, [user, isLoading, router])
@@ -142,11 +158,15 @@ export default function AttendancePage() {
     }
   }, [])
 
-  if (isLoading) return (
+  const isStoreLoading = status.attendance === 'loading' && !storeAttendance
+  if (isLoading || isStoreLoading) return (
     <PageWrapper title="Mark Attendance" subtitle="Loading...">
       <div className="max-w-xl mx-auto px-4 sm:px-0 space-y-4 sm:space-y-5 pb-6">
-        <div className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse">
-          <div className="h-20 bg-gray-200 rounded"></div>
+        <div className="bg-white border border-gray-205 rounded-xl p-6 shadow-sm flex items-center justify-center min-h-[200px]">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 size={36} className="animate-spin text-[#4A1F6F]" />
+            <p className="text-sm font-semibold text-slate-500">Checking your attendance logs...</p>
+          </div>
         </div>
       </div>
     </PageWrapper>
@@ -370,6 +390,10 @@ export default function AttendancePage() {
       setSelfieBlob(null)
       setGpsData(null)
       
+      // Update local storage cache
+      localStorage.setItem(`checked-in-date-${user.id}`, new Date().toDateString())
+      setCachedCheckedIn(true)
+
       // Refresh today's record and update store so Home page also reflects change
       const response = await attendanceAPI.getTodayAttendance()
       const fresh = response.data.attendance || null
@@ -425,6 +449,10 @@ export default function AttendancePage() {
       setMarkoutSelfieBlob(null)
       setMarkoutGPS(null)
       
+      // Update local storage cache
+      localStorage.setItem(`checked-out-date-${user.id}`, new Date().toDateString())
+      setCachedCheckedOut(true)
+
       // Refresh and update store
       const response = await attendanceAPI.getTodayAttendance()
       const fresh = response.data.attendance || null
@@ -489,23 +517,25 @@ export default function AttendancePage() {
   }
 
   return (
-    <PageWrapper title="Mark Attendance" subtitle={`Welcome, ${user?.name}`}>
-      <div className="max-w-xl mx-auto px-4 sm:px-0 space-y-4 sm:space-y-5 pb-6">
+    <PageWrapper title="Mark Attendance" subtitle={`Welcome back, ${user?.name}`}>
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 space-y-6 pb-12 font-sans">
 
         {/* Attendance Blocked Message */}
         {attendanceBlocked && !alreadyCheckedIn && !hasOptedIn && (
-          <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
-            <div className="flex items-start gap-3 mb-3">
-              <Calendar size={24} className="text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="bg-[#4A1F6F]/5 border-l-4 border-[#4A1F6F] rounded-2xl p-5 shadow-sm">
+            <div className="flex items-start gap-4 mb-4">
+              <Calendar size={24} className="text-[#4A1F6F] flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-semibold text-blue-900 mb-1">Attendance Not Required</p>
-                <p className="text-sm text-blue-700">{blockReason}</p>
+                <p className="font-bold text-[#2D0F47] text-base mb-1">Attendance Not Required</p>
+                <p className="text-sm text-purple-900/80 leading-relaxed">{blockReason}</p>
               </div>
             </div>
             {(new Date(getTodayIST()).getDay() === 0 || (new Date(getTodayIST()).getDay() === 6 && new Date(getTodayIST()).getDate() >= 15 && new Date(getTodayIST()).getDate() <= 21)) && (
-              <button onClick={() => setShowOptInModal(true)}
-                className="w-full py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center gap-2 touch-manipulation">
-                <Calendar size={16} />
+              <button 
+                onClick={() => setShowOptInModal(true)}
+                className="w-full py-3 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl font-semibold hover:opacity-95 shadow-md transition-all flex items-center justify-center gap-2 touch-manipulation cursor-pointer active:scale-98"
+              >
+                <Calendar size={18} className="text-[#D9A441]" />
                 I Want to Work Today
               </button>
             )}
@@ -514,43 +544,56 @@ export default function AttendancePage() {
 
         {/* Working on Sunday/Saturday Badge */}
         {hasOptedIn && !alreadyCheckedIn && (
-          <div className="bg-green-50 border-l-4 border-green-500 rounded-lg p-4 flex items-start gap-3">
-            <CheckCircle size={24} className="text-green-600 flex-shrink-0 mt-0.5" />
+          <div className="bg-emerald-50 border-l-4 border-emerald-500 rounded-2xl p-5 shadow-sm flex items-start gap-4">
+            <CheckCircle size={24} className="text-emerald-650 flex-shrink-0 mt-0.5 text-emerald-650" />
             <div className="flex-1">
-              <p className="font-semibold text-green-900 mb-1">Working on {new Date(getTodayIST()).getDay() === 0 ? 'Sunday' : '3rd Saturday'}</p>
-              <p className="text-sm text-green-700">You can mark your attendance today. This day will count as a working day.</p>
+              <p className="font-bold text-emerald-900 text-base mb-1">Working on {new Date(getTodayIST()).getDay() === 0 ? 'Sunday' : '3rd Saturday'}</p>
+              <p className="text-sm text-emerald-700/90 leading-relaxed">You can mark your attendance today. This day will count as a working day.</p>
             </div>
           </div>
         )}
 
         {/* Today's record */}
         {todayRecord && (
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-xs font-medium text-gray-500 uppercase mb-3">Today&apos;s Record</p>
-            <div className="grid grid-cols-3 gap-3 sm:gap-6">
-              <div>
-                <p className="text-xs text-gray-400">Check In</p>
-                <p className="text-sm font-semibold">{formatTimeIST(todayRecord.check_in)}</p>
+          <div className="bg-white border border-slate-200/85 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-1.5 h-4 bg-[#D9A441] rounded-full" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Today&apos;s Attendance Summary</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4 sm:gap-6 text-center sm:text-left">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-slate-400">Check In</p>
+                <p className="text-base font-extrabold text-[#2D0F47]">{formatTimeIST(todayRecord.check_in)}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-400">Mark Out</p>
-                <p className="text-sm font-semibold">{formatTimeIST(todayRecord.check_out)}</p>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-slate-400">Mark Out</p>
+                <p className="text-base font-extrabold text-[#2D0F47]">{formatTimeIST(todayRecord.check_out)}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-400">Status</p>
-                <p className="text-xs sm:text-sm font-semibold capitalize">{todayRecord.status?.replace(/_/g, ' ') || '—'}</p>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-slate-400">Status</p>
+                <div className="flex items-center justify-center sm:justify-start">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-[#4A1F6F] border border-purple-100/50 capitalize shadow-2xs">
+                    {todayRecord.status?.replace(/_/g, ' ') || '—'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Already checked in — show markout */}
+        {/* Already checked in — show markout trigger */}
         {alreadyCheckedIn && !alreadyMarkedOut && !markoutMode && (
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-sm text-gray-600 mb-3">You are checked in. Ready to mark out?</p>
-            <button onClick={() => setMarkoutMode(true)} disabled={submitting}
-              className="w-full py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2 touch-manipulation">
-              <LogOut size={18} />
+          <div className="bg-white border border-slate-200/85 rounded-2xl p-6 shadow-sm text-center sm:text-left space-y-4">
+            <div>
+              <h3 className="font-bold text-gray-800 text-base">You are currently Checked In</h3>
+              <p className="text-sm text-gray-500 mt-1">Ready to call it a day? Mark your checkout details below.</p>
+            </div>
+            <button 
+              onClick={() => setMarkoutMode(true)} 
+              disabled={submitting}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl font-bold hover:opacity-95 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 touch-manipulation cursor-pointer active:scale-98"
+            >
+              <LogOut size={18} className="text-[#D9A441]" />
               Start Mark Out Process
             </button>
           </div>
@@ -558,57 +601,79 @@ export default function AttendancePage() {
 
         {/* Markout flow with GPS + Selfie */}
         {alreadyCheckedIn && !alreadyMarkedOut && markoutMode && (
-          <>
+          <div className="space-y-6">
             {/* Markout Step 1 — Selfie + GPS */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${markoutSelfieBlob ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>
+            <div className="bg-white border border-slate-200/85 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${markoutSelfieBlob ? 'bg-emerald-500 text-white shadow-xs' : 'bg-purple-100 text-[#4A1F6F]'}`}>
                   {markoutSelfieBlob ? '✓' : '1'}
                 </div>
-                <h2 className="font-semibold text-base sm:text-lg">Mark Out Selfie & Location</h2>
+                <h2 className="font-bold text-gray-800 text-lg">Mark Out Selfie & Location</h2>
               </div>
 
               {/* Captured markout selfie preview */}
               {markoutSelfie && (
-                <div className="mb-4 relative">
-                  <img src={markoutSelfie} alt="Mark Out Selfie" className="w-full rounded-lg border border-gray-200" style={{ maxHeight: '320px', objectFit: 'cover' }} />
-                  <button onClick={handleRetake} className="absolute top-2 right-2 px-3 py-1.5 bg-black/70 text-white text-xs rounded-lg touch-manipulation">Retake</button>
-                  <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-lg">✓ Captured</div>
+                <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-h-[320px]">
+                  <img src={markoutSelfie} alt="Mark Out Selfie" className="w-full h-full object-cover" style={{ maxHeight: '320px' }} />
+                  <button 
+                    onClick={handleRetake} 
+                    className="absolute top-3 right-3 px-3 py-1.5 bg-black/75 hover:bg-black text-white text-xs font-bold rounded-lg transition-all cursor-pointer"
+                  >
+                    Retake
+                  </button>
+                  <div className="absolute bottom-3 left-3 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-lg shadow-sm">✓ Captured Successfully</div>
                 </div>
               )}
 
               {/* GPS status */}
               {gpsLoading && (
-                <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-                  <Loader2 size={16} className="animate-spin" /> Getting location...
+                <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 border border-slate-150 rounded-xl p-3">
+                  <Loader2 size={16} className="animate-spin text-[#4A1F6F]" /> 
+                  <span className="font-medium">Acquiring highly accurate GPS coordinates...</span>
                 </div>
               )}
               {markoutGPS && (
-                <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-xs font-medium text-green-700 mb-1">✓ Location Detected</p>
-                  <p className="text-xs text-gray-600 break-all">Lat: {markoutGPS.latitude.toFixed(6)} | Lng: {markoutGPS.longitude.toFixed(6)}</p>
-                  <p className="text-xs text-gray-500">Accuracy: ±{Math.round(markoutGPS.accuracy)}m</p>
+                <div className="bg-emerald-50 border border-emerald-200/70 rounded-xl p-4 space-y-1">
+                  <p className="text-xs font-bold text-emerald-700">✓ Location Lock Achieved</p>
+                  <p className="text-xs font-mono text-gray-600 break-all">Latitude: {markoutGPS.latitude.toFixed(6)} | Longitude: {markoutGPS.longitude.toFixed(6)}</p>
+                  <p className="text-xs text-gray-500">Accuracy Buffer: ±{Math.round(markoutGPS.accuracy)}m</p>
                 </div>
               )}
               {gpsError && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
-                  <p className="text-sm text-red-700 flex-1">{gpsError}</p>
-                  <button onClick={handleGetGPS} className="text-xs text-red-600 underline whitespace-nowrap touch-manipulation">Retry</button>
+                <div className="bg-red-50 border border-red-200/60 rounded-xl p-4 flex items-center gap-3">
+                  <AlertCircle className="text-red-650 flex-shrink-0" size={18} />
+                  <p className="text-sm text-red-700 flex-1 font-medium">{gpsError}</p>
+                  <button 
+                    onClick={handleGetGPS} 
+                    className="text-xs font-bold text-red-600 hover:text-red-800 underline whitespace-nowrap cursor-pointer"
+                  >
+                    Retry Position
+                  </button>
                 </div>
               )}
 
-              {/* Video — always in DOM, hidden when not active */}
-              <div style={{ display: cameraActive ? 'block' : 'none' }} className="mb-4 space-y-3">
-                <div className="relative rounded-lg overflow-hidden bg-black w-full" style={{ aspectRatio: '4/3', minHeight: '240px', maxHeight: '400px' }}>
-                  <video ref={videoRef} autoPlay playsInline muted
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block', backgroundColor: '#000' }} />
+              {/* Video Camera Container */}
+              <div style={{ display: cameraActive ? 'block' : 'none' }} className="space-y-4">
+                <div className="relative rounded-2xl overflow-hidden bg-black w-full border border-slate-250 shadow-inner" style={{ aspectRatio: '4/3', minHeight: '240px', maxHeight: '400px' }}>
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    muted
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block', backgroundColor: '#000' }} 
+                  />
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={handleCapture}
-                    className="flex-1 py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 flex items-center justify-center gap-2 touch-manipulation">
-                    <Camera size={18} /> Capture
+                  <button 
+                    onClick={handleCapture}
+                    className="flex-1 py-3 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl font-bold hover:opacity-95 shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                  >
+                    <Camera size={18} className="text-[#D9A441]" /> Capture Selfie
                   </button>
-                  <button onClick={handleStopCamera} className="px-4 py-3 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 touch-manipulation">
+                  <button 
+                    onClick={handleStopCamera} 
+                    className="px-5 py-3 border border-slate-200 text-slate-650 rounded-xl hover:bg-slate-50 font-semibold cursor-pointer transition-all"
+                  >
                     Cancel
                   </button>
                 </div>
@@ -617,112 +682,144 @@ export default function AttendancePage() {
               <canvas ref={canvasRef} className="hidden" />
 
               {!cameraActive && !markoutSelfie && (
-                <button onClick={handleOpenCamera}
-                  className="w-full py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 flex items-center justify-center gap-2 touch-manipulation">
-                  <Camera size={18} /> Open Camera
+                <button 
+                  onClick={handleOpenCamera}
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl font-bold hover:opacity-95 shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                >
+                  <Camera size={18} className="text-[#D9A441]" /> Open Camera
                 </button>
               )}
             </div>
 
             {/* Markout Step 2 — Submit */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${markoutSelfieBlob && markoutGPS ? 'bg-black text-white' : 'bg-gray-200'}`}>2</div>
-                <h2 className="font-semibold text-base sm:text-lg">Complete Mark Out</h2>
+            <div className="bg-white border border-slate-200/85 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${markoutSelfieBlob && markoutGPS ? 'bg-[#2D0F47] text-white shadow-xs' : 'bg-gray-150 text-gray-400'}`}>2</div>
+                <h2 className="font-bold text-gray-800 text-lg">Complete Mark Out</h2>
               </div>
 
-              <div className="mb-4 space-y-2">
-                <div className={`flex items-center gap-2 text-sm ${markoutSelfieBlob ? 'text-green-600' : 'text-gray-400'}`}>
-                  <CheckCircle size={16} className="flex-shrink-0" /> Selfie {markoutSelfieBlob ? '✓ ready' : 'pending'}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 bg-slate-50 border border-slate-100 rounded-xl p-4">
+                <div className={`flex items-center gap-2 text-sm font-semibold ${markoutSelfieBlob ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <CheckCircle size={16} className="flex-shrink-0" /> Selfie {markoutSelfieBlob ? '✓ Ready' : 'Pending'}
                 </div>
-                <div className={`flex items-center gap-2 text-sm ${markoutGPS ? 'text-green-600' : 'text-gray-400'}`}>
-                  <MapPin size={16} className="flex-shrink-0" /> GPS {markoutGPS ? '✓ ready' : 'pending'}
+                <div className={`flex items-center gap-2 text-sm font-semibold ${markoutGPS ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <MapPin size={16} className="flex-shrink-0" /> GPS Lock {markoutGPS ? '✓ Configured' : 'Pending'}
                 </div>
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setMarkoutMode(false)}
-                  className="flex-1 py-3 px-4 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-gray-50 touch-manipulation">
+                <button 
+                  onClick={() => setMarkoutMode(false)}
+                  className="flex-1 py-3.5 px-4 border border-slate-200 text-slate-650 rounded-xl font-bold hover:bg-slate-50 transition-all cursor-pointer text-sm sm:text-base"
+                >
                   Cancel
                 </button>
-                <button onClick={handleMarkout} disabled={!markoutSelfieBlob || !markoutGPS || submitting}
-                  className="flex-1 py-3.5 px-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-manipulation text-base">
-                  {submitting ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : <><LogOut size={18} /> Mark Out</>}
+                <button 
+                  onClick={handleMarkout} 
+                  disabled={!markoutSelfieBlob || !markoutGPS || submitting}
+                  className="flex-1 py-3.5 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl font-bold hover:opacity-95 disabled:from-slate-200 disabled:to-slate-350 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2 transition-all cursor-pointer text-sm sm:text-base active:scale-98"
+                >
+                  {submitting ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : <><LogOut size={18} className="text-[#D9A441]" /> Complete Mark Out</>}
                 </button>
               </div>
               
               {(!markoutSelfieBlob || !markoutGPS) && (
-                <p className="text-xs text-gray-500 text-center mt-2">
-                  {!markoutSelfieBlob && !markoutGPS ? 'Capture selfie and enable GPS to continue' : 
-                   !markoutSelfieBlob ? 'Capture your selfie to continue' : 
-                   'Enable GPS location to continue'}
+                <p className="text-xs text-slate-400 text-center font-medium">
+                  {!markoutSelfieBlob && !markoutGPS ? 'Please capture selfie and lock your GPS to mark out.' : 
+                   !markoutSelfieBlob ? 'Please capture your checkout selfie to mark out.' : 
+                   'GPS coordinates lock required to mark out.'}
                 </p>
               )}
             </div>
-          </>
+          </div>
         )}
 
         {/* Complete */}
         {alreadyCheckedIn && alreadyMarkedOut && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-            <CheckCircle size={20} className="text-green-600 flex-shrink-0" />
-            <p className="text-sm text-green-700 font-medium">Attendance complete for today!</p>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex items-center gap-3.5 shadow-xs">
+            <CheckCircle size={24} className="text-emerald-650 flex-shrink-0" />
+            <div>
+              <p className="text-emerald-900 font-bold text-base">Attendance Complete!</p>
+              <p className="text-emerald-700 text-xs sm:text-sm mt-0.5">Your work logs for today have been successfully recorded.</p>
+            </div>
           </div>
         )}
 
         {/* Check-in flow */}
         {!alreadyCheckedIn && !attendanceBlocked && (
-          <>
+          <div className="space-y-6">
             {/* Step 1 — Selfie + GPS */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${selfieBlob ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>
+            <div className="bg-white border border-slate-200/85 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${selfieBlob ? 'bg-emerald-500 text-white shadow-xs' : 'bg-purple-100 text-[#4A1F6F]'}`}>
                   {selfieBlob ? '✓' : '1'}
                 </div>
-                <h2 className="font-semibold text-base sm:text-lg">Take Selfie & Get Location</h2>
+                <h2 className="font-bold text-gray-800 text-lg">Take Selfie & Get Location</h2>
               </div>
 
               {/* Captured selfie preview */}
               {selfieDataUrl && (
-                <div className="mb-4 relative">
-                  <img src={selfieDataUrl} alt="Selfie" className="w-full rounded-lg border border-gray-200" style={{ maxHeight: '320px', objectFit: 'cover' }} />
-                  <button onClick={handleRetake} className="absolute top-2 right-2 px-3 py-1.5 bg-black/70 text-white text-xs rounded-lg touch-manipulation">Retake</button>
-                  <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-lg">✓ Captured</div>
+                <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-h-[320px]">
+                  <img src={selfieDataUrl} alt="Selfie" className="w-full h-full object-cover" style={{ maxHeight: '320px' }} />
+                  <button 
+                    onClick={handleRetake} 
+                    className="absolute top-3 right-3 px-3 py-1.5 bg-black/75 hover:bg-black text-white text-xs font-bold rounded-lg transition-all cursor-pointer"
+                  >
+                    Retake
+                  </button>
+                  <div className="absolute bottom-3 left-3 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-lg shadow-sm">✓ Captured Successfully</div>
                 </div>
               )}
 
               {/* GPS status */}
               {gpsLoading && (
-                <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-                  <Loader2 size={16} className="animate-spin" /> Getting location...
+                <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 border border-slate-150 rounded-xl p-3">
+                  <Loader2 size={16} className="animate-spin text-[#4A1F6F]" /> 
+                  <span className="font-medium">Acquiring highly accurate GPS coordinates...</span>
                 </div>
               )}
               {gpsData && (
-                <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-xs font-medium text-green-700 mb-1">✓ Location Detected</p>
-                  <p className="text-xs text-gray-600 break-all">Lat: {gpsData.latitude.toFixed(6)} | Lng: {gpsData.longitude.toFixed(6)}</p>
-                  <p className="text-xs text-gray-500">Accuracy: ±{Math.round(gpsData.accuracy)}m</p>
+                <div className="bg-emerald-50 border border-emerald-200/70 rounded-xl p-4 space-y-1">
+                  <p className="text-xs font-bold text-emerald-700">✓ Location Lock Achieved</p>
+                  <p className="text-xs font-mono text-gray-600 break-all">Latitude: {gpsData.latitude.toFixed(6)} | Longitude: {gpsData.longitude.toFixed(6)}</p>
+                  <p className="text-xs text-gray-500">Accuracy Buffer: ±{Math.round(gpsData.accuracy)}m</p>
                 </div>
               )}
               {gpsError && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
-                  <p className="text-sm text-red-700 flex-1">{gpsError}</p>
-                  <button onClick={handleGetGPS} className="text-xs text-red-600 underline whitespace-nowrap touch-manipulation">Retry</button>
+                <div className="bg-red-50 border border-red-200/60 rounded-xl p-4 flex items-center gap-3">
+                  <AlertCircle className="text-red-650 flex-shrink-0" size={18} />
+                  <p className="text-sm text-red-700 flex-1 font-medium">{gpsError}</p>
+                  <button 
+                    onClick={handleGetGPS} 
+                    className="text-xs font-bold text-red-600 hover:text-red-800 underline whitespace-nowrap cursor-pointer"
+                  >
+                    Retry Position
+                  </button>
                 </div>
               )}
 
-              {/* Video — always in DOM, hidden when not active */}
-              <div style={{ display: cameraActive ? 'block' : 'none' }} className="mb-4 space-y-3">
-                <div className="relative rounded-lg overflow-hidden bg-black w-full" style={{ aspectRatio: '4/3', minHeight: '240px', maxHeight: '400px' }}>
-                  <video ref={videoRef} autoPlay playsInline muted
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block', backgroundColor: '#000' }} />
+              {/* Video Camera Container */}
+              <div style={{ display: cameraActive ? 'block' : 'none' }} className="space-y-4">
+                <div className="relative rounded-2xl overflow-hidden bg-black w-full border border-slate-250 shadow-inner" style={{ aspectRatio: '4/3', minHeight: '240px', maxHeight: '400px' }}>
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    muted
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block', backgroundColor: '#000' }} 
+                  />
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={handleCapture}
-                    className="flex-1 py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 flex items-center justify-center gap-2 touch-manipulation">
-                    <Camera size={18} /> Capture
+                  <button 
+                    onClick={handleCapture}
+                    className="flex-1 py-3 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl font-bold hover:opacity-95 shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                  >
+                    <Camera size={18} className="text-[#D9A441]" /> Capture Selfie
                   </button>
-                  <button onClick={handleStopCamera} className="px-4 py-3 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 touch-manipulation">
+                  <button 
+                    onClick={handleStopCamera} 
+                    className="px-5 py-3 border border-slate-200 text-slate-650 rounded-xl hover:bg-slate-50 font-semibold cursor-pointer transition-all"
+                  >
                     Cancel
                   </button>
                 </div>
@@ -731,48 +828,53 @@ export default function AttendancePage() {
               <canvas ref={canvasRef} className="hidden" />
 
               {!cameraActive && !selfieDataUrl && (
-                <button onClick={handleOpenCamera}
-                  className="w-full py-3 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800 flex items-center justify-center gap-2 touch-manipulation">
-                  <Camera size={18} /> Open Camera
+                <button 
+                  onClick={handleOpenCamera}
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl font-bold hover:opacity-95 shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+                >
+                  <Camera size={18} className="text-[#D9A441]" /> Open Camera
                 </button>
               )}
             </div>
 
             {/* Step 2 — Submit */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${canSubmit ? 'bg-black text-white' : 'bg-gray-200'}`}>2</div>
-                <h2 className="font-semibold text-base sm:text-lg">Submit Attendance</h2>
+            <div className="bg-white border border-slate-200/85 rounded-2xl p-5 sm:p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${canSubmit ? 'bg-[#2D0F47] text-white shadow-xs' : 'bg-gray-150 text-gray-400'}`}>2</div>
+                <h2 className="font-bold text-gray-800 text-lg">Submit Attendance Check-In</h2>
               </div>
 
-              <div className="mb-4 space-y-2">
-                <div className={`flex items-center gap-2 text-sm ${selfieBlob ? 'text-green-600' : 'text-gray-400'}`}>
-                  <CheckCircle size={16} className="flex-shrink-0" /> Selfie {selfieBlob ? '✓ ready' : 'pending'}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 bg-slate-50 border border-slate-100 rounded-xl p-4">
+                <div className={`flex items-center gap-2 text-sm font-semibold ${selfieBlob ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <CheckCircle size={16} className="flex-shrink-0" /> Selfie {selfieBlob ? '✓ Ready' : 'Pending'}
                 </div>
-                <div className={`flex items-center gap-2 text-sm ${gpsData ? 'text-green-600' : 'text-gray-400'}`}>
-                  <MapPin size={16} className="flex-shrink-0" /> GPS {gpsData ? '✓ ready' : 'pending'}
+                <div className={`flex items-center gap-2 text-sm font-semibold ${gpsData ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <MapPin size={16} className="flex-shrink-0" /> GPS Lock {gpsData ? '✓ Configured' : 'Pending'}
                 </div>
               </div>
 
-              <button onClick={handleMarkAttendance} disabled={!canSubmit}
-                className="w-full py-3.5 px-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-manipulation text-base">
-                {submitting ? <><Loader2 size={18} className="animate-spin" /> Processing...</> : '✓ Mark Attendance'}
+              <button 
+                onClick={handleMarkAttendance} 
+                disabled={!canSubmit || submitting}
+                className="w-full py-4 px-4 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl font-bold hover:opacity-95 disabled:from-slate-200 disabled:to-slate-350 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2 transition-all cursor-pointer text-base active:scale-98"
+              >
+                {submitting ? <><Loader2 size={18} className="animate-spin" /> Processing Check-In...</> : '✓ Mark Attendance'}
               </button>
               
               {!canSubmit && (
-                <p className="text-xs text-gray-500 text-center mt-2">
-                  {!selfieBlob && !gpsData ? 'Capture selfie and enable GPS to continue' : 
-                   !selfieBlob ? 'Capture your selfie to continue' : 
-                   'Enable GPS location to continue'}
+                <p className="text-xs text-slate-400 text-center font-medium">
+                  {!selfieBlob && !gpsData ? 'Please capture selfie and lock your GPS to check-in.' : 
+                   !selfieBlob ? 'Please capture your check-in selfie to mark attendance.' : 
+                   'GPS coordinates lock required to check-in.'}
                 </p>
               )}
             </div>
-          </>
+          </div>
         )}
 
-        {/* Status message */}
+        {/* Global Toast Status message */}
         {submitMsg && (
-          <div className={`rounded-xl p-4 text-sm font-medium ${submitMsg.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          <div className={`rounded-xl p-4 text-sm font-bold shadow-xs border ${submitMsg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
             {submitMsg.text}
           </div>
         )}
@@ -781,29 +883,39 @@ export default function AttendancePage() {
 
       {/* Opt-In Modal */}
       {showOptInModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[2000] p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 animate-fade-in shadow-2xl">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Work on {new Date(getTodayIST()).getDay() === 0 ? 'Sunday' : '3rd Saturday'}</h3>
+              <h3 className="text-lg font-bold text-gray-900">Work on {new Date(getTodayIST()).getDay() === 0 ? 'Sunday' : '3rd Saturday'}</h3>
               <p className="text-sm text-gray-500 mt-1">
                 Opt-in to work today. This day will count as a working day for salary calculation.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Reason (optional)</label>
-              <textarea value={optInReason} onChange={(e) => setOptInReason(e.target.value)}
-                placeholder="Why are you working today?" rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Reason (optional)</label>
+              <textarea 
+                value={optInReason} 
+                onChange={(e) => setOptInReason(e.target.value)}
+                placeholder="Brief reason for working today..." 
+                rows={3}
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#4A1F6F] focus:border-transparent outline-none resize-none text-sm" 
+              />
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button onClick={() => { setShowOptInModal(false); setOptInReason('') }} disabled={optingIn}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+              <button 
+                onClick={() => { setShowOptInModal(false); setOptInReason('') }} 
+                disabled={optingIn}
+                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 font-semibold transition-all cursor-pointer"
+              >
                 Cancel
               </button>
-              <button onClick={handleOptInForToday} disabled={optingIn}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+              <button 
+                onClick={handleOptInForToday} 
+                disabled={optingIn}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#4A1F6F] to-[#2D0F47] text-white rounded-xl hover:opacity-95 font-bold disabled:opacity-50 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
                 {optingIn ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
@@ -815,15 +927,6 @@ export default function AttendancePage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Success/Error Messages */}
-      {submitMsg && (
-        <div className={`fixed bottom-4 left-4 right-4 mx-auto max-w-md p-4 rounded-lg shadow-lg ${submitMsg.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-          <p className={`text-sm font-medium ${submitMsg.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
-            {submitMsg.text}
-          </p>
         </div>
       )}
     </PageWrapper>

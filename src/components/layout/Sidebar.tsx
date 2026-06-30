@@ -85,6 +85,7 @@ interface NavItem {
 }
 
 const employeeNav: NavItem[] = [
+  { label: 'Dashboard',       href: '/home',         icon: <LayoutDashboard size={18} /> },
   { label: 'Mark Attendance', href: '/attendance',   icon: <Clock size={18} />,             prefetchChunks: ['attendance', 'history'] },
   { label: 'Inbox',        href: '/messages',     icon: <MessageSquare size={18} /> },
   { label: 'Meetings',        href: '/meetings',     icon: <Video size={18} />,             prefetchChunks: ['meetings'] },
@@ -94,6 +95,7 @@ const employeeNav: NavItem[] = [
 ]
 
 const adminNav: NavItem[] = [
+  { label: 'Dashboard',   href: '/dashboard',    icon: <LayoutDashboard size={18} /> },
   { label: 'Inbox',    href: '/messages',     icon: <MessageSquare size={18} /> },
   { label: 'Meetings',    href: '/meetings',     icon: <Video size={18} />,             prefetchChunks: ['meetings'] },
   { label: 'Drive',       href: '/drive',        icon: <HardDrive size={18} />,         badge: <DriveBadge />, prefetchChunks: ['drive'] },
@@ -101,10 +103,10 @@ const adminNav: NavItem[] = [
   { label: 'Boards',      href: '/projects',     icon: <FolderKanban size={18} />,      prefetchChunks: ['projects'] },
   { label: 'Tasks',       href: '/tasks',        icon: <CheckSquare size={18} />,       prefetchChunks: ['tasks'] },
   { label: 'Employees',   href: '/employees',    icon: <Users size={18} />,             prefetchChunks: ['employees'] },
-  { label: 'Create User', href: '/users/create', icon: <UserPlus size={18} /> },
 ]
 
 const hrNav: NavItem[] = [
+  { label: 'Dashboard',   href: '/dashboard',    icon: <LayoutDashboard size={18} /> },
   { label: 'Inbox',    href: '/messages',     icon: <MessageSquare size={18} /> },
   { label: 'Meetings',    href: '/meetings',     icon: <Video size={18} />,             prefetchChunks: ['meetings'] },
   { label: 'Drive',       href: '/drive',        icon: <HardDrive size={18} />,         badge: <DriveBadge />, prefetchChunks: ['drive'] },
@@ -112,6 +114,7 @@ const hrNav: NavItem[] = [
 ]
 
 const teamLeaderNav: NavItem[] = [
+  { label: 'Dashboard',       href: '/home',         icon: <LayoutDashboard size={18} /> },
   { label: 'Mark Attendance', href: '/attendance',   icon: <Clock size={18} />,             prefetchChunks: ['attendance', 'history'] },
   { label: 'Inbox',        href: '/messages',     icon: <MessageSquare size={18} /> },
   { label: 'Meetings',        href: '/meetings',     icon: <Video size={18} />,             prefetchChunks: ['meetings'] },
@@ -507,7 +510,7 @@ export const Sidebar = memo(function Sidebar() {
           ) : (
             <>
               <Link 
-                href={(role === 'admin' || role === 'hr') ? '/dashboard' : '/home'} 
+                href="/profile"
                 className="hover:opacity-80 transition-opacity block min-w-0 mr-2"
               >
                 <div className="flex items-center gap-2">
@@ -589,80 +592,32 @@ export const Sidebar = memo(function Sidebar() {
           )}
         </div>
 
-        {/* Navigation list and Messages section container */}
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0 select-none">
-          {/* Navigation list (independent scrollable) */}
-          <div className={`overflow-y-auto overflow-x-hidden no-scrollbar max-h-full ${
-            messagesHeight ? 'flex-1 min-h-0' : 'flex-shrink-0'
-          }`}>
-            <nav className="px-3 py-4 space-y-0.5">
-              {navItems.map((item) => {
-                const isActive = currentPath === item.href
-                return (
-                  <NavItemComponent
-                    key={item.href}
-                    item={item}
-                    isActive={isActive}
-                    isCollapsed={isDesktopCollapsed}
-                    onClick={handleLinkClick}
-                  />
-                )
-              })}
-            </nav>
-          </div>
+        {/* Navigation list and Messages section container (Fully scrollable sidebar) */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar select-none px-3 py-4 space-y-4">
+          {/* Navigation List */}
+          <nav className="space-y-0.5">
+            {navItems.map((item) => {
+              const isActive = currentPath === item.href
+              return (
+                <NavItemComponent
+                  key={item.href}
+                  item={item}
+                  isActive={isActive}
+                  isCollapsed={isDesktopCollapsed}
+                  onClick={handleLinkClick}
+                />
+              )
+            })}
+          </nav>
 
-          {/* Resize Divider */}
-          {!isMobile && (
-            <div 
-              onPointerDown={startResize}
-              className={`h-2 cursor-ns-resize transition-all duration-150 flex-shrink-0 flex items-center justify-center relative z-10 hover:bg-white/20 ${
-                isResizing ? 'bg-white/30' : 'bg-white/10'
-              }`}
-              title="Drag to resize messages panel"
-            >
-              <div className="absolute inset-y-[-6px] inset-x-0 cursor-ns-resize" />
-              <div className="w-8 h-1 rounded bg-white/25 z-10" />
-            </div>
-          )}
-
-          {/* Embedded resizable messages section */}
-          <div 
-            ref={messagesPanelRef}
-            style={messagesHeight && !isMobile ? { height: `${messagesHeight}px` } : undefined} 
-            className={`flex flex-col border-t border-white/10 bg-black/10 min-h-[100px] overflow-hidden ${
-              messagesHeight && !isMobile ? 'flex-shrink-0' : 'flex-1'
-            }`}
-          >
-            {/* Messages Header */}
-            <div className="px-4 py-2 bg-black/10 border-b border-white/10 flex items-center justify-between flex-shrink-0">
+          {/* Embedded Messages section (renders directly as list items) */}
+          <div className="space-y-4">
+            {/* Heading Section */}
+            <div className="px-2 border-t border-white/10 pt-4 flex items-center justify-between">
               {isDesktopCollapsed ? (
-                <div className="flex flex-col items-center gap-1 w-full">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300/60 font-jakarta text-center">
-                    Inbox
-                  </span>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setIsCreateChannelOpen(true)
-                      }}
-                      className="p-1 hover:bg-white/10 rounded text-purple-300/60 hover:text-white transition-all cursor-pointer"
-                      title="Create Channel"
-                    >
-                      <Plus size={10} strokeWidth={2.5} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setIsNewMessageOpen(true)
-                      }}
-                      className="p-1 hover:bg-white/10 rounded text-purple-300/60 hover:text-white transition-all cursor-pointer"
-                      title="New Message"
-                    >
-                      <MessageSquare size={10} strokeWidth={2.5} />
-                    </button>
-                  </div>
-                </div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300/60 font-jakarta mx-auto">
+                  Inbox
+                </span>
               ) : (
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300/60 font-jakarta">
                   Inbox
@@ -670,8 +625,8 @@ export const Sidebar = memo(function Sidebar() {
               )}
             </div>
             
-            {/* Messages List */}
-            <div className="flex-1 overflow-y-auto no-scrollbar py-2">
+            {/* Messages Content */}
+            <div className="space-y-4">
               {!isDesktopCollapsed ? (
                 <div className="space-y-4">
                   {/* Channels list */}

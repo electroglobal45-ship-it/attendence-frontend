@@ -358,6 +358,13 @@ export default function EmployeeVaultPage() {
                   </div>
                 </div>
 
+                {/* Creator log */}
+                {(selectedEntry as any).creator && (
+                  <div className="text-[10px] sm:text-xs text-gray-400 font-medium pb-2">
+                    Created by <span className="font-semibold text-gray-600">{(selectedEntry as any).creator?.name}</span>
+                  </div>
+                )}
+
                 <div className="flex gap-3 pt-4 border-t border-gray-100 relative">
                   <button onClick={handleToggleReveal} disabled={revealing === selectedEntry.id}
                     className="flex-1 rounded-full text-white px-6 py-2.5 font-semibold text-sm transition flex items-center justify-center gap-2"

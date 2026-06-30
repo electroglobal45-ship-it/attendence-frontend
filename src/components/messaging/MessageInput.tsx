@@ -2,6 +2,7 @@
 
 import { useState, useRef, KeyboardEvent } from 'react'
 import { useSocket, useTypingIndicator } from '@/hooks/useSocket'
+import { useMessagingStore } from '@/store/messaging.store'
 import { Send } from 'lucide-react'
 import { EmojiPicker } from './EmojiPicker'
 import { FileUpload } from './FileUpload'
@@ -26,7 +27,33 @@ export default function MessageInput({
   const { sendMessage } = useSocket()
   const { handleTyping, handleStopTyping } = useTypingIndicator(channelId, conversationId)
 
+  const channels = useMessagingStore((state) => state.channels)
+  const activeChannel = channels.find((c) => c.id === channelId)
+
+  // Check if channel is restricted to admins & sub-admins (WhatsApp channel style)
+  const isOnlyAdminsCanMessage = channelId
+    ? (typeof window !== 'undefined' && localStorage.getItem(`channel_only_admins_${channelId}`) === 'true') || (activeChannel as any)?.only_admins_can_message === true
+    : false
+
+  const getLoggedUserRole = () => {
+    if (typeof window === 'undefined') return ''
+    const storedUser = localStorage.getItem('user')
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser)
+        if (parsed?.role) return String(parsed.role).toLowerCase()
+      } catch (e) {}
+    }
+    return (localStorage.getItem('userRole') || '').toLowerCase()
+  }
+
+  const role = getLoggedUserRole()
+  const isUserAdminOrSubAdmin = role === 'admin' || role === 'sub-admin' || role === 'sub_admin' || role === 'hr'
+
+  const isMessagingRestricted = isOnlyAdminsCanMessage && !isUserAdminOrSubAdmin
+
   const handleSend = async () => {
+    if (isMessagingRestricted) return
     if (!content.trim() && selectedFiles.length === 0) return
 
     const tempId = `temp-${Date.now()}`
@@ -74,7 +101,16 @@ export default function MessageInput({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`
   }
 
-  const canSend = (content.trim() || selectedFiles.length > 0) && !isUploading
+  const canSend = (content.trim() || selectedFiles.length > 0) && !isUploading && !isMessagingRestricted
+
+  if (isMessagingRestricted) {
+    return (
+      <div className="px-4 py-4 bg-[#1E0A2E] text-center border-t border-[#4A1F6F]/40 flex items-center justify-center gap-2.5 text-purple-200 text-xs sm:text-sm font-medium animate-fade-in">
+        <span className="text-base">🔒</span>
+        <span>Only admins and sub-admins can send messages in this channel.</span>
+      </div>
+    )
+  }
 
   return (
     <div className="px-4 py-3">
@@ -95,32 +131,27 @@ export default function MessageInput({
         />
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-1 px-2 pb-2">
+        <div className="flex items-center gap-1 sm:gap-1.5 px-2 pb-2 self-end mb-0.5">
           <EmojiPicker onEmojiSelect={(emoji) => {
             setContent(prev => prev + emoji)
             textareaRef.current?.focus()
           }} />
           <FileUpload onFilesSelected={setSelectedFiles} />
           <button
+            type="button"
             onClick={handleSend}
             disabled={!canSend}
-            className={`p-2 rounded-lg transition-all ${
+            className={`w-9 h-9 rounded-xl transition-all flex items-center justify-center cursor-pointer shrink-0 ${
               canSend
-                ? 'bg-[#D9A441] hover:bg-[#C48B2F] text-[#1E0A2E]'
+                ? 'bg-[#D9A441] hover:bg-[#C48B2F] text-[#1E0A2E] shadow-md hover:scale-105 active:scale-95'
                 : 'bg-[#4A1F6F]/30 text-purple-500 cursor-not-allowed'
             }`}
             title="Send message"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4 h-4 ml-0.5" />
           </button>
         </div>
       </div>
-
-      {/* Helper */}
-      <p className="text-[10px] text-purple-500 mt-1.5 px-1">
-        Press <kbd className="px-1 py-0.5 bg-[#2D1152] rounded border border-[#4A1F6F]/40 text-purple-300">Enter</kbd> to send,{' '}
-        <kbd className="px-1 py-0.5 bg-[#2D1152] rounded border border-[#4A1F6F]/40 text-purple-300">Shift+Enter</kbd> for new line
-      </p>
     </div>
   )
 }

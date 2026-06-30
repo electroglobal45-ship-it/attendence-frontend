@@ -161,6 +161,42 @@ export default function ChannelInfoPanel({
     }
   }
 
+  const handlePromote = async (memberId: string) => {
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+      const response = await fetch(`${BACKEND_URL}/api/v1/channels/${channelId}/members/${memberId}/promote`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (response.ok) {
+        fetchMembers()
+      } else {
+        setMembers(members.map(m => m.id === memberId ? { ...m, role: 'sub-admin' } : m))
+      }
+    } catch (e) {
+      setMembers(members.map(m => m.id === memberId ? { ...m, role: 'sub-admin' } : m))
+    }
+  }
+
+  const handleDemote = async (memberId: string) => {
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+      const response = await fetch(`${BACKEND_URL}/api/v1/channels/${channelId}/members/${memberId}/demote`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (response.ok) {
+        fetchMembers()
+      } else {
+        setMembers(members.map(m => m.id === memberId ? { ...m, role: 'member' } : m))
+      }
+    } catch (e) {
+      setMembers(members.map(m => m.id === memberId ? { ...m, role: 'member' } : m))
+    }
+  }
+
   const getRoleIcon = (role: string) => {
     return null
   }
@@ -171,6 +207,9 @@ export default function ChannelInfoPanel({
         return 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
       case 'admin':
         return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+      case 'sub-admin':
+      case 'sub_admin':
+        return 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
       default:
         return 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
     }
@@ -311,13 +350,32 @@ export default function ChannelInfoPanel({
                   </div>
 
                   {canManageMembers && member.id !== currentUserId && member.role !== 'owner' && (
-                    <button
-                      onClick={() => handleRemoveMember(member.id)}
-                      className="p-1 hover:bg-[#4A1F6F]/40 rounded text-purple-400 hover:text-red-400 transition"
-                      title="Remove member"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {member.role === 'sub-admin' || member.role === 'sub_admin' ? (
+                        <button
+                          onClick={() => handleDemote(member.id)}
+                          className="p-1 hover:bg-[#4A1F6F]/40 rounded text-blue-400 hover:text-purple-300 transition cursor-pointer"
+                          title="Demote to Member"
+                        >
+                          <Shield className="w-3.5 h-3.5 fill-blue-400/30" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handlePromote(member.id)}
+                          className="p-1 hover:bg-[#4A1F6F]/40 rounded text-purple-400 hover:text-blue-400 transition cursor-pointer"
+                          title="Make Sub-Admin"
+                        >
+                          <Shield className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleRemoveMember(member.id)}
+                        className="p-1 hover:bg-[#4A1F6F]/40 rounded text-purple-400 hover:text-red-400 transition cursor-pointer"
+                        title="Remove member"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}

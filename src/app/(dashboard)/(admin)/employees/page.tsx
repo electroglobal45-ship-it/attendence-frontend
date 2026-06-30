@@ -1,40 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { PageWrapper } from '@/components/layout/PageWrapper'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Plus, X, Copy, Check } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
-
-const employeeSchema = z.object({
-  name: z.string().min(2, 'Name required'),
-  email: z.string().email('Valid email required'),
-  category: z.enum(['regular', 'probation', 'intern']),
-  department: z.string().optional(),
-  designation: z.string().optional(),
-  monthlySalary: z.coerce.number().min(1, 'Salary required'),
-  joiningDate: z.string().min(1, 'Joining date required'),
-})
-
-type EmployeeForm = z.infer<typeof employeeSchema>
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
 
 export default function EmployeesPage() {
+  const router = useRouter()
   const storeEmployees = usePrefetchStore((state) => state.employees)
   const [employees, setEmployees] = useState<any[]>(() => storeEmployees ?? [])
-  const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(() => !storeEmployees || storeEmployees.length === 0)
-  const [error, setError] = useState<string | null>(null)
-  const [createdCreds, setCreatedCreds] = useState<{ email: string; tempPassword: string } | null>(null)
-  const [copied, setCopied] = useState(false)
-
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EmployeeForm>({
-    resolver: zodResolver(employeeSchema),
-    defaultValues: { category: 'probation' },
-  })
 
   const fetchEmployees = async (silent = false) => {
     if (!silent) setLoading(true)
@@ -75,181 +53,20 @@ export default function EmployeesPage() {
     fetchEmployees(hasData)
   }, [])
 
-  const onSubmit = async (data: EmployeeForm) => {
-    setLoading(true)
-    setError(null)
-
-    const token = localStorage.getItem('authToken')
-    const res = await fetch(`${BACKEND_URL}/api/v1/users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        ...data,
-        monthly_salary: data.monthlySalary,
-        joining_date: data.joiningDate,
-        role: 'employee'
-      }),
-    })
-
-    const result = await res.json()
-    setLoading(false)
-
-    if (!res.ok) {
-      setError(result.error)
-      return
-    }
-
-    const newEmp = result.data.employee
-    setEmployees((prev) => [newEmp, ...prev])
-    usePrefetchStore.setState({
-      employees: [newEmp, ...usePrefetchStore.getState().employees]
-    })
-    setShowForm(false)
-    reset()
-    // Show credentials popup
-    setCreatedCreds({ email: newEmp.email, tempPassword: result.data.tempPassword })
-  }
-
-  const copyPassword = () => {
-    if (createdCreds) {
-      navigator.clipboard.writeText(createdCreds.tempPassword)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
   return (
     <PageWrapper
       title="Employees"
+      actions={
+        <button
+          onClick={() => router.push('/users/create')}
+          className="h-10 px-3.5 sm:px-4 bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] text-white rounded-xl hover:opacity-95 transition-all font-semibold shadow-md shadow-[#4A1F6F]/20 flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          title="Create User / Add Employee"
+        >
+          <UserPlus size={18} />
+          <span className="hidden sm:inline text-sm">Add Employee</span>
+        </button>
+      }
     >
-      {/* ── Credentials popup after creation ── */}
-      {createdCreds && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-xl p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                <Check size={20} className="text-green-600" />
-              </div>
-              <div>
-                <p className="font-bold text-gray-900">Employee Created!</p>
-                <p className="text-sm text-gray-500">Share these login credentials with the employee</p>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3 mb-4">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Email</p>
-                <p className="text-sm font-mono text-gray-900 mt-0.5">{createdCreds.email}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Temporary Password</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <p className="text-sm font-mono text-gray-900 bg-white border border-gray-200 rounded px-3 py-1.5 flex-1 break-all">
-                    {createdCreds.tempPassword}
-                  </p>
-                  <button
-                    onClick={copyPassword}
-                    className="p-2 bg-black text-white rounded hover:bg-gray-800 transition flex-shrink-0"
-                    title="Copy password"
-                  >
-                    {copied ? <Check size={16} /> : <Copy size={16} />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-3 mb-4">
-              ⚠ Save this password now — it cannot be retrieved later. The employee should change it after first login.
-            </p>
-
-            <button
-              onClick={() => setCreatedCreds(null)}
-              className="w-full py-2 px-4 bg-black text-white rounded-lg font-medium hover:bg-gray-800"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Add employee modal ── */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-900">Add New Employee</h3>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">{error}</div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                  <input {...register('name')} className="input" placeholder="John Doe" />
-                  {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                  <input {...register('email')} type="email" className="input" placeholder="john@company.com" />
-                  {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select {...register('category')} className="input">
-                    <option value="probation">Probation</option>
-                    <option value="regular">Regular</option>
-                    <option value="intern">Intern</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Salary (₹) *</label>
-                  <input {...register('monthlySalary')} type="number" className="input" placeholder="30000" />
-                  {errors.monthlySalary && <p className="text-xs text-red-500 mt-1">{errors.monthlySalary.message}</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                  <input {...register('department')} className="input" placeholder="Engineering" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
-                  <input {...register('designation')} className="input" placeholder="Developer" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Joining Date *</label>
-                <input {...register('joiningDate')} type="date" className="input" />
-                {errors.joiningDate && <p className="text-xs text-red-500 mt-1">{errors.joiningDate.message}</p>}
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1">
-                  Cancel
-                </button>
-                <button type="submit" disabled={loading} className="btn-primary flex-1">
-                  {loading ? 'Creating...' : 'Create Employee'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* ── Employees table ── */}
       <div className="card p-0">
         <div className="table-wrapper border-0 rounded-none overflow-x-auto w-full no-scrollbar">
@@ -292,6 +109,16 @@ export default function EmployeesPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ── Additional Add Employee button at the end of the list ── */}
+      <div className="mt-6 flex justify-center sm:justify-end pb-6">
+        <button
+          onClick={() => router.push('/users/create')}
+          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] hover:opacity-95 text-white rounded-xl font-semibold shadow-md shadow-[#4A1F6F]/20 transition-all cursor-pointer text-sm"
+        >
+          <UserPlus size={18} /> Add Employee
+        </button>
       </div>
     </PageWrapper>
   )

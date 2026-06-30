@@ -38,6 +38,7 @@ interface MessagingState {
   isSidebarOpen: boolean
   isSearchOpen: boolean
   searchQuery: string
+  clearedChats: Record<string, number>
   
   // Socket Connection
   isConnected: boolean
@@ -99,6 +100,7 @@ interface MessagingActions {
   setSidebarOpen: (isOpen: boolean) => void
   setSearchOpen: (isOpen: boolean) => void
   setSearchQuery: (query: string) => void
+  clearChatForSelf: (type: 'channel' | 'conversation', id: string) => void
   
   // Connection
   setConnected: (isConnected: boolean) => void
@@ -128,6 +130,7 @@ const initialState: MessagingState = {
   isSidebarOpen: true,
   isSearchOpen: false,
   searchQuery: '',
+  clearedChats: {},
   isConnected: false,
   connectionError: null,
 }
@@ -211,9 +214,7 @@ export const useMessagingStore = create<MessagingStore>((set, get) => ({
     set((state) => ({
       channelMessages: {
         ...state.channelMessages,
-        [channelId]: state.channelMessages[channelId]?.map((msg) =>
-          msg.id === messageId ? { ...msg, is_deleted: true } : msg
-        ) || [],
+        [channelId]: state.channelMessages[channelId]?.filter((msg) => msg.id !== messageId) || [],
       },
     })),
   
@@ -310,9 +311,7 @@ export const useMessagingStore = create<MessagingStore>((set, get) => ({
     set((state) => ({
       conversationMessages: {
         ...state.conversationMessages,
-        [conversationId]: state.conversationMessages[conversationId]?.map((msg) =>
-          msg.id === messageId ? { ...msg, is_deleted: true } : msg
-        ) || [],
+        [conversationId]: state.conversationMessages[conversationId]?.filter((msg) => msg.id !== messageId) || [],
       },
     })),
   
@@ -498,6 +497,24 @@ export const useMessagingStore = create<MessagingStore>((set, get) => ({
   setSearchOpen: (isOpen) => set({ isSearchOpen: isOpen }),
   
   setSearchQuery: (query) => set({ searchQuery: query }),
+  
+  clearChatForSelf: (type, id) => {
+    const now = Date.now()
+    const key = `${type}_${id}`
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`cleared_chat_${key}`, String(now))
+      } catch (e) {
+        console.error('Failed to save cleared chat timestamp', e)
+      }
+    }
+    set((state) => ({
+      clearedChats: { ...state.clearedChats, [key]: now },
+      ...(type === 'channel'
+        ? { channelMessages: { ...state.channelMessages, [id]: [] } }
+        : { conversationMessages: { ...state.conversationMessages, [id]: [] } }),
+    }))
+  },
 
   // Connection
   setConnected: (isConnected) => set({ isConnected }),

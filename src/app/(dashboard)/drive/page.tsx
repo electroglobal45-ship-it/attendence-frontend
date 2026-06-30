@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { PageWrapper } from '@/components/layout/PageWrapper'
 import { driveAPI, DriveFile, ShareData } from '@/lib/drive-api'
 import { 
   FolderPlus, Upload, Share2, X, Download, 
-  Trash2, ExternalLink, LogOut
+  Trash2, ExternalLink, LogOut, MoreVertical, ChevronDown
 } from 'lucide-react'
 import { usePrefetchStore } from '@/lib/store/prefetch-store'
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
 
 type Tab = 'my-drive' | 'shared-by-me' | 'shared-with-me' | 'meeting-recordings'
 
@@ -28,9 +30,39 @@ export default function DrivePage() {
   const [uploading, setUploading] = useState(false)
   const [isFetching, setIsFetching] = useState(() => !(storeDriveFiles && storeDriveFiles.length > 0))
   const [unreadCount, setUnreadCount] = useState(0)
+  const [users, setUsers] = useState<any[]>([])
+  const [expandedFileId, setExpandedFileId] = useState<string | null>(null)
+  const [togglingKeys, setTogglingKeys] = useState<Record<string, boolean>>({})
+
+  const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false)
+  const actionsDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     checkConnection()
+    // Fetch users list for sharing dropdown panel
+    const token = localStorage.getItem('authToken')
+    fetch(`${BACKEND_URL}/api/v1/users`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success && d.data?.users) {
+        setUsers(d.data.users)
+      } else if (d.success && Array.isArray(d.data)) {
+        setUsers(d.data)
+      }
+    })
+    .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (actionsDropdownRef.current && !actionsDropdownRef.current.contains(event.target as Node)) {
+        setIsActionsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   // Sync files with store if updated externally
@@ -136,15 +168,15 @@ export default function DrivePage() {
     }
   }
 
-  const loadSharedByMe = async () => {
-    setIsFetching(true)
+  const loadSharedByMe = async (silent = false) => {
+    if (!silent) setIsFetching(true)
     try {
       const data = await driveAPI.getSharedByMe()
       setSharedByMe(data)
     } catch (err: any) {
-      alert(err.message)
+      if (!silent) alert(err.message)
     } finally {
-      setIsFetching(false)
+      if (!silent) setIsFetching(false)
     }
   }
 
@@ -325,24 +357,58 @@ export default function DrivePage() {
       title="Drive"
       subtitle={connectionEmail || 'Connected'}
       actions={
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {tab === 'my-drive' && (
-            <>
-              <button onClick={() => setShowNewFolder(true)} className="btn-secondary flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-                <FolderPlus size={16} />
-                <span className="hidden sm:inline">New Folder</span>
-                <span className="sm:hidden">Folder</span>
-              </button>
-              <button onClick={() => setShowUpload(true)} className="btn-primary flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm">
-                <Upload size={16} />
-                <span className="hidden sm:inline">Upload</span>
-              </button>
-            </>
-          )}
-          <button onClick={() => setShowDisconnectConfirm(true)} className="btn-secondary text-red-600 flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm">
-            <LogOut size={16} />
-            <span className="hidden sm:inline">Disconnect</span>
+        <div className="relative" ref={actionsDropdownRef}>
+          <button
+            onClick={() => setIsActionsDropdownOpen(!isActionsDropdownOpen)}
+            className={`p-2 rounded-xl transition-all flex items-center justify-center cursor-pointer border ${
+              isActionsDropdownOpen
+                ? 'bg-[#4A1F6F] text-white border-[#4A1F6F]'
+                : 'text-purple-700 border-purple-200 bg-purple-50/50 hover:bg-purple-100/60'
+            }`}
+            title="More Options"
+          >
+            <MoreVertical size={20} />
           </button>
+          
+          {isActionsDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-150 rounded-xl shadow-xl py-1.5 z-[100] animate-fade-in text-sm font-semibold text-gray-700">
+              {tab === 'my-drive' && (
+                <>
+                  <button
+                    onClick={() => {
+                      setShowNewFolder(true)
+                      setIsActionsDropdownOpen(false)
+                    }}
+                    className="w-full px-4 py-2.5 text-left hover:bg-purple-50 hover:text-[#4A1F6F] flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <FolderPlus size={16} />
+                    <span>New Folder</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowUpload(true)
+                      setIsActionsDropdownOpen(false)
+                    }}
+                    className="w-full px-4 py-2.5 text-left hover:bg-purple-50 hover:text-[#4A1F6F] flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <Upload size={16} />
+                    <span>Upload File</span>
+                  </button>
+                  <div className="my-1.5 border-t border-gray-100" />
+                </>
+              )}
+              <button
+                onClick={() => {
+                  setShowDisconnectConfirm(true)
+                  setIsActionsDropdownOpen(false)
+                }}
+                className="w-full px-4 py-2.5 text-left text-red-650 hover:bg-red-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <LogOut size={16} />
+                <span>Disconnect</span>
+              </button>
+            </div>
+          )}
         </div>
       }
     >
@@ -573,72 +639,201 @@ export default function DrivePage() {
 
       {/* Shared By Me Tab */}
       {tab === 'shared-by-me' && (
-        <div className="card p-0">
+        <div className="space-y-4">
           {isFetching ? (
-            <div className="text-center py-20 text-gray-400 animate-pulse">
+            <div className="card text-center py-20 text-gray-400 animate-pulse">
               Loading files...
             </div>
           ) : sharedByMe.length === 0 ? (
-            <div className="text-center py-20 text-gray-400">
+            <div className="card text-center py-20 text-gray-400">
               No files shared yet
             </div>
-          ) : (
-            <div className="table-wrapper border-0 overflow-x-auto w-full no-scrollbar">
-              <table className="table min-w-[850px]">
-                <thead>
-                  <tr>
-                    <th>File</th>
-                    <th>Shared with</th>
-                    <th>Permission</th>
-                    <th>Shared on</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sharedByMe.map((share) => (
-                    <tr key={share.id}>
-                      <td>
-                        <a
-                          href={share.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline inline-flex items-center gap-2 whitespace-nowrap"
-                        >
-                          {share.file_name}
-                          <ExternalLink size={14} className="shrink-0" />
-                        </a>
-                      </td>
-                      <td className="whitespace-nowrap">{share.shared_with_user?.name}</td>
-                      <td className="whitespace-nowrap capitalize">{share.permission}</td>
-                      <td className="whitespace-nowrap">{new Date(share.shared_at).toLocaleDateString()}</td>
-                      <td className="whitespace-nowrap">
-                        {share.viewed ? (
-                          <span className="badge-present">Viewed</span>
-                        ) : (
-                          <span className="badge-pending">Not viewed</span>
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap">
-                        <button
-                          onClick={async () => {
-                            if (confirm('Revoke access to this file?')) {
-                              await driveAPI.revokeShare(share.id)
-                              loadSharedByMe()
-                            }
-                          }}
-                          className="p-1.5 hover:bg-red-100 text-red-600 rounded transition"
-                          title="Revoke"
-                        >
-                          <X size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          ) : (() => {
+            // Group shares by unique file_id
+            const groupedShares: Record<string, { file_id: string; file_name: string; file_url: string; shares: typeof sharedByMe }> = {}
+            sharedByMe.forEach(share => {
+              if (!groupedShares[share.file_id]) {
+                groupedShares[share.file_id] = {
+                  file_id: share.file_id,
+                  file_name: share.file_name,
+                  file_url: share.file_url,
+                  shares: []
+                }
+              }
+              groupedShares[share.file_id].shares.push(share)
+            })
+            const groupedShareList = Object.values(groupedShares)
+
+            return (
+              <div className="space-y-3.5">
+                {groupedShareList.map((item) => {
+                  const isExpanded = expandedFileId === item.file_id
+                  const sharedWithNames = item.shares.map(s => s.shared_with_user?.name || 'Unknown').join(', ')
+
+                  return (
+                    <div
+                      key={item.file_id}
+                      className="card p-4 bg-white border border-gray-200/80 rounded-2xl shadow-xs transition-all hover:border-purple-250/80"
+                    >
+                      {/* Main stacked row clickable */}
+                      <div
+                        onClick={() => setExpandedFileId(isExpanded ? null : item.file_id)}
+                        className="flex items-center justify-between gap-3 cursor-pointer group"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-gray-800 text-sm group-hover:text-[#4A1F6F] transition-colors truncate">
+                            {item.file_name}
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-1 truncate">
+                            <span className="font-semibold text-purple-700">Shared with:</span> {sharedWithNames}
+                          </p>
+                        </div>
+                        <span className={`text-purple-400 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}>
+                          <ChevronDown size={18} />
+                        </span>
+                      </div>
+
+                      {/* Dropdown panel */}
+                      {isExpanded && (
+                        <div className="mt-4 pt-4 border-t border-gray-100 space-y-4 animate-fade-in text-xs sm:text-sm text-gray-700">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-1">Google Drive Link</span>
+                              <a
+                                href={item.file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#4A1F6F] hover:underline inline-flex items-center gap-1 font-semibold"
+                              >
+                                Open File <ExternalLink size={14} />
+                              </a>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-1">Status Details</span>
+                              <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
+                                {item.shares.map(s => (
+                                  <div key={s.id} className="text-xs flex items-center justify-between gap-2">
+                                    <span className="truncate font-medium">{s.shared_with_user?.name}:</span>
+                                    <span className={`shrink-0 ${s.viewed ? 'text-emerald-600 font-semibold' : 'text-amber-600'}`}>
+                                      {s.viewed ? 'Viewed' : 'Not viewed'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Manage Access Checklist */}
+                          <div className="pt-2">
+                            <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-2.5">
+                                Manage Teammates Access (Check to Allow, Uncheck to Deny)
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                              {users.map(user => {
+                                const currentShare = item.shares.find(s => s.shared_with === user.id)
+                                const isChecked = !!currentShare
+                                const toggleKey = `${user.id}-${item.file_id}`
+                                const isToggling = !!togglingKeys[toggleKey]
+
+                                return (
+                                  <label
+                                    key={user.id}
+                                    className={`flex items-center gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all ${
+                                      isChecked
+                                        ? 'bg-purple-50/50 border-[#4A1F6F]/40 shadow-xs'
+                                        : 'bg-white border-gray-200/70 hover:bg-gray-50/50'
+                                    } ${isToggling ? 'opacity-50 pointer-events-none' : ''}`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      disabled={isToggling}
+                                      onChange={async (e) => {
+                                        const shouldAllow = e.target.checked
+                                        if (isToggling) return
+                                        setTogglingKeys(prev => ({ ...prev, [toggleKey]: true }))
+                                        
+                                        // ── OPTIMISTIC STATE UPDATE ──
+                                        if (shouldAllow) {
+                                          const tempShareId = `temp-${Date.now()}`
+                                          const tempShare: ShareData = {
+                                            id: tempShareId,
+                                            file_id: item.file_id,
+                                            file_name: item.file_name,
+                                            file_type: 'file',
+                                            file_url: item.file_url,
+                                            shared_by: connectionEmail || '',
+                                            shared_with: user.id,
+                                            permission: 'reader',
+                                            shared_at: new Date().toISOString(),
+                                            viewed: false,
+                                            shared_with_user: user
+                                          }
+                                          setSharedByMe(prev => [...prev, tempShare])
+
+                                          try {
+                                            await driveAPI.shareFile(item.file_id, [user.id], 'reader')
+                                            await loadSharedByMe(true)
+                                            window.dispatchEvent(new CustomEvent('drive-shares-updated'))
+                                          } catch (err: any) {
+                                            alert(`Failed to grant access: ${err.message}`)
+                                            await loadSharedByMe(true) // Revert state
+                                          } finally {
+                                            setTogglingKeys(prev => ({ ...prev, [toggleKey]: false }))
+                                          }
+                                        } else {
+                                          if (!currentShare) {
+                                            setTogglingKeys(prev => ({ ...prev, [toggleKey]: false }))
+                                            return
+                                          }
+                                          const originalId = currentShare.id
+                                          
+                                          // If it's still a temp ID (not resolved by background API yet), we wait or ignore
+                                          if (originalId.startsWith('temp-')) {
+                                            setTogglingKeys(prev => ({ ...prev, [toggleKey]: false }))
+                                            return
+                                          }
+
+                                          setSharedByMe(prev => prev.filter(s => s.id !== originalId))
+
+                                          try {
+                                            await driveAPI.revokeShare(originalId)
+                                            await loadSharedByMe(true)
+                                            window.dispatchEvent(new CustomEvent('drive-shares-updated'))
+                                          } catch (err: any) {
+                                            alert(`Failed to revoke access: ${err.message}`)
+                                            await loadSharedByMe(true) // Revert state
+                                          } finally {
+                                            setTogglingKeys(prev => ({ ...prev, [toggleKey]: false }))
+                                          }
+                                        }
+                                      }}
+                                      className="rounded text-[#4A1F6F] focus:ring-[#4A1F6F] h-4 w-4 border-gray-300 cursor-pointer"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <span className="font-bold text-gray-800 text-xs block truncate">{user.name}</span>
+                                      <span className="text-[10px] text-gray-500 block truncate capitalize">
+                                        {user.role} • {user.email}
+                                      </span>
+                                    </div>
+                                    {isChecked && (
+                                      <span className="text-[9px] px-2 py-0.5 bg-[#4A1F6F] text-white rounded-full capitalize font-bold shrink-0">
+                                        {currentShare?.permission || 'reader'}
+                                      </span>
+                                    )}
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       )}
 

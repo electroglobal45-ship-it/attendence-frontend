@@ -106,9 +106,25 @@ export default function MeetingsPage() {
   
   const storeMeetings = usePrefetchStore((state) => state.meetings)
   const storeEmployees = usePrefetchStore((state) => state.employees)
-  const [meetings, setMeetings] = useState<Meeting[]>(() => storeMeetings ?? [])
+  const meetingsStatus = usePrefetchStore((state) => state.status.meetings)
+  
+  const [meetings, setMeetings] = useState<Meeting[]>(() => {
+    if (storeMeetings && storeMeetings.length > 0) return storeMeetings
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('crm_cached_meetings')
+      if (saved) {
+        try { return JSON.parse(saved) } catch (e) {}
+      }
+    }
+    return []
+  })
   const [employees, setEmployees] = useState<Employee[]>(() => storeEmployees ?? [])
-  const [loading, setLoading] = useState(() => !storeMeetings || storeMeetings.length === 0)
+  const [loading, setLoading] = useState(() => {
+    if (meetingsStatus === 'done') return false
+    if (storeMeetings && storeMeetings.length > 0) return false
+    if (typeof window !== 'undefined' && localStorage.getItem('crm_cached_meetings')) return false
+    return true
+  })
   const [error, setError] = useState<string | null>(null)
   
   // Create Modal State
@@ -137,6 +153,10 @@ export default function MeetingsPage() {
       setMeetings(fetchedMeetings)
       setEmployees(fetchedEmployees)
       
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('crm_cached_meetings', JSON.stringify(fetchedMeetings))
+      }
+
       // Update prefetch store
       usePrefetchStore.setState({
         meetings: fetchedMeetings,
@@ -156,20 +176,20 @@ export default function MeetingsPage() {
 
   // Sync state if prefetch store updates externally
   useEffect(() => {
-    if (storeMeetings) {
+    if (storeMeetings && storeMeetings.length > 0) {
       setMeetings(storeMeetings)
     }
   }, [storeMeetings])
 
   useEffect(() => {
-    if (storeEmployees) {
+    if (storeEmployees && storeEmployees.length > 0) {
       setEmployees(storeEmployees)
     }
   }, [storeEmployees])
 
   useEffect(() => {
-    const hasData = storeMeetings && storeMeetings.length > 0
-    fetchData(hasData)
+    const hasCache = meetingsStatus === 'done' || (storeMeetings && storeMeetings.length > 0) || (typeof window !== 'undefined' && !!localStorage.getItem('crm_cached_meetings'))
+    fetchData(hasCache)
   }, [fetchData])
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -185,7 +205,11 @@ export default function MeetingsPage() {
         assigned_to:  selectedEmployees,
       })
       const newMeeting = res.data.meeting
-      setMeetings((prev) => [newMeeting, ...prev])
+      const updated = [newMeeting, ...meetings]
+      setMeetings(updated)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('crm_cached_meetings', JSON.stringify(updated))
+      }
       usePrefetchStore.setState({
         meetings: [newMeeting, ...usePrefetchStore.getState().meetings]
       })
@@ -204,7 +228,11 @@ export default function MeetingsPage() {
     e.stopPropagation()
     if (!confirm('Are you sure you want to delete this meeting?')) return
     try {
-      setMeetings((prev) => prev.filter((m) => m.id !== id))
+      const updated = meetings.filter((m) => m.id !== id)
+      setMeetings(updated)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('crm_cached_meetings', JSON.stringify(updated))
+      }
       usePrefetchStore.setState({
         meetings: usePrefetchStore.getState().meetings.filter((m: any) => m.id !== id)
       })
@@ -224,25 +252,17 @@ export default function MeetingsPage() {
   // ── Render Dashboard ──
   return (
     <PageWrapper
-      title="Conference Rooms"
+      title="My Meetings"
       subtitle="Start or join video conferences instantly"
       actions={
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => fetchData(false)}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-[#4A1F6F]/5 hover:text-[#4A1F6F] hover:border-[#4A1F6F]/20 disabled:opacity-50 transition-all cursor-pointer font-semibold text-gray-700"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] text-white rounded-lg hover:opacity-95 transition-all font-semibold shadow-sm shadow-[#4A1F6F]/10 cursor-pointer"
-          >
-            <Plus size={16} /> New Meeting
-          </button>
-        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="h-10 px-3.5 sm:px-4 bg-gradient-to-r from-[#4A1F6F] to-[#3B1859] text-white rounded-xl hover:opacity-95 transition-all font-semibold shadow-md shadow-[#4A1F6F]/20 flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          title="New Meeting"
+        >
+          <Plus size={20} />
+          <span className="hidden sm:inline text-sm">New Meeting</span>
+        </button>
       }
     >
       {/* Alert banner if active call is floating/minimized */}

@@ -28,14 +28,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Selfie photo is required' }, { status: 400 })
     }
 
-    // Fetch office location from database
-    console.log('[Attendance] Fetching office location from database...')
-    const { data: officeLocations, error: officeError } = await supabaseServer
-      .from('office_locations')
-      .select('latitude, longitude, radius_meters, name')
-      .eq('is_active', true)
-      .limit(1)
-      .single()
+    // Calculate date components from IST time first for queries
+    const now = new Date()
+    const istOffset = 5.5 * 60 * 60 * 1000
+    const istDate = new Date(now.getTime() + istOffset)
+    const year = istDate.getUTCFullYear()
+    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(istDate.getUTCDate()).padStart(2, '0')
+    const dateStr = `${year}-${month}-${day}`
+
+    // Fetch office location, holidays, opt-in details, and check-in existence in parallel
+    console.log('[Attendance] Fetching database pre-requisites concurrently...')
+    const [officeRes, holidaysRes, optInRes, existingRes] = await Promise.all([
+      supabaseServer
+        .from('office_locations')
+        .select('latitude, longitude, radius_meters, name')
+        .eq('is_active', true)
+        .limit(1)
+        .single(),
+      supabaseServer
+        .from('holidays')
+        .select('name, date')
+        .eq('is_active', true),
+      supabaseServer
+        .from('working_day_opt_ins')
+        .select('*')
+        .eq('employee_id', userId)
+        .eq('date', dateStr)
+        .maybeSingle(),
+      supabaseServer
+        .from('attendance')
+        .select('id')
+        .eq('employee_id', userId)
+        .eq('date', dateStr)
+        .maybeSingle()
+    ])
+
+    const { data: officeLocations, error: officeError } = officeRes
+    const { data: holidays } = holidaysRes
+    const { data: optIn } = optInRes
+    const { data: existing } = existingRes
 
     console.log('[Attendance] Office location query result:', { officeLocation: officeLocations, officeError })
 
@@ -88,32 +120,7 @@ export async function POST(req: NextRequest) {
 
     // Check if attendance is allowed today (holidays/weekends)
     const today = getTodayIST()
-    
-    // Fetch holidays from database
-    const { data: holidays } = await supabaseServer
-      .from('holidays')
-      .select('name, date')
-      .eq('is_active', true)
-    
     const holidayList = holidays?.map(h => ({ name: h.name, date: h.date })) || []
-    
-    // Extract date components from IST time for opt-in check
-    const now = new Date()
-    const istOffset = 5.5 * 60 * 60 * 1000
-    const istDate = new Date(now.getTime() + istOffset)
-    const year = istDate.getUTCFullYear()
-    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(istDate.getUTCDate()).padStart(2, '0')
-    const dateStr = `${year}-${month}-${day}`
-    
-    // Check if employee has opt-in for this date
-    const { data: optIn } = await supabaseServer
-      .from('working_day_opt_ins')
-      .select('*')
-      .eq('employee_id', userId)
-      .eq('date', dateStr)
-      .maybeSingle()
-    
     const attendanceCheck = checkAttendanceAllowed(today, holidayList)
     
     // If attendance is not normally allowed, check for approved opt-in
@@ -146,14 +153,6 @@ export async function POST(req: NextRequest) {
     console.log('IST Date object:', istDate.toISOString())
     console.log('Extracted date string:', dateStr)
     console.log('Opt-in status:', optIn ? 'Approved opt-in found' : 'No opt-in')
-
-    // Check if already marked today
-    const { data: existing } = await supabaseServer
-      .from('attendance')
-      .select('id')
-      .eq('employee_id', userId)
-      .eq('date', dateStr)
-      .maybeSingle()
 
     if (existing) {
       return NextResponse.json({ error: 'Attendance already marked for today' }, { status: 400 })

@@ -140,12 +140,14 @@ export default function AdminVaultPage() {
   const [resettingKey, setResettingKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Two-pane states
-  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(() => 
-    storeVaultEntries && storeVaultEntries.length > 0 ? storeVaultEntries[0].id : null
-  )
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [showCredentials, setShowCredentials] = useState(false)
-  const [showActionsDropdown, setShowActionsDropdown] = useState(false)
+  const [showActionsDropdown, setShowActionsDropdown] = useState<string | null>(null)
+  const [showSearchBar, setShowSearchBar] = useState(false)
+  const [showHeaderDropdown, setShowHeaderDropdown] = useState(false)
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({})
+  const [togglingKeys, setTogglingKeys] = useState<Record<string, boolean>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [showInfoToast, setShowInfoToast] = useState<string | null>(null)
   const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null)
@@ -166,7 +168,7 @@ export default function AdminVaultPage() {
 
   useEffect(() => {
     setShowCredentials(false)
-    setShowActionsDropdown(false)
+    setShowActionsDropdown(null)
   }, [selectedEntryId])
 
   // Form state
@@ -223,11 +225,8 @@ export default function AdminVaultPage() {
   useEffect(() => {
     if (storeVaultEntries && storeVaultEntries.length > 0) {
       setEntries(storeVaultEntries)
-      if (!selectedEntryId) {
-        setSelectedEntryId(storeVaultEntries[0].id)
-      }
     }
-  }, [storeVaultEntries, selectedEntryId])
+  }, [storeVaultEntries])
 
   useEffect(() => {
     if (storeEmployees && storeEmployees.length > 0) {
@@ -237,7 +236,7 @@ export default function AdminVaultPage() {
 
   useEffect(() => { 
     const hasData = storeVaultEntries && storeVaultEntries.length > 0
-    fetchData(true, hasData) 
+    fetchData(false, hasData) 
   }, [fetchData])
 
   const resetForm = () => {
@@ -539,7 +538,6 @@ export default function AdminVaultPage() {
     }
     return true
   })
-
   const selectedEntry = entries.find(e => e.id === selectedEntryId) || null
 
   return (
@@ -552,42 +550,70 @@ export default function AdminVaultPage() {
       }
       actions={
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Mobile search indicator button or toggle */}
-          <div className="lg:hidden flex items-center bg-gray-50 border rounded-lg px-2 py-1.5 border-gray-300">
-            <Search size={14} className="text-gray-400 mr-1" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="bg-transparent border-none outline-none text-xs w-20"
-            />
-          </div>
-
-          <button onClick={handleOpenGlobalHistory}
-            className="flex items-center gap-1 px-3 py-2 border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg text-xs font-semibold transition"
+          {/* Search Toggle Icon */}
+          <button 
+            onClick={() => setShowSearchBar(!showSearchBar)}
+            className={`p-2 border rounded-xl transition cursor-pointer ${
+              showSearchBar
+                ? 'bg-purple-100 border-[#4A1F6F] text-[#4A1F6F]'
+                : 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200'
+            }`}
+            title="Toggle Search"
           >
-            <History size={13} />
-            <span>All Password Versions</span>
+            <Search size={16} />
           </button>
 
-          <button onClick={() => fetchData(false, false)} disabled={loading}
-            className="flex items-center gap-1.5 sm:gap-2 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm border rounded-lg disabled:opacity-50 transition"
-            style={{ borderColor: 'rgba(74,31,111,0.3)', color: '#4A1F6F', background: 'rgba(74,31,111,0.04)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(74,31,111,0.08)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(74,31,111,0.04)')}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-          
-          <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-white rounded-lg transition font-medium"
+          {/* Add Icon Button (Only Icon) */}
+          <button 
+            onClick={() => { setShowForm(true); setIsEditing(false); }}
+            className="p-2 text-white rounded-xl transition font-medium cursor-pointer"
             style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)', boxShadow: '0 4px 12px rgba(74,31,111,0.35)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'linear-gradient(135deg, #2D0F47 0%, #1a0930 100%)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)')}>
+            title="Add Credential"
+          >
             <Plus size={16} />
-            <span className="hidden sm:inline">Add</span>
           </button>
+
+          {/* Header 3-Dots actions dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowHeaderDropdown(!showHeaderDropdown)}
+              className={`p-2 border rounded-xl transition cursor-pointer ${
+                showHeaderDropdown
+                  ? 'bg-[#4A1F6F] border-[#4A1F6F] text-white'
+                  : 'text-purple-700 border-purple-200 bg-white hover:bg-gray-50'
+              }`}
+              title="More Options"
+            >
+              <MoreVertical size={16} />
+            </button>
+            {showHeaderDropdown && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowHeaderDropdown(false)} />
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-white border border-gray-150 rounded-xl shadow-lg py-1.5 z-30 font-semibold text-gray-700 text-sm">
+                  <button
+                    onClick={() => {
+                      setShowHeaderDropdown(false)
+                      setShowFilterDropdown(!showFilterDropdown)
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <ListFilter size={14} className="text-gray-500" />
+                    {showFilterDropdown ? 'Hide Employee Filter' : 'Filter by Teammate'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowHeaderDropdown(false)
+                      handleOpenGlobalHistory()
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2"
+                  >
+                    <History size={14} className="text-gray-500" />
+                    All Password Versions
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       }
     >
@@ -620,7 +646,7 @@ export default function AdminVaultPage() {
             </button>
             <button
               onClick={handleBulkDelete}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+              className="px-3 py-1.5 text-xs font-semibold text-white bg-red-655 rounded-lg hover:bg-red-700 transition"
             >
               Bulk Delete
             </button>
@@ -628,20 +654,17 @@ export default function AdminVaultPage() {
         </div>
       )}
 
-      {/* Two-Pane Password Manager Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-[600px]">
-        
-        {/* LEFT PANEL: SEARCH & PASSWORD LIST */}
-        <div className={`col-span-1 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${selectedEntryId && !bulkMode ? 'hidden lg:flex' : 'flex'}`}>
-          <div className="p-4 border-b border-gray-100 space-y-3">
-            {/* Search Bar */}
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+      {/* Dynamic Search & Filter Bar */}
+      {(showSearchBar || showFilterDropdown) && (
+        <div className="card mb-6 p-4 space-y-3 animate-fade-in">
+          {showSearchBar && (
+            <div className="flex items-center gap-2 bg-gray-55 border border-gray-200 rounded-xl px-3 py-2">
               <Search size={16} className="text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search passwords"
+                placeholder="Search passwords..."
                 className="bg-transparent border-none outline-none text-sm w-full text-gray-800 placeholder-gray-400"
               />
               {searchQuery && (
@@ -650,207 +673,236 @@ export default function AdminVaultPage() {
                 </button>
               )}
             </div>
+          )}
 
-            {/* Employee Filter */}
-            <div className="space-y-1.5">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block px-1">Filter by Employee</span>
+          {showFilterDropdown && (
+            <div className="flex flex-col justify-center">
               <EmployeeMultiSelect
                 employees={employees}
                 selected={filterEmployees}
                 onChange={setFilterEmployees}
-                placeholder="Filter by employee…"
+                placeholder="Filter by employee assignment..."
               />
               {filterEmployees.length > 0 && (
-                <div className="flex justify-end px-1">
+                <div className="flex justify-end mt-1 px-1">
                   <button 
                     type="button" 
                     onClick={() => setFilterEmployees([])} 
-                    className="text-xs font-semibold cursor-pointer"
-                    style={{ color: '#4A1F6F' }}
+                    className="text-xs font-semibold cursor-pointer text-[#4A1F6F] hover:underline"
                   >
                     Clear Filter
                   </button>
                 </div>
               )}
             </div>
-          </div>
-
-          {/* List items */}
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-100 max-h-[550px]">
-            {loading && entries.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 text-sm">Loading passwords…</div>
-            ) : filteredEntries.length === 0 ? (
-              <div className="p-12 text-center">
-                <KeyRound size={28} className="mx-auto text-gray-300 mb-2" />
-                <p className="text-sm text-gray-500 font-medium">No credentials found</p>
-                <p className="text-xs text-gray-400 mt-0.5">Try a different search term</p>
-              </div>
-            ) : (
-              filteredEntries.map(entry => {
-                const isSelected = selectedEntryId === entry.id
-                const domain = entry.site_url ? getDomain(entry.site_url) : getDomain(entry.service_name)
-                const isBulkChecked = selectedIds.includes(entry.id)
-                
-                return (
-                  <div
-                    key={entry.id}
-                    onClick={() => {
-                      if (bulkMode) {
-                        toggleBulkSelect(entry.id)
-                      } else {
-                        setSelectedEntryId(entry.id)
-                      }
-                    }}
-                    className={`p-4 flex items-center gap-3 cursor-pointer transition-colors ${
-                      isSelected && !bulkMode ? 'border-l-4' : 'hover:bg-gray-50'
-                    }`}
-                    style={isSelected && !bulkMode ? { background: 'rgba(74,31,111,0.06)', borderLeftColor: '#4A1F6F' } : {}}
-                  >
-                    {/* Bulk select checkbox */}
-                    {bulkMode && (
-                      <div className="text-purple-700 flex-shrink-0 mr-1">
-                        {isBulkChecked ? <CheckSquare size={18} /> : <Square size={18} className="text-gray-300" />}
-                      </div>
-                    )}
-
-                    {/* Site favicon with third-party service */}
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border overflow-hidden" style={{ background: 'rgba(74,31,111,0.08)', borderColor: 'rgba(74,31,111,0.15)' }}>
-                      <img
-                        src={`https://www.google.com/icons/thirdparty/images/png?size=32&domain=${domain}`}
-                        alt={entry.service_name}
-                        className="w-5 h-5 object-contain"
-                        onError={(e) => {
-                          ;(e.target as HTMLElement).style.display = 'none'
-                        }}
-                      />
-                      <span className="text-sm font-bold uppercase select-none fallback-initial" style={{ color: '#4A1F6F' }}>
-                        {entry.service_name[0]}
-                      </span>
-                    </div>
-                    
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate" style={{ color: isSelected && !bulkMode ? '#2D0F47' : '#1F2937' }}>
-                        {entry.service_name}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">
-                        {entry.username}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          {/* Bulk select option at the bottom side panel */}
-          <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-            <button onClick={() => { setBulkMode(!bulkMode); setSelectedIds([]) }}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg border text-center transition ${
-                bulkMode ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              {bulkMode ? 'Cancel Bulk Selection' : 'Toggle Bulk Selection'}
-            </button>
-          </div>
+          )}
         </div>
+      )}
 
-        {/* RIGHT PANEL: SELECTED ENTRY DETAILS */}
-        <div className={`col-span-1 lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col ${(!selectedEntryId || bulkMode) ? 'hidden lg:flex' : ''} ${!selectedEntryId ? 'items-center justify-center p-8' : 'p-6'}`}>
-          {!selectedEntry ? (
-            <div className="text-center max-w-sm">
-              <div className="w-16 h-16 bg-gray-150 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-450 border border-gray-200">
-                <Shield size={32} />
-              </div>
-              <h3 className="text-lg font-bold text-gray-700">No Credential Selected</h3>
-              <p className="text-sm text-gray-400 mt-2 leading-relaxed">
-                Choose a credential from the sidebar list to view its details, assignments, and manage access.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6 animate-fade-in">
-              {/* Back Button (mobile) + Favicon + Site Name */}
-              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setSelectedEntryId(null)}
-                    className="lg:hidden p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition flex items-center justify-center"
-                  >
-                    <ArrowLeft size={18} />
-                  </button>
+      {/* Credentials List */}
+      <div className="flex flex-col gap-4">
+        {loading && entries.length === 0 ? (
+          <div className="card text-center py-20 text-gray-400 animate-pulse">Loading passwords…</div>
+        ) : filteredEntries.length === 0 ? (
+          <div className="card text-center py-20 text-gray-400">
+            <KeyRound size={28} className="mx-auto text-gray-300 mb-2" />
+            <p className="text-sm text-gray-500 font-medium">No credentials found</p>
+            <p className="text-xs text-gray-400 mt-0.5">Try a different search term or add a new one</p>
+          </div>
+        ) : (
+          filteredEntries.map(entry => {
+            const domain = entry.site_url ? getDomain(entry.site_url) : getDomain(entry.service_name)
 
-                  <div className="w-10 h-10 rounded-xl bg-yellow-400/10 flex items-center justify-center text-yellow-600 border border-yellow-500/20">
+            return (
+              <div
+                key={entry.id}
+                onClick={() => setSelectedEntryId(entry.id)}
+                className="card p-4 bg-white border border-gray-200/80 rounded-2xl shadow-xs transition-all hover:border-[#4A1F6F]/40 hover:shadow-md cursor-pointer group flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {/* Favicon */}
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm border overflow-hidden bg-purple-50/50 border-purple-100">
                     <img
-                      src={`https://www.google.com/icons/thirdparty/images/png?size=64&domain=${selectedEntry.site_url ? getDomain(selectedEntry.site_url) : getDomain(selectedEntry.service_name)}`}
-                      alt=""
-                      className="w-6 h-6 object-contain"
+                      src={`https://www.google.com/icons/thirdparty/images/png?size=32&domain=${domain}`}
+                      alt={entry.service_name}
+                      className="w-5 h-5 object-contain"
                       onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none'
+                        ;(e.target as HTMLElement).style.display = 'none'
                       }}
                     />
-                    <span className="text-sm font-bold uppercase select-none">
-                      {selectedEntry.service_name[0]}
+                    <span className="text-sm font-bold uppercase select-none fallback-initial text-purple-700">
+                      {entry.service_name[0]}
                     </span>
                   </div>
 
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-1.5">
-                    {selectedEntry.service_name}
-                    {selectedEntry.id.startsWith('temp-') && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full animate-pulse" style={{ color: '#4A1F6F', background: 'rgba(74,31,111,0.08)', border: '1px solid rgba(74,31,111,0.2)' }}>
-                        Saving…
-                      </span>
-                    )}
-                  </h2>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-bold text-gray-800 text-sm group-hover:text-[#4A1F6F] transition-colors truncate">
+                      {entry.service_name}
+                    </h4>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {entry.username}
+                    </p>
+                  </div>
                 </div>
 
-                {/* History (Versions) Trigger */}
-                <button
-                  onClick={handleOpenHistory}
-                  className="flex items-center gap-1 px-3 py-1.5 border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg text-xs font-semibold transition"
-                >
-                  <History size={13} />
-                  <span>Versions</span>
-                </button>
+                <span className="text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <ExternalLink size={14} />
+                </span>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* ── Credential Details Modal Card ── */}
+      {selectedEntryId && (() => {
+        const entry = entries.find(e => e.id === selectedEntryId)
+        if (!entry) return null
+        const domain = entry.site_url ? getDomain(entry.site_url) : getDomain(entry.service_name)
+        const showFormPwLocal = !!revealedPasswords[entry.id]
+
+        return (
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-default"
+            onClick={() => setSelectedEntryId(null)}
+          >
+            <div 
+              className="bg-white rounded-2xl w-full max-w-sm sm:max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto animate-fade-in p-6 space-y-4 cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            >
+              
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border overflow-hidden bg-purple-50/50 border-purple-100">
+                    <img
+                      src={`https://www.google.com/icons/thirdparty/images/png?size=32&domain=${domain}`}
+                      alt={entry.service_name}
+                      className="w-5 h-5 object-contain"
+                      onError={(e) => {
+                        ;(e.target as HTMLElement).style.display = 'none'
+                      }}
+                    />
+                    <span className="text-sm font-bold uppercase select-none fallback-initial text-purple-700">
+                      {entry.service_name[0]}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm sm:text-base leading-tight">{entry.service_name}</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Encrypted Credential Details</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* History (Versions) Trigger - Icon Only */}
+                  <button
+                    onClick={() => handleOpenHistory()}
+                    className="p-2 border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-xl transition cursor-pointer"
+                    title="Version History"
+                  >
+                    <History size={16} />
+                  </button>
+
+                  {/* 3-Dots actions dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowActionsDropdown(showActionsDropdown === entry.id ? null : entry.id)}
+                      className={`w-9 h-9 rounded-xl border flex items-center justify-center transition cursor-pointer ${
+                        showActionsDropdown === entry.id
+                          ? 'bg-[#4A1F6F] border-[#4A1F6F] text-white'
+                          : 'text-purple-700 border-purple-200 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+
+                    {showActionsDropdown === entry.id && (
+                      <>
+                        <div className="fixed inset-0 z-20" onClick={() => setShowActionsDropdown(null)} />
+                        <div className="absolute right-0 top-full mt-1.5 w-40 bg-white border border-gray-150 rounded-xl shadow-lg py-1.5 z-30 font-semibold text-gray-700">
+                          <button
+                            onClick={() => {
+                              setShowActionsDropdown(null)
+                              setForm({
+                                service_name: entry.service_name,
+                                username: entry.username,
+                                password: entry.password || '',
+                                site_url: entry.site_url || '',
+                                notes: entry.notes || '',
+                              })
+                              setSelectedEmployees(entry.assignments?.map(a => a.assigned_to) || [])
+                              setIsEditing(true)
+                              setShowForm(true)
+                            }}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700"
+                          >
+                            <Edit size={14} className="text-gray-500" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowActionsDropdown(null)
+                              handleDelete(entry.id, entry.service_name)
+                            }}
+                            className="w-full px-4 py-2 text-left text-red-650 hover:bg-red-50 flex items-center gap-2 text-red-600 transition"
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Close button */}
+                  <button
+                    onClick={() => setSelectedEntryId(null)}
+                    className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 transition"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
 
-              {/* CARD DETAILS */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Left Column: Username, Password */}
-                  <div className="space-y-4">
-                    <div>
-                      <span className="text-xs font-semibold text-gray-400 block mb-1">Username / Email</span>
-                      <div className="px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border transition duration-150" style={{ background: 'rgba(74,31,111,0.06)', color: '#2D0F47', borderColor: 'transparent' }} onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.10)')} onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.06)')  }>
-                        {showCredentials ? (
-                          <span className="select-all font-medium truncate pr-2">{selectedEntry.username}</span>
+              {/* Details grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Left side: Username & Password */}
+                <div className="space-y-3.5">
+                  <div>
+                    <span className="text-xs font-semibold text-gray-400 block mb-1">Username / Email</span>
+                    <div className="px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border bg-[#4A1F6F]/5 border-[#4A1F6F]/10">
+                      <span className="select-all font-semibold text-[#2D0F47] truncate pr-2">{entry.username}</span>
+                      <button
+                        onClick={() => copyToClipboard(entry.username || '', 'username')}
+                        className="p-1 text-purple-700 hover:text-purple-900 transition-colors cursor-pointer shrink-0"
+                        title="Copy username"
+                      >
+                        {copiedField === 'username' ? (
+                          <Check size={16} className="text-emerald-600" />
                         ) : (
-                          <span className="tracking-widest font-semibold text-gray-500">••••••••••••••</span>
+                          <Copy size={16} />
                         )}
-                        <button
-                          onClick={() => copyToClipboard(selectedEntry.username, 'username')}
-                          className="transition-colors p-1" style={{ color: '#4A1F6F' }}
-                          title="Copy username"
-                        >
-                          {copiedField === 'username' ? (
-                            <Check size={16} className="text-emerald-600" />
-                          ) : (
-                            <Copy size={16} />
-                          )}
-                        </button>
-                      </div>
+                      </button>
                     </div>
+                  </div>
 
-                    <div>
-                      <span className="text-xs font-semibold text-gray-400 block mb-1">Password</span>
-                      <div className="px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border transition duration-150" style={{ background: 'rgba(74,31,111,0.06)', color: '#2D0F47', borderColor: 'transparent' }} onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.10)')} onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.06)')}>
-                        {showCredentials ? (
-                          <span className="select-all font-medium truncate pr-2">{selectedEntry.password || '••••••••••••••'}</span>
-                        ) : (
-                          <span className="tracking-widest font-semibold text-gray-500">••••••••••••••</span>
-                        )}
+                  <div>
+                    <span className="text-xs font-semibold text-gray-400 block mb-1">Password</span>
+                    <div className="px-4 py-3 rounded-xl flex items-center justify-between font-mono text-sm border bg-[#4A1F6F]/5 border-[#4A1F6F]/10">
+                      <span className="select-all font-semibold text-[#2D0F47] truncate pr-2">
+                        {showFormPwLocal ? entry.password : '••••••••••••••'}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
-                          onClick={() => copyToClipboard(selectedEntry.password || '', 'password')}
-                          className="transition p-1" style={{ color: '#4A1F6F' }}
+                          onClick={() => setRevealedPasswords(prev => ({ ...prev, [entry.id]: !prev[entry.id] }))}
+                          className="p-1 text-purple-700 hover:text-purple-900 transition-colors cursor-pointer"
+                          title={showFormPwLocal ? "Hide password" : "Reveal password"}
+                        >
+                          {showFormPwLocal ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                        <button
+                          onClick={() => copyToClipboard(entry.password || '', 'password')}
+                          className="p-1 text-purple-700 hover:text-purple-900 transition-colors cursor-pointer"
                           title="Copy password"
                         >
                           {copiedField === 'password' ? (
@@ -862,207 +914,143 @@ export default function AdminVaultPage() {
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Right Column: Sites, Note */}
-                  <div className="space-y-4">
-                    <div>
-                      <span className="text-xs font-semibold text-gray-400 block mb-1">Sites</span>
+                {/* Right side: Site Link & Notes */}
+                <div className="space-y-3.5">
+                  <div>
+                    <span className="text-xs font-semibold text-gray-400 block mb-1">Link / URL</span>
+                    <div className="mt-1.5">
                       <a
-                        href={getSiteUrl(selectedEntry.service_name, selectedEntry.site_url)}
+                        href={getSiteUrl(entry.service_name, entry.site_url)}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-medium text-sm inline-flex items-center gap-1 underline mt-1.5 transition"
-                        style={{ color: '#4A1F6F' }}
+                        className="font-semibold text-sm inline-flex items-center gap-1 underline transition text-purple-750 hover:text-purple-900"
                       >
-                        {getSiteLink(selectedEntry.service_name, selectedEntry.site_url)}
+                        {getSiteLink(entry.service_name, entry.site_url)}
                         <ExternalLink size={12} />
                       </a>
                     </div>
+                  </div>
 
-                    <div>
-                      <span className="text-xs font-semibold text-gray-400 block mb-1">Note</span>
-                      <div className="px-4 py-3 rounded-xl min-h-[92px] text-sm leading-relaxed border" style={{ background: 'rgba(74,31,111,0.05)', color: '#374151', borderColor: 'rgba(74,31,111,0.08)' }}>
-                        {selectedEntry.notes || <span className="text-gray-400 italic">No note added</span>}
-                      </div>
+                  <div>
+                    <span className="text-xs font-semibold text-gray-400 block mb-1">Notes</span>
+                    <div className="px-4 py-3 rounded-xl min-h-[92px] text-xs sm:text-sm leading-relaxed border bg-[#4A1F6F]/5 border-purple-100 text-gray-700">
+                      {entry.notes || <span className="text-gray-450 italic">No notes added</span>}
                     </div>
                   </div>
-
-                </div>
-
-                {/* Editor info track footer */}
-                {(selectedEntry as any).editor && (
-                  <div className="text-xs text-gray-400 mt-2 font-medium">
-                    Last updated by <span className="font-semibold text-gray-600">{(selectedEntry as any).editor?.name}</span> ({(selectedEntry as any).editor?.email})
-                  </div>
-                )}
-
-                {/* Unified Reveal Toggle & Actions */}
-                <div className="flex gap-3 pt-4 border-t border-gray-150 relative">
-                  <button
-                    onClick={() => setShowCredentials(!showCredentials)}
-                    className="flex-1 rounded-full text-white px-6 py-2.5 font-semibold text-sm transition flex items-center justify-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)', boxShadow: '0 4px 12px rgba(74,31,111,0.35)' }}
-                    onMouseEnter={e=>(e.currentTarget.style.background='linear-gradient(135deg, #2D0F47 0%, #1a0930 100%)')}
-                    onMouseLeave={e=>(e.currentTarget.style.background='linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)')}
-                  >
-                    {showCredentials ? (
-                      <><EyeOff size={14} /> Hide Credentials</>
-                    ) : (
-                      <><Eye size={14} /> Reveal Credentials</>
-                    )}
-                  </button>
-
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowActionsDropdown(!showActionsDropdown)}
-                      className="w-[42px] h-[42px] rounded-full border flex items-center justify-center hover:bg-gray-50 transition text-gray-600 focus:outline-none"
-                      style={{ border: '1.5px solid rgba(74,31,111,0.2)', color: '#4A1F6F' }}
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-
-                    {showActionsDropdown && (
-                      <>
-                        <div className="fixed inset-0 z-20" onClick={() => setShowActionsDropdown(false)} />
-                        <div className="absolute bottom-full right-0 mb-2 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 z-30">
-                          <button
-                            onClick={() => {
-                              setShowActionsDropdown(false)
-                              handleEditClick()
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm font-semibold hover:bg-gray-50 flex items-center gap-2 text-gray-700 transition"
-                          >
-                            <Edit size={14} className="text-gray-500" />
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowActionsDropdown(false)
-                              handleDelete(selectedEntry.id, selectedEntry.service_name)
-                            }}
-                            disabled={deletingId === selectedEntry.id}
-                            className="w-full px-4 py-2 text-left text-sm font-semibold hover:bg-red-50 flex items-center gap-2 text-red-600 transition disabled:opacity-50"
-                          >
-                            <Trash2 size={14} />
-                            Delete
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
                 </div>
               </div>
 
-              {/* ASSIGNMENTS MANAGEMENT */}
-              <div className="border-t border-gray-100 pt-6 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users size={15} style={{ color: '#4A1F6F' }} />
-                    <h3 className="font-bold text-sm" style={{ color: '#2D0F47' }}>Assigned Employees</h3>
-                    {selectedEntry.assignments && selectedEntry.assignments.length > 0 && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(74,31,111,0.10)', color: '#4A1F6F' }}>
-                        {selectedEntry.assignments.length}
-                      </span>
-                    )}
+              {/* Created & Last updated footer log */}
+              <div className="flex flex-col gap-1 text-[10px] sm:text-xs text-gray-400 font-medium pt-1">
+                {(entry as any).creator && (
+                  <div>
+                    Created by <span className="font-semibold text-gray-600">{(entry as any).creator?.name}</span>
                   </div>
-                  <button
-                    onClick={() => {
-                      setAssigningEntry(selectedEntry)
-                      setAssignSelectedEmployees([])
-                    }}
-                    title="Assign Employee"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-base transition-all"
-                    style={{ background: 'rgba(74,31,111,0.10)', color: '#4A1F6F', border: '1px solid rgba(74,31,111,0.2)' }}
-                    onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.20)')}
-                    onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.10)')}
-                  >
-                    <Plus size={15} />
-                  </button>
-                </div>
-
-                {(!selectedEntry.assignments || selectedEntry.assignments.length === 0) ? (
-                  <div className="rounded-xl py-6 text-center" style={{ background: 'rgba(74,31,111,0.03)', border: '1px dashed rgba(74,31,111,0.15)' }}>
-                    <Users size={22} className="mx-auto mb-2" style={{ color: 'rgba(74,31,111,0.3)' }} />
-                    <p className="text-sm text-gray-400 font-medium">No employees assigned yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Click <span className="font-bold text-gray-500">+</span> to assign access</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1 max-h-[220px] overflow-y-auto pr-1">
-                    {selectedEntry.assignments.map(assignment => {
-                      const isResetting = resettingKey === `${selectedEntry.id}:${assignment.assigned_to}`
-                      return (
-                        <div key={assignment.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl transition" style={{ background: 'rgba(74,31,111,0.04)' }}
-                          onMouseEnter={e=>(e.currentTarget.style.background='rgba(74,31,111,0.08)')}
-                          onMouseLeave={e=>(e.currentTarget.style.background='rgba(74,31,111,0.04)')}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: 'rgba(74,31,111,0.12)', border: '1.5px solid rgba(74,31,111,0.2)', color: '#4A1F6F' }}>
-                              {assignment.assignee?.name?.[0]?.toUpperCase() || '?'}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{assignment.assignee?.name}</p>
-                              <p className="text-xs text-gray-400 truncate">{assignment.assignee?.email}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              assignment.is_revealed
-                                ? 'bg-red-50 text-red-600 border border-red-200'
-                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            }`}>
-                              {assignment.is_revealed ? (
-                                <><EyeOff size={9} /> Revealed</>
-                              ) : (
-                                <><Eye size={9} /> Pending</>
-                              )}
-                            </span>
-
-                            {assignment.is_revealed && (
-                              <button
-                                onClick={() => handleReset(selectedEntry.id, assignment.assigned_to)}
-                                disabled={isResetting}
-                                className="flex items-center gap-1 px-2.5 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg font-medium transition disabled:opacity-50"
-                                title="Reset access"
-                              >
-                                {isResetting ? (
-                                  <RefreshCw size={10} className="animate-spin" />
-                                ) : (
-                                  <RotateCcw size={10} />
-                                )}
-                                Reset
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-
-                    {/* Reset All helper */}
-                    {selectedEntry.assignments.some(a => a.is_revealed) && selectedEntry.assignments.length > 1 && (
-                      <div className="pt-2 flex justify-end">
-                        <button
-                          onClick={() => handleReset(selectedEntry.id)}
-                          disabled={!!resettingKey}
-                          className="flex items-center gap-1 px-3 py-1 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg font-semibold transition disabled:opacity-50"
-                        >
-                          <RotateCcw size={10} /> Reset All
-                        </button>
-                      </div>
-                    )}
+                )}
+                {(entry as any).editor && (
+                  <div>
+                    Last updated by <span className="font-semibold text-gray-600">{(entry as any).editor?.name}</span>
                   </div>
                 )}
               </div>
+
+              {/* Teammates access checklist */}
+              <div className="pt-3 border-t border-gray-100">
+                <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block mb-2">
+                  Manage Teammate Assignments (Check to Assign, Uncheck to Revoke)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                  {employees.map(user => {
+                    const assignment = entry.assignments?.find(a => a.assigned_to === user.id)
+                    const isAssigned = !!assignment
+                    const toggleKey = `${user.id}-${entry.id}`
+                    const isToggling = !!togglingKeys[toggleKey]
+
+                    return (
+                      <label
+                        key={user.id}
+                        className={`flex items-center gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-all ${
+                          isAssigned
+                            ? 'bg-purple-50/50 border-[#4A1F6F]/40 shadow-xs'
+                            : 'bg-white border-gray-200/70 hover:bg-gray-50/50'
+                        } ${isToggling ? 'opacity-50 pointer-events-none' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isAssigned}
+                          disabled={isToggling}
+                          onChange={async (e) => {
+                            const shouldAllow = e.target.checked
+                            if (isToggling) return
+                            setTogglingKeys(prev => ({ ...prev, [toggleKey]: true }))
+                            
+                            const currentAssigned = entry.assignments?.map(a => a.assigned_to) || []
+                            let nextAssigned: string[]
+                            if (shouldAllow) {
+                              nextAssigned = [...currentAssigned, user.id]
+                            } else {
+                              nextAssigned = currentAssigned.filter(id => id !== user.id)
+                            }
+
+                            // Optimistic local state update
+                            setEntries(prev => prev.map(item => {
+                              if (item.id !== entry.id) return item
+                              return {
+                                ...item,
+                                assignments: shouldAllow
+                                  ? [...(item.assignments || []), {
+                                      id: `temp-${Date.now()}`,
+                                      vault_id: entry.id,
+                                      assigned_to: user.id,
+                                      is_revealed: false,
+                                      assignee: user
+                                    }]
+                                  : (item.assignments || []).filter(a => a.assigned_to !== user.id)
+                              }
+                            }))
+
+                            try {
+                              await vaultAPI.assignEmployees(entry.id, nextAssigned)
+                              await fetchData(false, true)
+                            } catch (err: any) {
+                              alert(`Failed to update assignment: ${err.message}`)
+                              await fetchData(false, true)
+                            } finally {
+                              setTogglingKeys(prev => ({ ...prev, [toggleKey]: false }))
+                            }
+                          }}
+                          className="rounded text-[#4A1F6F] focus:ring-[#4A1F6F] h-4 w-4 border-gray-300 cursor-pointer"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-gray-800 text-xs block truncate">{user.name}</span>
+                          <span className="text-[10px] text-gray-500 block truncate capitalize">
+                            {(user as any).role || 'Employee'} • {user.email}
+                          </span>
+                        </div>
+                        {isAssigned && (
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                            assignment?.is_revealed ? 'bg-red-100 text-red-750' : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {assignment?.is_revealed ? 'Seen' : 'Pending'}
+                          </span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
             </div>
-          )}
-        </div>
-
-      </div>
+          </div>
+        )
+      })()}
 
       {/* ── Single Credential History Modal ── */}
       {showHistoryModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto flex items-start justify-center z-50 p-4 pt-10 pb-10">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-purple-100 text-purple-700">
@@ -1129,8 +1117,8 @@ export default function AdminVaultPage() {
 
       {/* ── Global Password Version History Modal ── */}
       {showGlobalHistoryModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto flex items-start justify-center z-50 p-4 pt-10 pb-10">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-purple-600 text-white shadow-md">
@@ -1204,8 +1192,8 @@ export default function AdminVaultPage() {
 
       {/* ── Bulk Assign Modal ── */}
       {showBulkAssignModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto flex items-start justify-center z-50 p-4 pt-10 pb-10">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-purple-100 text-purple-700">
@@ -1252,8 +1240,8 @@ export default function AdminVaultPage() {
 
       {/* ── Add/Edit Credential Modal ── */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto flex items-start justify-center z-50 p-4 pt-10 pb-10">
+          <div className="bg-white rounded-2xl w-full max-w-sm sm:max-w-md shadow-2xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)' }}>
@@ -1261,7 +1249,6 @@ export default function AdminVaultPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{isEditing ? 'Edit Credential' : 'Add Credential'}</h3>
-                  <p className="text-xs text-gray-400">Password encrypted with AES-256-GCM</p>
                 </div>
               </div>
               <button onClick={() => { setShowForm(false); resetForm() }}
@@ -1275,7 +1262,7 @@ export default function AdminVaultPage() {
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Service Name *</label>
                   <input value={form.service_name}
@@ -1356,16 +1343,6 @@ export default function AdminVaultPage() {
                   onFocus={e=>{e.target.style.borderColor='#4A1F6F'; e.target.style.boxShadow='0 0 0 3px rgba(74,31,111,0.12)'}}
                   onBlur={e=>{e.target.style.borderColor='#D1D5DB'; e.target.style.boxShadow='none'}} />
               </div>
-
-              {/* Security notice */}
-              <div className="flex items-start gap-2 p-3 rounded-lg" style={{ background: 'rgba(74,31,111,0.06)', border: '1px solid rgba(74,31,111,0.15)' }}>
-                <Shield size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#4A1F6F' }} />
-                <p className="text-xs" style={{ color: '#4A1F6F' }}>
-                  Password encrypted with <strong>AES-256-GCM</strong>. Each assigned employee gets their own
-                  independent <strong>one-time reveal</strong> — one employee revealing does not affect others.
-                </p>
-              </div>
-
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => { setShowForm(false); resetForm() }}
                   className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 text-sm font-medium transition">
@@ -1386,8 +1363,8 @@ export default function AdminVaultPage() {
 
       {/* ── Assign Employees Modal ── */}
       {assigningEntry && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto flex items-start justify-center z-50 p-4 pt-10 pb-10">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #4A1F6F 0%, #2D0F47 100%)' }}>

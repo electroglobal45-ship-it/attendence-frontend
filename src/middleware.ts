@@ -51,6 +51,7 @@ export function middleware(request: NextRequest) {
     '/drive',
     '/meetings',
     '/messages',
+    '/profile',
   ]
   const isSharedRoute = sharedRoutes.some(route => pathname.startsWith(route))
   

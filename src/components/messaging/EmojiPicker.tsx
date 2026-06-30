@@ -42,33 +42,34 @@ export function EmojiPicker({ onEmojiSelect, trigger }: EmojiPickerProps) {
   }
 
   return (
-    <div className="relative">
+    <div className="relative inline-flex items-center justify-center">
       {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        title="Add reaction"
+        className="p-2 rounded-xl text-purple-300 hover:text-white hover:bg-[#4A1F6F]/50 transition-colors flex items-center justify-center cursor-pointer"
+        title="Add emoji"
       >
-        {trigger || <Smile className="w-5 h-5 text-gray-600" />}
+        {trigger || <Smile className="w-5 h-5" />}
       </button>
 
-      {/* Emoji Picker Dropdown */}
+      {/* Emoji Picker Dropdown / Mobile Sheet */}
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 z-10"
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs sm:bg-transparent sm:backdrop-blur-none"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute bottom-full right-0 mb-2 z-20 w-80 bg-white rounded-lg shadow-xl border border-gray-200">
+          <div className="fixed sm:absolute inset-x-3 bottom-20 sm:bottom-full sm:right-0 sm:inset-auto mb-2 z-50 w-auto sm:w-80 max-w-sm mx-auto bg-[#1E0A2E] text-white rounded-2xl shadow-2xl border border-[#4A1F6F]/60 flex flex-col overflow-hidden animate-fade-in font-sans">
             {/* Quick Reactions */}
-            <div className="p-3 border-b border-gray-200">
-              <div className="flex flex-wrap gap-2">
+            <div className="p-3 border-b border-[#4A1F6F]/40 bg-[#150825]/60">
+              <div className="flex flex-wrap items-center justify-between gap-1">
                 {QUICK_REACTIONS.map((item) => (
                   <button
                     key={item.emoji}
+                    type="button"
                     onClick={() => handleEmojiClick(item.emoji)}
-                    className="text-2xl hover:bg-gray-100 p-2 rounded transition-colors"
+                    className="w-9 h-9 flex items-center justify-center text-xl hover:bg-[#2D1152] rounded-xl transition-colors cursor-pointer"
                     title={item.label}
                   >
                     {item.emoji}
@@ -78,15 +79,16 @@ export function EmojiPicker({ onEmojiSelect, trigger }: EmojiPickerProps) {
             </div>
 
             {/* Category Tabs */}
-            <div className="flex border-b border-gray-200 px-3">
+            <div className="flex border-b border-[#4A1F6F]/40 px-2 bg-[#1E0A2E] overflow-x-auto no-scrollbar">
               {Object.keys(EMOJI_CATEGORIES).map((category) => (
                 <button
                   key={category}
+                  type="button"
                   onClick={() => setActiveCategory(category as keyof typeof EMOJI_CATEGORIES)}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`px-3 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer flex-1 text-center ${
                     activeCategory === category
-                      ? 'text-indigo-600 border-b-2 border-indigo-600'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'text-[#D9A441] border-b-2 border-[#D9A441]'
+                      : 'text-purple-300 hover:text-white'
                   }`}
                 >
                   {category}
@@ -95,13 +97,14 @@ export function EmojiPicker({ onEmojiSelect, trigger }: EmojiPickerProps) {
             </div>
 
             {/* Emoji Grid */}
-            <div className="p-3 max-h-64 overflow-y-auto">
-              <div className="grid grid-cols-8 gap-1">
+            <div className="p-3 max-h-56 sm:max-h-64 overflow-y-auto bg-[#1E0A2E]">
+              <div className="grid grid-cols-7 sm:grid-cols-8 gap-1">
                 {EMOJI_CATEGORIES[activeCategory].map((emoji, index) => (
                   <button
                     key={`${emoji}-${index}`}
+                    type="button"
                     onClick={() => handleEmojiClick(emoji)}
-                    className="text-2xl hover:bg-gray-100 p-2 rounded transition-colors"
+                    className="w-10 h-10 flex items-center justify-center text-xl hover:bg-[#2D1152] rounded-xl transition-all cursor-pointer hover:scale-110 active:scale-95"
                   >
                     {emoji}
                   </button>

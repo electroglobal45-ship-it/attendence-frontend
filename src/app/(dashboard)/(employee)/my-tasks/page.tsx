@@ -256,25 +256,15 @@ export default function MyTasksPage() {
       subtitle={`Tasks assigned to you · ${allTasks.length} total`}
       actions={
         <div className="tasks-header-actions" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button
-            onClick={refreshTasks}
-            className="px-2 py-1.5 sm:px-4 sm:py-2"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 10, color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = `${PURPLE}50`; e.currentTarget.style.color = PURPLE }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#E5E7EB'; e.currentTarget.style.color = '#374151' }}
-          >
-            <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-
+          {/* Filter */}
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="px-2 py-1.5 sm:px-4 sm:py-2"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: activeFiltersCount > 0 ? PURPLE_10 : '#FFFFFF', border: `1px solid ${activeFiltersCount > 0 ? PURPLE : '#E5E7EB'}`, borderRadius: 10, color: activeFiltersCount > 0 ? PURPLE : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', transition: 'all 0.15s' }}
+              className="p-2 sm:px-3"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: activeFiltersCount > 0 ? PURPLE_10 : '#FFFFFF', border: `1px solid ${activeFiltersCount > 0 ? PURPLE : '#E5E7EB'}`, borderRadius: 10, color: activeFiltersCount > 0 ? PURPLE : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', transition: 'all 0.15s' }}
+              title="Filter Tasks"
             >
-              <Filter size={13} />
-              <span className="hidden sm:inline">Filter</span>
+              <Filter size={14} />
               {activeFiltersCount > 0 && (
                 <span style={{ position: 'absolute', top: -6, right: -6, background: PURPLE, color: '#fff', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>
                   {activeFiltersCount}
@@ -320,17 +310,19 @@ export default function MyTasksPage() {
 
           <button
             onClick={() => setShowKanban(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 12px ${PURPLE}40` }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: `linear-gradient(135deg,${PURPLE},${PURPLE_DARK})`, border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 12px ${PURPLE}40` }}
           >
             <LayoutGrid size={13} />
-            <span className="hidden sm:inline">Open Board</span>
+            Board
           </button>
         </div>
       }
     >
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        .task-row:hover > div { background: rgba(74,31,111,0.05) !important; }
+        .task-row:hover > div { background: #F8FAFC !important; }
+        .task-row-grid { border-bottom: 1px solid #E2E8F0 !important; }
+        .task-row:last-child .task-row-grid { border-bottom: none !important; }
         .crm-tab-btn {
           padding: 6px 10px; border-radius: 10px; border: none; cursor: pointer;
           font-size: 12px; font-weight: 600; transition: all 0.15s;
@@ -409,40 +401,27 @@ export default function MyTasksPage() {
               <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>Tasks assigned to you will appear here</p>
             </div>
           ) : (
-            <div style={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 14, overflow: 'hidden', boxShadow: '0 4px 18px rgba(74,31,111,0.06)' }}>
               {/* Table Header */}
-              <div className="task-table-header" style={{ gap: 16, padding: '12px 20px', background: PURPLE_5, borderBottom: `1px solid ${PURPLE}15`, fontSize: 11, fontWeight: 700, color: PURPLE, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+              <div className="task-table-header" style={{ gap: 16, padding: '12px 20px', background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', fontSize: 11, fontWeight: 800, color: '#4A1F6F', textTransform: 'uppercase', letterSpacing: '.8px' }}>
                 <div />
                 <div>Name</div>
                 <div>Board</div>
                 <div>Due Date</div>
               </div>
 
-              {/* Grouped Rows */}
+              {/* Directly List All Filtered Rows */}
               <div>
-                {(['in_progress', 'todo', 'done'] as const).map(statusKey => {
-                  const group = taskGroups[statusKey]
-                  if (!group || group.length === 0) return null
-                  const cfg = STATUS_CFG[statusKey]
-                  return (
-                    <div key={statusKey}>
-                      <div style={{ background: cfg.rowBg, color: cfg.rowText, fontWeight: 700, fontSize: 12, padding: '10px 20px', borderBottom: `1px solid ${cfg.rowBorder}`, textTransform: 'uppercase', letterSpacing: '.5px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.dot, display: 'inline-block' }} />
-                        {cfg.text} ({group.length})
-                      </div>
-                      {group.map((task, idx) => (
-                        <TaskRow
-                          key={task.id}
-                          task={task}
-                          idx={idx}
-                          totalTasks={group.length}
-                          onTaskClick={() => setSelectedTask(task)}
-                          onComplete={() => completeTask(task.id)}
-                        />
-                      ))}
-                    </div>
-                  )
-                })}
+                {filteredTasks.map((task, idx) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    idx={idx}
+                    totalTasks={filteredTasks.length}
+                    onTaskClick={() => setSelectedTask(task)}
+                    onComplete={() => completeTask(task.id)}
+                  />
+                ))}
               </div>
             </div>
           )}

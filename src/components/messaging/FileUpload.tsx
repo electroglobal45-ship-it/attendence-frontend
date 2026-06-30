@@ -105,10 +105,10 @@ export function FileUpload({
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
-        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-2 rounded-xl text-purple-300 hover:text-white hover:bg-[#4A1F6F]/50 transition-colors flex items-center justify-center cursor-pointer"
         title="Attach file"
       >
-        <Paperclip className="w-5 h-5 text-gray-600" />
+        <Paperclip className="w-5 h-5" />
       </button>
 
       {/* Selected Files Preview */}
